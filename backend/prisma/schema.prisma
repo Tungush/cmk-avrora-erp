@@ -159,6 +159,21 @@ enum CostingStatus {
   ARCHIVED
 }
 
+/// Резерв партии под заказ (09 §4.4)
+enum ReservationStatus {
+  ACTIVE
+  RELEASED
+  OVERRIDDEN
+  EXPIRED
+}
+
+/// Запрос на перехват чужого резерва; решает директор
+enum OverrideStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum PriceReviewStatus {
   PENDING
   APPROVED
@@ -471,7 +486,8 @@ model MaterialBatch {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  material     Material           @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  reservations BatchReservation[]
 
   @@index([materialId, receiptDate])
   @@index([materialId, priceAnomaly])
@@ -654,6 +670,59 @@ model OrderCostingLabor {
   @@map("order_costing_labor")
 }
 
+/// Резерв партии под заказ (09 §4.4). Мягкий, учётный: кладовщик выдаёт
+/// металл по факту, поэтому расхождение «зарезервировано под А, ушло в Б»
+/// попадает в сверку, а не ломает молча себестоимость обоих заказов.
+model BatchReservation {
+  id             String            @id @default(uuid()) @db.Uuid
+  batchId        String            @map("batch_id") @db.Uuid
+  orderId        String            @map("order_id") @db.Uuid
+  orderCostingId String?           @map("order_costing_id") @db.Uuid
+  qty            Decimal           @db.Decimal(14, 3)
+  status         ReservationStatus @default(ACTIVE)
+
+  /// 30 дней без движения — резерв снимается сам, иначе через полгода весь
+  /// металл окажется занят мёртвыми коммерческими предложениями
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdById String?  @map("created_by_id") @db.Uuid
+
+  releasedAt    DateTime? @map("released_at")
+  releasedById  String?   @map("released_by_id") @db.Uuid
+  releaseReason String?   @map("release_reason") @db.Text
+
+  batch     MaterialBatch          @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  order     Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  overrides BatchOverrideRequest[]
+
+  @@index([batchId, status])
+  @@index([orderId, status])
+  @@index([status, expiresAt])
+  @@map("batch_reservations")
+}
+
+/// Запрос на перехват зарезервированной партии. Решение — за директором:
+/// это чужие деньги и чужой срок отгрузки.
+model BatchOverrideRequest {
+  id                 String         @id @default(uuid()) @db.Uuid
+  reservationId      String         @map("reservation_id") @db.Uuid
+  requestedByOrderId String         @map("requested_by_order_id") @db.Uuid
+  qtyRequested       Decimal        @map("qty_requested") @db.Decimal(14, 3)
+  reason             String         @db.Text
+  status             OverrideStatus @default(PENDING)
+
+  requestedById   String?   @map("requested_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  decidedById     String?   @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime? @map("decided_at")
+  decisionComment String?   @map("decision_comment") @db.Text
+
+  reservation BatchReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("batch_override_requests")
+}
+
 // 3.5 Customers
 model Customer {
   id           String       @id @default(uuid()) @db.Uuid
@@ -724,6 +793,7 @@ model Order {
   rawColumns           Json?                  @map("raw_columns")
   OrderLaborAssignment OrderLaborAssignment[]
   OrderCosting         OrderCosting[]
+  BatchReservation     BatchReservation[]
 
   @@index([sourceSheet])
   @@map("orders")

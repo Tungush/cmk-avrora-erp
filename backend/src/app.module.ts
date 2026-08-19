@@ -21,6 +21,8 @@ import { IntegrationService } from './services/integration.service';
 import { MaterialReceiptService } from './services/material-receipt.service';
 import { MaterialBatchService } from './services/material-batch.service';
 import { OrderCostingService } from './services/order-costing.service';
+import { BatchReservationService } from './services/batch-reservation.service';
+import { BatchReservationsController } from './modules/warehouse/batch-reservations.controller';
 import { OrderCostingsController } from './modules/orders/order-costings.controller';
 import { MaterialBatchesController } from './modules/warehouse/material-batches.controller';
 import { IntegrationController } from './modules/integration/integration.controller';
@@ -54,6 +56,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     EventsController,
     MaterialsController,
     MaterialBatchesController,
+    BatchReservationsController,
     CustomersController,
     OrdersController,
     ProductionPlanController,
@@ -72,6 +75,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     EventsService,
     MaterialBatchService,
     OrderCostingService,
+    BatchReservationService,
     ArticleCostingService,
     CascadeRecalcService,
     IntegrationService,
