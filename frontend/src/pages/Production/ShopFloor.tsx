@@ -8,9 +8,16 @@ import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { ordersApi } from '../../api/orders';
 import { useAuthStore } from '../../store/auth';
-import { STAGE_LABELS, formatDate } from '../../utils/formatters';
+import { STAGE_LABELS, STAGE_SHORT, formatDate } from '../../utils/formatters';
 
-interface StageState { code: string; status: string }
+interface StageState {
+  code: string;
+  routingStage: string | null;
+  key: string;
+  label: string;
+  status: string;
+  lineCount: number;
+}
 interface ShopFloorRow {
   id: string;
   orderNumber: string;
@@ -24,24 +31,13 @@ interface ShopFloorRow {
   doneCount: number;
   totalStages: number;
   currentStage: string | null;
+  stageTrackingMode: 'ORDER' | 'LINE';
 }
 interface ShopFloorResponse {
   orders: ShopFloorRow[];
-  byStage: Array<{ code: string; count: number }>;
+  byStage: Array<{ key: string; code: string; routingStage: string | null; label: string; count: number }>;
   total: number;
 }
-
-/** Короткие метки для полосы этапов — два символа читаются на любой ширине */
-const STAGE_SHORT: Record<string, string> = {
-  OS_WITH_CUSTOMER: 'ОС',
-  GENERAL_VIEW: 'ОВ',
-  DRAWINGS: 'ЧР',
-  PROCUREMENT: 'ЗК',
-  CUTTING: 'РЗ',
-  WELDING_ASSEMBLY: 'СВ',
-  PAINTING: 'ПК',
-  CLADDING: 'ОБ',
-};
 
 const STAGE_COLORS: Record<string, { bg: string; fg: string }> = {
   DONE: { bg: 'var(--ok-6)', fg: '#fff' },
@@ -50,29 +46,34 @@ const STAGE_COLORS: Record<string, { bg: string; fg: string }> = {
 };
 
 /**
- * Полоса этапов: 8 сегментов вместо восьми колонок доски.
- * Заказ проходит все этапы одновременно, поэтому его состояние — это
- * не «колонка», а картина готовности. Клик по сегменту — отметка мастера.
+ * Полоса этапов: пять сегментов — КД, Снабжение и три передела (09 §2.1).
+ * Заказ идёт по ним одновременно, поэтому его состояние — не «колонка»,
+ * а картина готовности. Клик по сегменту — отметка мастера.
+ *
+ * В режиме LINE отметка одним кликом недоступна: там у шага несколько записей
+ * по позициям, и бэкенд требует указать конкретную. Предлагать действие,
+ * которое вернёт ошибку, нельзя.
  */
 function StageStrip({
   stages, onToggle, canEdit,
 }: {
   stages: StageState[];
-  onToggle: (code: string, next: string) => void;
+  onToggle: (stage: StageState, next: string) => void;
   canEdit: boolean;
 }) {
   return (
     <Group gap={2} wrap="nowrap">
       {stages.map((s) => {
         const c = STAGE_COLORS[s.status] ?? STAGE_COLORS.NOT_STARTED;
-        const label = STAGE_LABELS[s.code] ?? s.code;
+        const label = s.label ?? STAGE_LABELS[s.key] ?? s.key;
         const statusText = s.status === 'DONE' ? 'готово'
           : s.status === 'IN_PROGRESS' ? 'в работе' : 'не начат';
+        const hint = s.lineCount > 1 ? ` · по позициям: ${s.lineCount}` : '';
         return (
-          <Tooltip key={s.code} label={`${label} — ${statusText}`} withArrow>
+          <Tooltip key={s.key} label={`${label} — ${statusText}${hint}`} withArrow>
             <Box
               onClick={canEdit
-                ? () => onToggle(s.code, s.status === 'DONE' ? 'in_progress' : 'done')
+                ? () => onToggle(s, s.status === 'DONE' ? 'in_progress' : 'done')
                 : undefined}
               style={{
                 width: 30,
@@ -89,7 +90,7 @@ function StageStrip({
                 userSelect: 'none',
               }}
             >
-              {STAGE_SHORT[s.code] ?? '?'}
+              {STAGE_SHORT[s.key] ?? '?'}
             </Box>
           </Tooltip>
         );
@@ -121,13 +122,18 @@ export function ShopFloor() {
   });
 
   const setStage = useMutation({
-    mutationFn: (input: { orderId: string; code: string; status: string }) =>
-      ordersApi.updateStage(input.orderId, input.code, { status: input.status }).then((r) => r.data),
+    mutationFn: (input: { orderId: string; stage: StageState; status: string }) =>
+      ordersApi
+        .updateStage(input.orderId, input.stage.code, {
+          status: input.status,
+          routingStage: input.stage.routingStage,
+        })
+        .then((r) => r.data),
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['shop-floor'] });
       notifications.show({
         title: 'Этап обновлён',
-        message: `${STAGE_LABELS[v.code] ?? v.code}: ${v.status === 'done' ? 'готово' : 'в работе'}`,
+        message: `${v.stage.label}: ${v.status === 'done' ? 'готово' : 'в работе'}`,
         color: 'success',
         icon: <IconCheck size={16} />,
       });
@@ -171,7 +177,7 @@ export function ShopFloor() {
                 style={{ cursor: 'pointer' }}
                 onClick={() => setStageFilter(active ? null : s.code)}
               >
-                {STAGE_LABELS[s.code]}: {s.count}
+                {s.label}: {s.count}
               </Badge>
             );
           })}
@@ -226,8 +232,8 @@ export function ShopFloor() {
                   <td>
                     <StageStrip
                       stages={o.stages}
-                      canEdit={canEdit}
-                      onToggle={(code, status) => setStage.mutate({ orderId: o.id, code, status })}
+                      canEdit={canEdit && o.stageTrackingMode === 'ORDER'}
+                      onToggle={(stage, status) => setStage.mutate({ orderId: o.id, stage, status })}
                     />
                   </td>
                   <td style={{ textAlign: 'right' }}>
@@ -237,7 +243,7 @@ export function ShopFloor() {
                   </td>
                   <td>
                     {o.currentStage ? (
-                      <Text size="sm">{STAGE_LABELS[o.currentStage]}</Text>
+                      <Text size="sm">{STAGE_LABELS[o.currentStage] ?? o.currentStage}</Text>
                     ) : (
                       <Badge variant="light" color="success" size="sm">все этапы</Badge>
                     )}
@@ -260,16 +266,20 @@ export function ShopFloor() {
                         </Menu.Target>
                         <Menu.Dropdown>
                           <Menu.Label>Отметить этап</Menu.Label>
-                          {o.stages.map((s) => (
+                          {o.stageTrackingMode === 'LINE' ? (
+                            <Menu.Item disabled>
+                              Заказ отмечается по позициям — откройте карточку заказа
+                            </Menu.Item>
+                          ) : o.stages.map((s) => (
                             <Menu.Item
-                              key={s.code}
+                              key={s.key}
                               onClick={() => setStage.mutate({
                                 orderId: o.id,
-                                code: s.code,
+                                stage: s,
                                 status: s.status === 'DONE' ? 'in_progress' : 'done',
                               })}
                             >
-                              {STAGE_LABELS[s.code]} — {s.status === 'DONE' ? 'снять готовность' : 'готово'}
+                              {s.label} — {s.status === 'DONE' ? 'снять готовность' : 'готово'}
                             </Menu.Item>
                           ))}
                         </Menu.Dropdown>

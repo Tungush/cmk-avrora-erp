@@ -6,12 +6,18 @@ import {
   calculateArticleCosting, StageNorm, CostingRates, CostingResult,
 } from './costing.service';
 
-/** Ставки из исходника («Спецификации 2022», строка 1 + «ЗП сотр.») — фолбэк без БД */
+/**
+ * Фолбэк без БД. Ставка и проценты логистики/энергии — из исходника
+ * («Спецификации 2022», строка 1 + «ЗП сотр.»), маржа — по решению 09 §3.2:
+ * 35 % от цены вместо прежних 10 % наценки.
+ */
 export const DEFAULT_RATES: CostingRates = {
   hourlyRate: 2040,
   logisticsPct: 0.03,
   utilitiesPct: 0.01,
-  marginPct: 0.1,
+  marginPct: 0.35,
+  marginMode: 'MARGIN',
+  logisticsMode: 'PERCENT_OF_MATERIAL',
 };
 
 /**
@@ -41,6 +47,10 @@ export class ArticleCostingService {
           logisticsPct: Number(cfg.logisticsPct),
           utilitiesPct: Number(cfg.utilitiesPct),
           marginPct: Number(cfg.marginPct),
+          marginMode: cfg.marginMode,
+          logisticsMode: cfg.logisticsMode,
+          logisticsFixed: Number(cfg.logisticsFixed),
+          logisticsPerKg: Number(cfg.logisticsPerKg),
         };
       },
       () => DEFAULT_RATES,
@@ -108,6 +118,9 @@ export class ArticleCostingService {
             totalCost: result.totalCost,
             margin: result.margin,
             price: result.price,
+            marginMode: result.marginMode,
+            marginPct: result.marginPct,
+            logisticsPct: rates.logisticsPct,
             trigger,
             triggeredById: dbUserId,
           },

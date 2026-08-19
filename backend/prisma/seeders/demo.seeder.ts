@@ -138,9 +138,11 @@ export async function seedDemoData(prisma: PrismaClient) {
   await prisma.productionStage.deleteMany({ where: { orderId: order1.id } });
   await prisma.productionStage.createMany({
     data: [
-      { orderId: order1.id, stageCode: 'DRAWINGS', status: 'DONE' },
-      { orderId: order1.id, stageCode: 'CUTTING', status: 'IN_PROGRESS' },
-      { orderId: order1.id, stageCode: 'WELDING_ASSEMBLY', status: 'NOT_STARTED' },
+      { orderId: order1.id, stageCode: 'DESIGN', status: 'DONE' },
+      { orderId: order1.id, stageCode: 'SUPPLY', status: 'DONE' },
+      { orderId: order1.id, stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'IN_PROGRESS' },
+      { orderId: order1.id, stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', status: 'NOT_STARTED' },
+      { orderId: order1.id, stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'NOT_STARTED' },
     ]
   });
 

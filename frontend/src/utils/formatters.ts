@@ -72,24 +72,32 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
   CANCELLED: '#C92A2A',
 };
 
+/**
+ * Этапы заказа: две вехи + три передела (09_COSTING_AND_STAGES.md §2.1).
+ * Ключ передела — «PRODUCTION:CUTTING», как его отдаёт бэкенд.
+ */
 export const STAGE_LABELS: Record<string, string> = {
-  OS_WITH_CUSTOMER: 'ОС с заказчиком',
-  GENERAL_VIEW: 'Общий вид',
-  DRAWINGS: 'Чертежи',
-  PROCUREMENT: 'Закуп',
-  CUTTING: 'Резка',
-  WELDING_ASSEMBLY: 'Сборка/сварка',
-  PAINTING: 'Покраска',
-  CLADDING: 'Обшивка',
+  DESIGN: 'КД',
+  SUPPLY: 'Снабжение',
+  PRODUCTION: 'Производство',
+  'PRODUCTION:CUTTING': 'Резка',
+  'PRODUCTION:ASSEMBLY': 'Сборка / сварка / обшивка',
+  'PRODUCTION:PAINTING': 'Зачистка / покраска',
 };
 
 export const STAGE_ORDER = [
-  'OS_WITH_CUSTOMER',
-  'GENERAL_VIEW',
-  'DRAWINGS',
-  'PROCUREMENT',
-  'CUTTING',
-  'WELDING_ASSEMBLY',
-  'PAINTING',
-  'CLADDING',
+  'DESIGN',
+  'SUPPLY',
+  'PRODUCTION:CUTTING',
+  'PRODUCTION:ASSEMBLY',
+  'PRODUCTION:PAINTING',
 ];
+
+/** Короткие метки для полосы этапов — два символа читаются на любой ширине */
+export const STAGE_SHORT: Record<string, string> = {
+  DESIGN: 'КД',
+  SUPPLY: 'СН',
+  'PRODUCTION:CUTTING': 'РЗ',
+  'PRODUCTION:ASSEMBLY': 'СВ',
+  'PRODUCTION:PAINTING': 'ПК',
+};

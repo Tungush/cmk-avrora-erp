@@ -6,12 +6,17 @@ import {
   CostingRates,
 } from '../src/services/costing.service';
 
-/** Ставки исходника: «ЗП сотр.»!N9 = 2040, строка 1 «Спецификации 2022» */
+/**
+ * Ставки исходника: «ЗП сотр.»!N9 = 2040, строка 1 «Спецификации 2022».
+ * Режим MARKUP указан явно: в Excel 10 % были наценкой на себестоимость,
+ * а не маржинальностью от цены. Новый системный режим — MARGIN 35 % (09 §3.2).
+ */
 const RATES: CostingRates = {
   hourlyRate: 2040,
   logisticsPct: 0.03,
   utilitiesPct: 0.01,
   marginPct: 0.1,
+  marginMode: 'MARKUP',
 };
 
 describe('Калькуляция «Спецификации 2022» (07_ARCHITECTURE_AND_UX.md §3)', () => {

@@ -9,6 +9,9 @@ import { runWithFallback } from '../../common/fallback';
 import { getMockOrders } from '../../common/mock-data';
 import { OrderStateMachine, OrderStateContext } from '../../services/order-state-machine.service';
 import { IntegrationService } from '../../services/integration.service';
+import {
+  stageShapeError, allocateActualHours, resolveTrackingMode, DEFAULT_STAGE_TRACKING_THRESHOLD,
+} from '../../common/production-stages';
 
 /** Кто может перевести заказ В этот статус (серверная копия матрицы из 04_ROLES_PERMISSIONS.md) */
 const STATUS_TRANSITION_ROLES: Record<string, string[]> = {
@@ -20,10 +23,6 @@ const STATUS_TRANSITION_ROLES: Record<string, string[]> = {
   CANCELLED: ['sales_manager', 'director', 'admin'],
 };
 
-const STAGE_CODES = [
-  'OS_WITH_CUSTOMER', 'GENERAL_VIEW', 'DRAWINGS', 'PROCUREMENT',
-  'CUTTING', 'WELDING_ASSEMBLY', 'PAINTING', 'CLADDING',
-] as const;
 
 const STAGE_STATUS_MAP: Record<string, 'NOT_STARTED' | 'IN_PROGRESS' | 'DONE'> = {
   not_started: 'NOT_STARTED',
@@ -156,6 +155,13 @@ export class OrdersController {
       do {
         orderData.orderNumber = `П-${String(Math.floor(10000 + Math.random() * 90000))}-${yy}`;
       } while (await this.prisma.order.findUnique({ where: { orderNumber: orderData.orderNumber } }));
+    }
+
+    // Режим отметки цехом подставляется по числу позиций (09 §2.2); явное
+    // значение в теле запроса уважается — правило только для умолчания
+    if (orderData.stageTrackingMode == null) {
+      const threshold = await this.stageTrackingThreshold();
+      orderData.stageTrackingMode = resolveTrackingMode(lines?.length ?? 0, threshold);
     }
 
     // Заказ создаётся у нас, 1С оформляет документ (§4.2) — событие в той же транзакции
@@ -308,20 +314,83 @@ export class OrdersController {
     return this.transitionOrder(id, toStatus, body.comment, user);
   }
 
+  /** Порог из действующего CostingConfig; без БД — значение по умолчанию 5 */
+  private async stageTrackingThreshold(): Promise<number> {
+    return runWithFallback(
+      this.prisma,
+      async () => {
+        const cfg = await this.prisma.costingConfig.findFirst({
+          where: { validTo: null },
+          orderBy: { validFrom: 'desc' },
+        });
+        return cfg?.stageTrackingThreshold ?? DEFAULT_STAGE_TRACKING_THRESHOLD;
+      },
+      () => DEFAULT_STAGE_TRACKING_THRESHOLD,
+    );
+  }
+
+  /**
+   * Ручное переключение режима отметки (09 §2.2). Переключение вниз, на
+   * отметку заказа целиком, запрещено при уже проставленных позициях: иначе
+   * построчный факт осиротеет и прогресс посчитается по пустому месту.
+   */
+  @Patch(':id/stage-tracking-mode')
+  @Roles('planner', 'shop_foreman', 'admin')
+  @ApiOperation({ summary: 'Переключить отметку этапов: заказ целиком или по позициям' })
+  async setStageTrackingMode(
+    @Param('id') id: string,
+    @Body() body: { mode: 'ORDER' | 'LINE' },
+  ) {
+    if (body.mode !== 'ORDER' && body.mode !== 'LINE') {
+      throw new BadRequestException({
+        code: 'INVALID_TRACKING_MODE',
+        message: `Режим отметки: ORDER или LINE, получено ${body.mode}`,
+      });
+    }
+    const order = await this.prisma.order.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${id} not found` });
+
+    if (body.mode === 'ORDER') {
+      const lineStages = await this.prisma.productionStage.count({
+        where: { orderId: id, orderLineId: { not: null } },
+      });
+      if (lineStages > 0) {
+        throw new ConflictException({
+          code: 'LINE_STAGES_EXIST',
+          message: `Нельзя вернуть отметку на заказ целиком: по позициям уже отмечено ${lineStages} этапов`,
+        });
+      }
+    }
+    return this.prisma.order.update({ where: { id }, data: { stageTrackingMode: body.mode } });
+  }
+
+  /**
+   * Отметка этапа цехом (09 §2.1—2.3). Код — веха заказа (DESIGN | SUPPLY |
+   * PRODUCTION), для производства дополнительно передел в body.routingStage.
+   *
+   * Позиция (orderLineId) обязательна ровно в режиме LINE и запрещена в режиме
+   * ORDER: смешивать нельзя, иначе прогресс заказа считается по двум разным
+   * основаниям и расходится сам с собой.
+   */
   @Patch(':id/production-stages/:code')
   @Roles('shop_foreman', 'planner', 'admin')
-  @ApiOperation({ summary: 'Update production stage status (Канбан цеха)' })
+  @ApiOperation({ summary: 'Отметить этап заказа (КД / Снабжение / Производство + передел)' })
   async updateProductionStage(
     @Param('id') id: string,
     @Param('code') code: string,
-    @Body() body: { status: string; defectPhotoUrl?: string },
+    @Body() body: {
+      status: string;
+      routingStage?: string | null;
+      orderLineId?: string | null;
+      actualWorkers?: number | null;
+      actualHours?: number | null;
+      defectPhotoUrl?: string;
+    },
     @CurrentUser() user: UserPayload,
   ) {
-    if (!STAGE_CODES.includes(code as any)) {
-      throw new BadRequestException({
-        code: 'INVALID_STAGE_CODE',
-        message: `Неизвестный этап: ${code}. Допустимо: ${STAGE_CODES.join(', ')}`,
-      });
+    const shapeError = stageShapeError(code, body.routingStage);
+    if (shapeError) {
+      throw new BadRequestException({ code: 'INVALID_STAGE_CODE', message: shapeError });
     }
     const status = STAGE_STATUS_MAP[body.status];
     if (!status) {
@@ -330,24 +399,115 @@ export class OrdersController {
         message: `Недопустимый статус этапа: ${body.status}`,
       });
     }
-    const order = await this.prisma.order.findUnique({ where: { id } });
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { orderLines: { select: { id: true } } },
+    });
     if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${id} not found` });
 
-    return this.prisma.productionStage.upsert({
-      where: { orderId_stageCode: { orderId: id, stageCode: code as any } },
-      update: {
-        status: status as any,
-        completedAt: status === 'DONE' ? new Date() : null,
-        defectPhotoUrl: body.defectPhotoUrl,
-      },
-      create: {
-        orderId: id,
-        stageCode: code as any,
-        status: status as any,
-        completedAt: status === 'DONE' ? new Date() : null,
-        defectPhotoUrl: body.defectPhotoUrl,
+    const orderLineId = body.orderLineId ?? null;
+    if (order.stageTrackingMode === 'LINE' && !orderLineId) {
+      throw new BadRequestException({
+        code: 'ORDER_LINE_REQUIRED',
+        message: `Заказ отмечается построчно (${order.orderLines.length} позиций) — укажите orderLineId`,
+      });
+    }
+    if (order.stageTrackingMode === 'ORDER' && orderLineId) {
+      throw new BadRequestException({
+        code: 'ORDER_LINE_NOT_ALLOWED',
+        message: 'Заказ отмечается целиком — orderLineId указывать нельзя',
+      });
+    }
+    if (orderLineId && !order.orderLines.some((l) => l.id === orderLineId)) {
+      throw new BadRequestException({
+        code: 'ORDER_LINE_NOT_IN_ORDER',
+        message: `Позиция ${orderLineId} не принадлежит заказу ${order.orderNumber}`,
+      });
+    }
+
+    const routingStage = (body.routingStage ?? null) as any;
+    const data = {
+      status: status as any,
+      completedAt: status === 'DONE' ? new Date() : null,
+      actualWorkers: body.actualWorkers ?? undefined,
+      actualHours: body.actualHours ?? undefined,
+      defectPhotoUrl: body.defectPhotoUrl,
+    };
+
+    // Составного уникального ключа нет намеренно: NULL-ы в orderLineId и
+    // routingStage обычный UNIQUE считает различными. Уникальность держат
+    // частичные индексы в БД, поиск здесь — по тем же полям.
+    const existing = await this.prisma.productionStage.findFirst({
+      where: { orderId: id, orderLineId, stageCode: code as any, routingStage },
+    });
+
+    return existing
+      ? this.prisma.productionStage.update({ where: { id: existing.id }, data })
+      : this.prisma.productionStage.create({
+          data: { orderId: id, orderLineId, stageCode: code as any, routingStage, ...data },
+        });
+  }
+
+  /**
+   * Раскладка фактических часов по позициям (09 §2.3): мастер вводит один факт
+   * на заказ, разбивка по изделиям считается из нормативной трудоёмкости.
+   */
+  @Get(':id/production-stages/:code/hours-allocation')
+  @ApiOperation({ summary: 'Как фактические часы этапа лягут на позиции заказа' })
+  async stageHoursAllocation(
+    @Param('id') id: string,
+    @Param('code') code: string,
+    @Query('routingStage') routingStageQuery?: string,
+  ) {
+    const routingStage = routingStageQuery ?? null;
+    const shapeError = stageShapeError(code, routingStage);
+    if (shapeError) {
+      throw new BadRequestException({ code: 'INVALID_STAGE_CODE', message: shapeError });
+    }
+
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: {
+        orderLines: { include: { article: { select: { id: true, articleCode: true, name: true } } } },
+        productionStages: true,
       },
     });
+    if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${id} not found` });
+
+    const stage = order.productionStages.find(
+      (s) => s.stageCode === (code as any) && s.routingStage === (routingStage as any) && !s.orderLineId,
+    );
+    const actualHours = stage?.actualHours ? Number(stage.actualHours) : 0;
+
+    const articleIds = order.orderLines.map((l) => l.article?.id).filter(Boolean) as string[];
+    const ops = routingStage
+      ? await this.prisma.routingOperation.findMany({
+          where: { articleId: { in: articleIds }, stage: routingStage as any },
+        })
+      : [];
+    const normByArticle = new Map(
+      ops.map((o) => [o.articleId, Number(o.workers) * Number(o.hoursPerUnit)]),
+    );
+
+    const lines = order.orderLines.map((l) => ({
+      orderLineId: l.id,
+      normManHours: (normByArticle.get(l.article?.id ?? '') ?? 0) * Number(l.qty),
+    }));
+    const allocation = allocateActualHours(actualHours, lines);
+
+    return {
+      stage: { code, routingStage, actualHours },
+      basis: normByArticle.size > 0 ? 'norms' : 'equal_split',
+      lines: allocation.map((a) => {
+        const line = order.orderLines.find((l) => l.id === a.orderLineId);
+        return {
+          ...a,
+          articleCode: line?.article?.articleCode ?? line?.articleCodeRaw ?? null,
+          articleName: line?.article?.name ?? line?.productNameRaw ?? null,
+          qty: line ? Number(line.qty) : 0,
+        };
+      }),
+    };
   }
 
   @Patch(':id')

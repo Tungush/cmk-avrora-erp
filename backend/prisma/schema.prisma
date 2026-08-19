@@ -76,21 +76,41 @@ enum PeriodType {
   QUARTER
 }
 
-enum StageCode {
-  OS_WITH_CUSTOMER @map("ОС_с_заказчиком")
-  GENERAL_VIEW     @map("Общий_вид")
-  DRAWINGS         @map("Чертежи")
-  PROCUREMENT      @map("Закуп")
-  CUTTING          @map("Резка")
-  WELDING_ASSEMBLY @map("Сборка_сварка")
-  PAINTING         @map("Покраска")
-  CLADDING         @map("Обшивка")
+/// Верхний уровень этапов заказа (09 §2.1). Продажные стадии («ОС с заказчиком»,
+/// «Общий вид») сюда не входят — их место в Order.status и bitrixStage.
+/// Внутри PRODUCTION работают три передела из RoutingStage — тот же справочник,
+/// по которому считается себестоимость.
+enum OrderStageCode {
+  DESIGN     @map("КД")
+  SUPPLY     @map("Снабжение")
+  PRODUCTION @map("Производство")
+}
+
+/// Как цех отмечает готовность (09 §2.2): на заказе целиком или по позициям.
+/// Подставляется по числу позиций, переопределяется вручную.
+enum StageTrackingMode {
+  ORDER
+  LINE
 }
 
 enum StageStatus {
   NOT_STARTED @map("not_started")
   IN_PROGRESS @map("in_progress")
   DONE        @map("done")
+}
+
+/// Как трактуется процент маржи (09 §3.2): на себестоимости 1 000 000 ₸
+/// и проценте 35 MARKUP даёт цену 1 350 000, MARGIN — 1 538 462.
+enum MarginMode {
+  MARGIN // 35 % от цены:            price = cost / (1 - pct)
+  MARKUP // 35 % сверх себестоимости: price = cost * (1 + pct)
+}
+
+/// Логистика: «мат × 3 %» ломается на тяжёлых дешёвых и лёгких дорогих изделиях
+enum LogisticsMode {
+  PERCENT_OF_MATERIAL
+  FIXED_AMOUNT
+  PER_KG
 }
 
 enum PriceReviewStatus {
@@ -292,25 +312,37 @@ model CostingConfig {
   weldingFactor   Decimal   @default(0.02) @map("welding_factor") @db.Decimal(6, 4)
   createdById     String?   @map("created_by_id") @db.Uuid
 
+  /// 09 §3.2: маржинальность считается от цены, а не как наценка на себестоимость
+  marginMode             MarginMode    @default(MARGIN) @map("margin_mode")
+  logisticsMode          LogisticsMode @default(PERCENT_OF_MATERIAL) @map("logistics_mode")
+  logisticsFixed         Decimal       @default(0) @map("logistics_fixed") @db.Decimal(14, 2)
+  logisticsPerKg         Decimal       @default(0) @map("logistics_per_kg") @db.Decimal(14, 2)
+  /// 09 §2.2: до скольких позиций заказ отмечается целиком, а не построчно
+  stageTrackingThreshold Int           @default(5) @map("stage_tracking_threshold")
+
   @@map("costing_configs")
 }
 
 /// Снимок расчёта себестоимости — чтобы цифры не «плыли» задним числом
 model ArticleCosting {
-  id            String   @id @default(uuid()) @db.Uuid
-  articleId     String   @map("article_id") @db.Uuid
-  calculatedAt  DateTime @default(now()) @map("calculated_at")
-  materialCost  Decimal  @map("material_cost") @db.Decimal(14, 2)
-  laborCost     Decimal  @map("labor_cost") @db.Decimal(14, 2)
-  totalManHours Decimal  @map("total_man_hours") @db.Decimal(10, 3)
-  logisticsCost Decimal  @map("logistics_cost") @db.Decimal(14, 2)
-  utilitiesCost Decimal  @map("utilities_cost") @db.Decimal(14, 2)
-  totalCost     Decimal  @map("total_cost") @db.Decimal(14, 2)
-  margin        Decimal  @db.Decimal(14, 2)
-  price         Decimal  @db.Decimal(14, 2)
+  id            String     @id @default(uuid()) @db.Uuid
+  articleId     String     @map("article_id") @db.Uuid
+  calculatedAt  DateTime   @default(now()) @map("calculated_at")
+  materialCost  Decimal    @map("material_cost") @db.Decimal(14, 2)
+  laborCost     Decimal    @map("labor_cost") @db.Decimal(14, 2)
+  totalManHours Decimal    @map("total_man_hours") @db.Decimal(10, 3)
+  logisticsCost Decimal    @map("logistics_cost") @db.Decimal(14, 2)
+  utilitiesCost Decimal    @map("utilities_cost") @db.Decimal(14, 2)
+  totalCost     Decimal    @map("total_cost") @db.Decimal(14, 2)
+  margin        Decimal    @db.Decimal(14, 2)
+  price         Decimal    @db.Decimal(14, 2)
+  /// Снимок должен быть самоописываемым: по каким коэффициентам его считали
+  marginMode    MarginMode @default(MARKUP) @map("margin_mode")
+  marginPct     Decimal    @default(0) @map("margin_pct") @db.Decimal(6, 4)
+  logisticsPct  Decimal    @default(0) @map("logistics_pct") @db.Decimal(6, 4)
   /// Что вызвало пересчёт: routing_change | bom_change | material_price | manual
-  trigger       String?  @db.VarChar(30)
-  triggeredById String?  @map("triggered_by_id") @db.Uuid
+  trigger       String?    @db.VarChar(30)
+  triggeredById String?    @map("triggered_by_id") @db.Uuid
 
   article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
@@ -397,32 +429,35 @@ model Order {
   // Calculated
   overdueDays Int @default(0) @map("overdue_days")
 
+  /// 09 §2.2: подставляется по числу позиций (порог в CostingConfig), меняется вручную
+  stageTrackingMode StageTrackingMode @default(ORDER) @map("stage_tracking_mode")
+
   requestDate DateTime? @map("request_date") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  customer         Customer          @relation(fields: [customerId], references: [id])
-  manager          Employee?         @relation("OrderManager", fields: [managerId], references: [id])
-  orderLines       OrderLine[]
-  paymentDocuments PaymentDocument[]
-  acceptanceActs   AcceptanceAct[]
-  productionStages ProductionStage[]
+  customer               Customer                @relation(fields: [customerId], references: [id])
+  manager                Employee?               @relation("OrderManager", fields: [managerId], references: [id])
+  orderLines             OrderLine[]
+  paymentDocuments       PaymentDocument[]
+  acceptanceActs         AcceptanceAct[]
+  productionStages       ProductionStage[]
   finishedGoodsMovements FinishedGoodsMovement[]
 
   // ---- Данные из 1С (владелец — 1С, мы только читаем; 08_INTEGRATION_1C.md §2)
   /// Номер заказа в 1С, когда наш orderNumber — прежний «адемовский» (П-100014-22)
-  onecNum          String?   @map("onec_num") @db.VarChar(30)
+  onecNum            String?   @map("onec_num") @db.VarChar(30)
   /// Статус как его называет 1С: «На согласовании», «К выполнению», «Закрыт»
-  onecStatus       String?   @map("onec_status") @db.VarChar(50)
-  onecApprovalStatus String? @map("onec_approval_status") @db.VarChar(50)
+  onecStatus         String?   @map("onec_status") @db.VarChar(50)
+  onecApprovalStatus String?   @map("onec_approval_status") @db.VarChar(50)
   /// Суммы по данным 1С — не смешиваются с нашими расчётными полями
-  onecTotalAmount  Decimal?  @map("onec_total_amount") @db.Decimal(14, 2)
-  onecPaidAmount   Decimal?  @map("onec_paid_amount") @db.Decimal(14, 2)
-  projectGroup     String?   @map("project_group") @db.VarChar(100)
-  projectSite      String?   @map("project_site") @db.VarChar(150)
-  divisionCode     String?   @map("division_code") @db.VarChar(20)
-  clientAgreement  String?   @map("client_agreement") @db.VarChar(100)
-  onecSyncedAt     DateTime? @map("onec_synced_at")
+  onecTotalAmount    Decimal?  @map("onec_total_amount") @db.Decimal(14, 2)
+  onecPaidAmount     Decimal?  @map("onec_paid_amount") @db.Decimal(14, 2)
+  projectGroup       String?   @map("project_group") @db.VarChar(100)
+  projectSite        String?   @map("project_site") @db.VarChar(150)
+  divisionCode       String?   @map("division_code") @db.VarChar(20)
+  clientAgreement    String?   @map("client_agreement") @db.VarChar(100)
+  onecSyncedAt       DateTime? @map("onec_synced_at")
 
   // Full fidelity import from Google Sheets
   sourceSheet     String? @map("source_sheet") @db.VarChar(100)
@@ -461,8 +496,9 @@ model OrderLine {
   productNameRaw  String? @map("product_name_raw") @db.Text
   rawColumns      Json?   @map("raw_columns")
 
-  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  article Article? @relation(fields: [articleId], references: [id])
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  article          Article?          @relation(fields: [articleId], references: [id])
+  productionStages ProductionStage[]
 
   @@index([sourceSheet, sourceRowNumber])
   @@map("order_lines")
@@ -657,18 +693,35 @@ model ProductionPlanItem {
 
 // 3.11 ProductionStage
 model ProductionStage {
-  id             String      @id @default(uuid()) @db.Uuid
-  orderId        String      @map("order_id") @db.Uuid
-  stageCode      StageCode   @map("stage_code")
-  status         StageStatus @default(NOT_STARTED)
-  completedAt    DateTime?   @map("completed_at")
-  completedById  String?     @map("completed_by_id") @db.Uuid
-  defectPhotoUrl String?     @map("defect_photo_url") @db.Text
+  id           String         @id @default(uuid()) @db.Uuid
+  orderId      String         @map("order_id") @db.Uuid
+  /// NULL в режиме ORDER — этап отмечен на заказе целиком
+  orderLineId  String?        @map("order_line_id") @db.Uuid
+  stageCode    OrderStageCode @map("stage_code")
+  /// Заполнен только для PRODUCTION: какой из трёх переделов
+  routingStage RoutingStage?  @map("routing_stage")
+  status       StageStatus    @default(NOT_STARTED)
 
-  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  completedBy Employee? @relation(fields: [completedById], references: [id])
+  /// Факт цеха; в режиме ORDER раскладывается по позициям пропорционально нормам
+  actualWorkers Decimal? @map("actual_workers") @db.Decimal(6, 2)
+  actualHours   Decimal? @map("actual_hours") @db.Decimal(8, 3)
 
-  @@unique([orderId, stageCode])
+  /// Исходный код до миграции 8 → 3 (09 §2.4) — отчёты прошлых периодов
+  /// должны воспроизводиться, поэтому не удаляется никогда
+  legacyStageCode String? @map("legacy_stage_code") @db.VarChar(30)
+
+  completedAt    DateTime? @map("completed_at")
+  completedById  String?   @map("completed_by_id") @db.Uuid
+  defectPhotoUrl String?   @map("defect_photo_url") @db.Text
+
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLine   OrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  completedBy Employee?  @relation(fields: [completedById], references: [id])
+
+  // Уникальность обеспечивают два частичных индекса в миграции: обычный UNIQUE
+  // считает NULL-ы различными и пропустил бы дубли в режиме ORDER
+  @@index([orderId, stageCode])
+  @@index([orderLineId])
   @@map("production_stages")
 }
 
@@ -702,15 +755,15 @@ model Employee {
 
 // Platform: Users & Roles
 model User {
-  id           String   @id @default(uuid()) @db.Uuid
-  email        String   @unique @db.VarChar(100)
-  passwordHash String   @map("password_hash") @db.Text
-  employeeId   String?  @map("employee_id") @db.Uuid
+  id               String   @id @default(uuid()) @db.Uuid
+  email            String   @unique @db.VarChar(100)
+  passwordHash     String   @map("password_hash") @db.Text
+  employeeId       String?  @map("employee_id") @db.Uuid
   /// Привязка внешнего наблюдателя (viewer) к заказчику — row scope §1.8: видит только свои заказы
-  linkedCustomerId String? @map("linked_customer_id") @db.Uuid
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  linkedCustomerId String?  @map("linked_customer_id") @db.Uuid
+  isActive         Boolean  @default(true) @map("is_active")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   employee       Employee?       @relation(fields: [employeeId], references: [id])
   linkedCustomer Customer?       @relation(fields: [linkedCustomerId], references: [id])
@@ -832,18 +885,18 @@ model ExternalRef {
 /// Исходящие сообщения. Пишутся в одной транзакции с самим изменением —
 /// иначе при обрыве сети заказ создан, а в 1С не ушёл, и никто не заметил.
 model OutboxMessage {
-  id         String                   @id @default(uuid()) @db.Uuid
-  system     String                   @default("1C") @db.VarChar(20)
-  type       String                   @db.VarChar(50)
-  entityType String                   @map("entity_type") @db.VarChar(50)
-  entityId   String                   @map("entity_id") @db.Uuid
-  payload    Json
-  status     IntegrationMessageStatus @default(PENDING)
-  attempts   Int                      @default(0)
-  lastError  String?                  @map("last_error") @db.Text
-  nextRetryAt DateTime?               @map("next_retry_at")
-  createdAt  DateTime                 @default(now()) @map("created_at")
-  sentAt     DateTime?                @map("sent_at")
+  id          String                   @id @default(uuid()) @db.Uuid
+  system      String                   @default("1C") @db.VarChar(20)
+  type        String                   @db.VarChar(50)
+  entityType  String                   @map("entity_type") @db.VarChar(50)
+  entityId    String                   @map("entity_id") @db.Uuid
+  payload     Json
+  status      IntegrationMessageStatus @default(PENDING)
+  attempts    Int                      @default(0)
+  lastError   String?                  @map("last_error") @db.Text
+  nextRetryAt DateTime?                @map("next_retry_at")
+  createdAt   DateTime                 @default(now()) @map("created_at")
+  sentAt      DateTime?                @map("sent_at")
 
   @@index([status, createdAt])
   @@map("outbox_messages")

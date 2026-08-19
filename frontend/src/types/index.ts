@@ -125,11 +125,20 @@ export interface ProductionPlanItem {
 
 export type StageStatus = 'not_started' | 'in_progress' | 'done';
 
+/** Веха заказа; передел заполнен только у PRODUCTION (09 §2.1) */
+export type OrderStageCode = 'DESIGN' | 'SUPPLY' | 'PRODUCTION';
+export type RoutingStageCode = 'CUTTING' | 'ASSEMBLY' | 'PAINTING';
+
 export interface ProductionStage {
   orderId: string;
   orderNumber?: string;
-  stageCode: string;
+  /** NULL в режиме ORDER — этап отмечен на заказе целиком */
+  orderLineId?: string | null;
+  stageCode: OrderStageCode;
+  routingStage?: RoutingStageCode | null;
   status: StageStatus;
+  actualWorkers?: number | null;
+  actualHours?: number | null;
   completedAt?: string;
   completedBy?: string;
   defectPhotoUrl?: string;

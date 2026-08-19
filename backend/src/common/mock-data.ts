@@ -77,8 +77,8 @@ const mockOrder = {
   orderLines: [mockOrderLine],
   paymentDocuments: [],
   productionStages: [
-    { id: 'mock-stage-1', orderId: mockIds.order, stageCode: 'DRAWINGS', status: 'DONE', completedAt: new Date().toISOString() },
-    { id: 'mock-stage-2', orderId: mockIds.order, stageCode: 'CUTTING', status: 'IN_PROGRESS', completedAt: null },
+    { id: 'mock-stage-1', orderId: mockIds.order, stageCode: 'DESIGN', routingStage: null, status: 'DONE', completedAt: new Date().toISOString() },
+    { id: 'mock-stage-2', orderId: mockIds.order, stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'IN_PROGRESS', completedAt: null },
   ],
 };
 
@@ -157,7 +157,8 @@ export function getMockProductionPlan(page = 1, pageSize = 50) {
       {
         id: 'mock-stage-2',
         orderId: mockIds.order,
-        stageCode: 'CUTTING',
+        stageCode: 'PRODUCTION',
+        routingStage: 'CUTTING',
         status: 'IN_PROGRESS',
         completedAt: null,
         order: {

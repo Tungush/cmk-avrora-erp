@@ -1,14 +1,11 @@
-import { Controller, Get, Post, Patch, Param, Query, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Query, Body, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { PrismaService } from '../../services/prisma.service';
 import { runWithFallback } from '../../common/fallback';
 import { getMockProductionPlan } from '../../common/mock-data';
 
-const STAGE_CODES = [
-  'OS_WITH_CUSTOMER', 'GENERAL_VIEW', 'DRAWINGS', 'PROCUREMENT',
-  'CUTTING', 'WELDING_ASSEMBLY', 'PAINTING', 'CLADDING',
-] as const;
+import { STAGE_STEPS, stepKey, stageShapeError } from '../../common/production-stages';
 
 @ApiTags('Production Plan')
 @ApiBearerAuth()
@@ -54,8 +51,8 @@ export class ProductionPlanController {
    */
   /**
    * Цех: заказы в производстве вместе с этапами (замена канбана).
-   * Заказ проходит все 8 этапов одновременно, а не «лежит в колонке» —
-   * поэтому список с прогрессом честнее доски.
+   * Заказ идёт по пяти шагам сразу — КД, Снабжение и три передела, — а не
+   * «лежит в колонке», поэтому список с прогрессом честнее доски (09 §2.1).
    */
   @Get('shop-floor')
   @ApiOperation({ summary: 'Цех: заказы в работе + прогресс по этапам' })
@@ -75,11 +72,31 @@ export class ProductionPlanController {
         });
 
         const rows = orders.map((o) => {
-          const byCode = new Map(o.productionStages.map((s) => [s.stageCode, s.status]));
-          const stages = STAGE_CODES.map((code) => ({
-            code,
-            status: (byCode.get(code as any) ?? 'NOT_STARTED') as string,
-          }));
+          // В режиме LINE у шага несколько записей (по позициям): шаг считается
+          // готовым, только когда готовы все — иначе прогресс завышается
+          const byKey = new Map<string, string[]>();
+          for (const s of o.productionStages) {
+            const key = stepKey(s.stageCode, s.routingStage);
+            byKey.set(key, [...(byKey.get(key) ?? []), s.status]);
+          }
+          const stages = STAGE_STEPS.map((step) => {
+            const statuses = byKey.get(step.key) ?? [];
+            const status = statuses.length === 0
+              ? 'NOT_STARTED'
+              : statuses.every((x) => x === 'DONE')
+                ? 'DONE'
+                : statuses.some((x) => x === 'DONE' || x === 'IN_PROGRESS')
+                  ? 'IN_PROGRESS'
+                  : 'NOT_STARTED';
+            return {
+              code: step.code,
+              routingStage: step.routingStage,
+              key: step.key,
+              label: step.label,
+              status,
+              lineCount: statuses.length,
+            };
+          });
           const done = stages.filter((s) => s.status === 'DONE').length;
           // Текущий этап — первый незавершённый: именно там сейчас стоит работа
           const current = stages.find((s) => s.status === 'IN_PROGRESS')
@@ -98,10 +115,11 @@ export class ProductionPlanController {
               .map((l) => l.article?.articleCode)
               .filter(Boolean)
               .slice(0, 3),
+            stageTrackingMode: o.stageTrackingMode,
             stages,
             doneCount: done,
             totalStages: stages.length,
-            currentStage: current?.code ?? null,
+            currentStage: current?.key ?? null,
           };
         });
 
@@ -110,9 +128,12 @@ export class ProductionPlanController {
           : rows;
 
         // Где стоит работа: сколько заказов ждёт на каждом этапе — узкие места цеха
-        const byStage = STAGE_CODES.map((code) => ({
-          code,
-          count: rows.filter((r) => r.currentStage === code).length,
+        const byStage = STAGE_STEPS.map((step) => ({
+          code: step.code,
+          routingStage: step.routingStage,
+          key: step.key,
+          label: step.label,
+          count: rows.filter((r) => r.currentStage === step.key).length,
         }));
 
         return { orders: filtered, byStage, total: rows.length };
@@ -175,6 +196,11 @@ export class ProductionPlanController {
   @Roles('planner', 'admin')
   @ApiOperation({ summary: 'Create production stage' })
   async create(@Body() body: any) {
+    // «Снабжение / Резка» — бессмыслица, которую потом не выловить в отчётах
+    const shapeError = stageShapeError(body?.stageCode, body?.routingStage);
+    if (shapeError) {
+      throw new BadRequestException({ code: 'INVALID_STAGE_CODE', message: shapeError });
+    }
     return this.prisma.productionStage.create({ data: body, include: { order: true } });
   }
 

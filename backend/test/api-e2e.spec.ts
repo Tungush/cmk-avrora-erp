@@ -150,15 +150,33 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .send({ toStatus: 'IN_PRODUCTION' })
       .expect(200);
 
-    // 7. Shop Foreman completes all production stages to done
-    const stageCodes = ['OS_WITH_CUSTOMER', 'GENERAL_VIEW', 'DRAWINGS', 'PROCUREMENT', 'CUTTING', 'WELDING_ASSEMBLY', 'PAINTING', 'CLADDING'];
-    for (const code of stageCodes) {
+    // 7. Мастер закрывает все этапы: две вехи + три передела (09 §2.1)
+    const steps: Array<{ code: string; routingStage: string | null }> = [
+      { code: 'DESIGN', routingStage: null },
+      { code: 'SUPPLY', routingStage: null },
+      { code: 'PRODUCTION', routingStage: 'CUTTING' },
+      { code: 'PRODUCTION', routingStage: 'ASSEMBLY' },
+      { code: 'PRODUCTION', routingStage: 'PAINTING' },
+    ];
+    for (const step of steps) {
       await request(app.getHttpServer())
-        .patch(`/api/v1/orders/${orderId}/production-stages/${code}`)
+        .patch(`/api/v1/orders/${orderId}/production-stages/${step.code}`)
         .set('Authorization', `Bearer ${tokens.foreman}`)
-        .send({ status: 'done' })
+        .send({ status: 'done', routingStage: step.routingStage })
         .expect(200);
     }
+
+    // Производство без передела и веха с переделом — отклоняются
+    await request(app.getHttpServer())
+      .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ status: 'done' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/orders/${orderId}/production-stages/SUPPLY`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ status: 'done', routingStage: 'CUTTING' })
+      .expect(400);
 
     // 8. Warehouse FG transitions order to READY_TO_SHIP (per 04_ROLES_PERMISSIONS.md)
     await request(app.getHttpServer())
