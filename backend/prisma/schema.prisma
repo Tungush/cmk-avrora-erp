@@ -113,6 +113,24 @@ enum LogisticsMode {
   PER_KG
 }
 
+/// Кто владеет партией: наш приход или справочник 1С (09 §4.6).
+/// Модель рассчитана на оба сценария — вопрос «ведёт ли 1С партионный учёт»
+/// не блокирует запуск.
+enum BatchOrigin {
+  LOCAL
+  ONEC
+}
+
+/// По какой цене посчитана строка материала (09 §4.2)
+enum PriceSource {
+  FIFO_STOCK
+  SPECIFIC_BATCH
+  WEIGHTED_AVG
+  LAST_PURCHASE
+  PRICE_LIST
+  MANUAL
+}
+
 enum PriceReviewStatus {
   PENDING
   APPROVED
@@ -208,6 +226,7 @@ model Material {
   bomItems               BomItem[]
   materialStockMovements MaterialStockMovement[]
   purchaseRequests       PurchaseRequest[]
+  batches                MaterialBatch[]
 
   @@map("materials")
 }
@@ -393,6 +412,41 @@ model PriceReviewRequest {
 
   @@index([status, createdAt])
   @@map("price_review_requests")
+}
+
+/// Партия материала: приход с конкретной ценой и живым остатком (09 §4.1).
+/// Разброс цен между партиями одного материала доходит до +37 %, поэтому
+/// «одна учётная цена в справочнике» — это потеря трети себестоимости.
+model MaterialBatch {
+  id           String   @id @default(uuid()) @db.Uuid
+  materialId   String   @map("material_id") @db.Uuid
+  receiptDate  DateTime @map("receipt_date") @db.Date
+  unitPrice    Decimal  @map("unit_price") @db.Decimal(14, 2)
+  qtyReceived  Decimal  @map("qty_received") @db.Decimal(14, 3)
+  /// Живой остаток: уменьшается списаниями, по нему идёт подбор FIFO
+  qtyRemaining Decimal  @map("qty_remaining") @db.Decimal(14, 3)
+
+  supplierName     String? @map("supplier_name") @db.VarChar(200)
+  documentNumber   String? @map("document_number") @db.VarChar(50)
+  sourceMovementId String? @unique @map("source_movement_id") @db.Uuid
+
+  origin     BatchOrigin @default(LOCAL)
+  externalId String?     @map("external_id") @db.VarChar(64)
+
+  /// Карантин (09 §4.5): цена отклоняется от медианы по материалу больше
+  /// порога — партия не участвует в автоподборе, пока снабжение не подтвердит
+  priceAnomaly       Boolean   @default(false) @map("price_anomaly")
+  anomalyFactor      Decimal?  @map("anomaly_factor") @db.Decimal(10, 2)
+  anomalyClearedAt   DateTime? @map("anomaly_cleared_at")
+  anomalyClearedById String?   @map("anomaly_cleared_by_id") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([materialId, receiptDate])
+  @@index([materialId, priceAnomaly])
+  @@map("material_batches")
 }
 
 // 3.5 Customers

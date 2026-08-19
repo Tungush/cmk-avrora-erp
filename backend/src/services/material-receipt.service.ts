@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from './prisma.service';
 import { CascadeRecalcService } from './cascade-recalc.service';
+import { MaterialBatchService } from './material-batch.service';
 
 export interface ReceiptInput {
   materialId: string;
@@ -25,6 +26,7 @@ export class MaterialReceiptService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cascade: CascadeRecalcService,
+    private readonly batches: MaterialBatchService,
   ) {}
 
   async receive(input: ReceiptInput, userId?: string) {
@@ -69,6 +71,19 @@ export class MaterialReceiptService {
       }),
     ]);
 
+    // Приход — это партия со своей ценой и живым остатком (09 §4.1).
+    // Средневзвешенная остаётся как учётная, но калькуляция теперь может
+    // считать по конкретной партии, а не по «средней температуре».
+    const batch = await this.batches.createFromMovement({
+      id: movement.id,
+      itemId: material.id,
+      qty,
+      unitPrice,
+      movementDate,
+      supplierName: input.supplierName?.trim() || null,
+      documentNumber: input.documentNumber?.trim() || null,
+    });
+
     // Сколько изделий заденет пересчёт — видно сразу тому, кто заносит приход
     const affected = await this.prisma.bomItem.findMany({
       where: { materialId: material.id },
@@ -95,6 +110,15 @@ export class MaterialReceiptService {
         after: newAvgPrice,
         receipt: unitPrice,
         changed: newAvgPrice !== priceBefore,
+      },
+      batch: {
+        id: batch.id,
+        unitPrice: Number(batch.unitPrice),
+        qtyRemaining: Number(batch.qtyRemaining),
+        // Цена резко разошлась с медианой по материалу — партия в карантине
+        // и в автоподбор не попадёт, пока снабжение не подтвердит (09 §4.5)
+        priceAnomaly: batch.priceAnomaly,
+        anomalyFactor: batch.anomalyFactor ? Number(batch.anomalyFactor) : null,
       },
       affectedArticles: affected.length,
       recalculation,

@@ -19,6 +19,8 @@ import { ArticleCostingService } from './services/article-costing.service';
 import { CascadeRecalcService } from './services/cascade-recalc.service';
 import { IntegrationService } from './services/integration.service';
 import { MaterialReceiptService } from './services/material-receipt.service';
+import { MaterialBatchService } from './services/material-batch.service';
+import { MaterialBatchesController } from './modules/warehouse/material-batches.controller';
 import { IntegrationController } from './modules/integration/integration.controller';
 import { InboxHandlersService } from './modules/integration/inbox-handlers.service';
 import { OneCClientService } from './services/onec-client.service';
@@ -49,6 +51,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     IntegrationController,
     EventsController,
     MaterialsController,
+    MaterialBatchesController,
     CustomersController,
     OrdersController,
     ProductionPlanController,
@@ -64,6 +67,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
   providers: [
     PrismaService,
     EventsService,
+    MaterialBatchService,
     ArticleCostingService,
     CascadeRecalcService,
     IntegrationService,

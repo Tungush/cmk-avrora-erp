@@ -6,6 +6,7 @@ import { runWithFallback } from '../../common/fallback';
 import { getMockMaterialBalance } from '../../common/mock-data';
 import { CurrentUser, UserPayload } from '../../common/decorators/current-user.decorator';
 import { MaterialReceiptService } from '../../services/material-receipt.service';
+import { MaterialBatchService } from '../../services/material-batch.service';
 
 @ApiTags('Warehouse')
 @ApiBearerAuth()
@@ -14,6 +15,7 @@ export class WarehouseController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly receipts: MaterialReceiptService,
+    private readonly batches: MaterialBatchService,
   ) {}
 
   @Get('materials/balance')
@@ -147,7 +149,14 @@ export class WarehouseController {
       data: { stockQty: { increment: qtyChange } }
     });
 
-    return movement;
+    // Расход гасит партии по FIFO — иначе «живой остаток» перестанет быть
+    // живым и подбор цены начнёт предлагать давно израсходованное (09 §4.1).
+    // Непокрытая часть не прячется: она уходит в ответ и видна в сверке.
+    const batchConsumption = isExpense
+      ? await this.batches.consumeFifo(body.materialId, Math.abs(body.qty))
+      : null;
+
+    return { ...movement, batchConsumption };
   }
 
   @Get('finished-goods/balance')
