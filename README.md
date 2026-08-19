@@ -160,6 +160,7 @@ POST /integrations/1c/sync/orders  {"limit": 50}
 |---|---|
 | [07_ARCHITECTURE_AND_UX.md](07_ARCHITECTURE_AND_UX.md) | Главный план: роли, права на уровне полей, UX, дизайн-система, 6 этапов |
 | [08_INTEGRATION_1C.md](08_INTEGRATION_1C.md) | Синхронизация с 1С: матрица владения данными, GET-запросы, отказ от таблиц |
+| [09_COSTING_AND_STAGES.md](09_COSTING_AND_STAGES.md) | Этапы производства, себестоимость заказа, партии и подряд: почему заказ через месяц стоит других денег |
 | [01_DATA_MODEL.md](01_DATA_MODEL.md) · [03_API_SPECIFICATION.md](03_API_SPECIFICATION.md) | Модель данных и API |
 | [04_ROLES_PERMISSIONS.md](04_ROLES_PERMISSIONS.md) | Роли и права |
 | [06_SHEET_ANALYSIS_AND_DESIGN.md](06_SHEET_ANALYSIS_AND_DESIGN.md) | Разбор исходной книги: что откуда взялось |
