@@ -183,7 +183,21 @@ enum PriceReviewStatus {
 enum NomenclatureRequestStatus {
   PENDING
   APPROVED
+  /// Одобрено у нас, ждём код из 1С. Заявка висит и видна снабжению —
+  /// иначе она тихо теряется, и через месяц заводят дубль (09 §7.5)
+  WAITING_1C
+  SYNCED
   REJECTED
+}
+
+/// Откуда взялось имя материала (09 §7.7)
+enum AliasSource {
+  REQUEST
+  ONEC
+  EXCEL
+  SUPPLIER
+  SEARCH_MISS
+  MANUAL
 }
 
 enum PurchaseRequestStatus {
@@ -270,6 +284,7 @@ model Material {
   materialStockMovements MaterialStockMovement[]
   purchaseRequests       PurchaseRequest[]
   batches                MaterialBatch[]
+  aliases                MaterialAlias[]
 
   @@map("materials")
 }
@@ -428,6 +443,18 @@ model NomenclatureRequest {
   decidedAt       DateTime?                 @map("decided_at")
   decisionComment String?                   @map("decision_comment") @db.Text
   articleId       String?                   @map("article_id") @db.Uuid
+
+  /// Ответ 1С: под каким именем и кодом номенклатуру завели на самом деле.
+  /// Прилетает по интеграции и закрывает заявку — сотруднику не нужно ничего
+  /// записывать и запоминать (09 §7.5)
+  onecCode         String?   @map("onec_code") @db.VarChar(50)
+  onecName         String?   @map("onec_name") @db.Text
+  onecGuid         String?   @map("onec_guid") @db.VarChar(64)
+  onecUnit         String?   @map("onec_unit") @db.VarChar(10)
+  linkedMaterialId String?   @map("linked_material_id") @db.Uuid
+  syncedAt         DateTime? @map("synced_at")
+  /// Срок, после которого заявка подсвечивается как зависшая
+  slaDueAt         DateTime? @map("sla_due_at")
 
   article Article? @relation(fields: [articleId], references: [id])
 
@@ -721,6 +748,48 @@ model BatchOverrideRequest {
 
   @@index([status, createdAt])
   @@map("batch_override_requests")
+}
+
+/// Все имена, под которыми материал известен людям (09 §7.4).
+/// Слова заявки живут здесь вечно: помнить имя из 1С не нужно — нужно помнить
+/// свои собственные слова, а свои слова человек помнит.
+model MaterialAlias {
+  id         String      @id @default(uuid()) @db.Uuid
+  materialId String      @map("material_id") @db.Uuid
+  alias      String      @db.Text
+  /// Нормализация по §7.6: числа обрабатываются отдельно от текста
+  normalized String      @db.Text
+  source     AliasSource @default(MANUAL)
+
+  /// Для имён, устаревших после переименования в 1С: «так называлось с … по …»
+  validFrom DateTime  @default(now()) @map("valid_from")
+  validTo   DateTime? @map("valid_to")
+
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([materialId, normalized])
+  @@index([normalized])
+  @@map("material_aliases")
+}
+
+/// Запрос, не давший результата (09 §7.4). Если человек через минуту открыл
+/// нужный материал — связка «запрос → материал» становится новым алиасом,
+/// и справочник учится на промахах вместо того, чтобы ждать идеальных имён.
+model SearchMiss {
+  id                 String    @id @default(uuid()) @db.Uuid
+  query              String    @db.Text
+  normalized         String    @db.Text
+  userId             String?   @map("user_id") @db.Uuid
+  resolvedMaterialId String?   @map("resolved_material_id") @db.Uuid
+  resolvedAt         DateTime? @map("resolved_at")
+  createdAt          DateTime  @default(now()) @map("created_at")
+
+  @@index([normalized])
+  @@index([resolvedMaterialId])
+  @@map("search_misses")
 }
 
 // 3.5 Customers

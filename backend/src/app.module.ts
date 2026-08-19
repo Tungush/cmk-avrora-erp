@@ -22,6 +22,8 @@ import { MaterialReceiptService } from './services/material-receipt.service';
 import { MaterialBatchService } from './services/material-batch.service';
 import { OrderCostingService } from './services/order-costing.service';
 import { BatchReservationService } from './services/batch-reservation.service';
+import { NomenclatureService } from './services/nomenclature.service';
+import { NomenclatureController } from './modules/catalog/nomenclature.controller';
 import { BatchReservationsController } from './modules/warehouse/batch-reservations.controller';
 import { OrderCostingsController } from './modules/orders/order-costings.controller';
 import { MaterialBatchesController } from './modules/warehouse/material-batches.controller';
@@ -51,6 +53,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     CostingConfigController,
     PriceReviewsController,
     NomenclatureRequestsController,
+    NomenclatureController,
     SavedViewsController,
     IntegrationController,
     EventsController,
@@ -76,6 +79,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     MaterialBatchService,
     OrderCostingService,
     BatchReservationService,
+    NomenclatureService,
     ArticleCostingService,
     CascadeRecalcService,
     IntegrationService,
