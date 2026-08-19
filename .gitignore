@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env files — держим шаблон в .env.example, реальные значения не коммитим
+.env
+.env.local
+.env.*.local
+
+# Editor / OS
+*.vsix
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma generated client (пересобирается локально из schema.prisma)
+prisma/generated/

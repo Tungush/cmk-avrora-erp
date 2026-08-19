@@ -1,0 +1,951 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ------------------------------------------------------
+// Enums
+// ------------------------------------------------------
+
+enum MaterialCategory {
+  INSTRUMENTS @map("Инструменты")
+  METAL       @map("Металл")
+  HARDWARE    @map("Метизы")
+  COMPONENTS  @map("Комплектующие")
+  CONSUMABLES @map("Расходники")
+}
+
+enum OperationType {
+  CUTTING          @map("резка")
+  WELDING_ASSEMBLY @map("сборка/сварка")
+  CLADDING         @map("обшивка")
+  PAINTING         @map("покраска")
+}
+
+/// Три передела листа «Спецификации 2022» (колонки X…AG)
+enum RoutingStage {
+  CUTTING  @map("резка")
+  ASSEMBLY @map("сборка/сварка/обшивка")
+  PAINTING @map("зачистка/покраска")
+}
+
+enum CustomerType {
+  OUTSIDE @map("Внешний")
+  INSIDE  @map("Внутренний")
+}
+
+enum OrderType {
+  FZ @map("ФЗ")
+  VZ @map("ВЗ")
+}
+
+enum OrderStatus {
+  DRAFT
+  CONFIRMED
+  IN_PRODUCTION
+  READY_TO_SHIP
+  SHIPPED
+  CLOSED
+  CANCELLED
+}
+
+enum PaymentDocStatus {
+  UNPAID         @map("Не оплачен")
+  PARTIALLY_PAID @map("Частично оплачен")
+  PAID           @map("Оплачено")
+  EXECUTED       @map("Исполнен")
+}
+
+enum StockMovementType {
+  RECEIPT         @map("приход")
+  EXPENSE         @map("расход")
+  TO_PRODUCTION   @map("в_производство")
+  FROM_PRODUCTION @map("с_производства")
+  RETURN          @map("возврат")
+  CORRECTION      @map("коррекция")
+  SHIPMENT        @map("отгрузка")
+}
+
+enum PeriodType {
+  WEEK
+  MONTH
+  QUARTER
+}
+
+enum StageCode {
+  OS_WITH_CUSTOMER @map("ОС_с_заказчиком")
+  GENERAL_VIEW     @map("Общий_вид")
+  DRAWINGS         @map("Чертежи")
+  PROCUREMENT      @map("Закуп")
+  CUTTING          @map("Резка")
+  WELDING_ASSEMBLY @map("Сборка_сварка")
+  PAINTING         @map("Покраска")
+  CLADDING         @map("Обшивка")
+}
+
+enum StageStatus {
+  NOT_STARTED @map("not_started")
+  IN_PROGRESS @map("in_progress")
+  DONE        @map("done")
+}
+
+enum PriceReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum NomenclatureRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PurchaseRequestStatus {
+  DRAFT
+  APPROVED
+  ORDERED
+  REJECTED
+}
+
+// ------------------------------------------------------
+// Models
+// ------------------------------------------------------
+
+// 3.1 Articles
+model Article {
+  id            String  @id @default(uuid()) @db.Uuid
+  articleCode   String  @unique @map("article_code") @db.VarChar(20)
+  legacyCode    String? @map("legacy_code") @db.VarChar(20)
+  name          String  @db.Text
+  weightKg      Decimal @default(0) @map("weight_kg") @db.Decimal(10, 3)
+  series        String? @db.VarChar(10)
+  description   String? @db.Text
+  approvedPrice Decimal @default(0) @map("approved_price") @db.Decimal(14, 2)
+
+  // Calculated fields (populated by service layer, default 0 in DDL)
+  specPrice         Decimal @default(0) @map("spec_price") @db.Decimal(14, 2)
+  priceDeviationPct Decimal @default(0) @map("price_deviation_pct") @db.Decimal(6, 4)
+  leadTimeDays      Decimal @default(0) @map("lead_time_days") @db.Decimal(6, 2)
+
+  palletCapacity Decimal  @default(0) @map("pallet_capacity") @db.Decimal(8, 2)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  bomItems               BomItem[]
+  priceHistory           PriceHistory[]
+  orderLines             OrderLine[]
+  finishedGoodsMovements FinishedGoodsMovement[]
+  minStockLevel          MinStockLevel?
+  productionPlanItems    ProductionPlanItem[]
+  deals                  Deal[]
+  routingOperations      RoutingOperation[]
+  costings               ArticleCosting[]
+  priceReviews           PriceReviewRequest[]
+  nomenclatureRequests   NomenclatureRequest[]
+
+  @@map("articles")
+}
+
+// 3.2 PriceHistory
+model PriceHistory {
+  id        String   @id @default(uuid()) @db.Uuid
+  articleId String   @map("article_id") @db.Uuid
+  price     Decimal  @db.Decimal(14, 2)
+  validFrom DateTime @map("valid_from") @db.Date
+  changedBy String   @map("changed_by") @db.Uuid
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [changedBy], references: [id])
+
+  @@map("price_history")
+}
+
+// 3.3 Materials
+model Material {
+  id                     String           @id @default(uuid()) @db.Uuid
+  materialCode           String           @unique @map("material_code") @db.VarChar(20)
+  category               MaterialCategory
+  name                   String           @db.Text
+  unit                   String           @db.VarChar(10)
+  unitWeightKg           Decimal          @default(0) @map("unit_weight_kg") @db.Decimal(10, 4)
+  /// Учётная цена для себестоимости — средневзвешенная по приходам
+  purchasePrice          Decimal          @default(0) @map("purchase_price") @db.Decimal(14, 2)
+  purchasePriceUpdatedAt DateTime?        @map("purchase_price_updated_at") @db.Date
+  /// Цена последнего прихода — «за сколько купили в последний раз»
+  lastPurchasePrice      Decimal          @default(0) @map("last_purchase_price") @db.Decimal(14, 2)
+  lastPurchaseDate       DateTime?        @map("last_purchase_date") @db.Date
+  priceListPrice         Decimal          @default(0) @map("price_list_price") @db.Decimal(14, 2)
+
+  // Calculated field
+  stockQty Decimal @default(0) @map("stock_qty") @db.Decimal(14, 3)
+
+  bomItems               BomItem[]
+  materialStockMovements MaterialStockMovement[]
+  purchaseRequests       PurchaseRequest[]
+
+  @@map("materials")
+}
+
+// 3.4 BomItems
+model BomItem {
+  id            String        @id @default(uuid()) @db.Uuid
+  articleId     String        @map("article_id") @db.Uuid
+  materialId    String        @map("material_id") @db.Uuid
+  qtyPerUnit    Decimal       @map("qty_per_unit") @db.Decimal(12, 4)
+  operationType OperationType @map("operation_type")
+  laborHours    Decimal       @default(0) @map("labor_hours") @db.Decimal(8, 2)
+
+  // Calculated field
+  lineCost Decimal @default(0) @map("line_cost") @db.Decimal(14, 2)
+
+  article  Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, materialId, operationType])
+  @@map("bom_items")
+}
+
+// ------------------------------------------------------
+// Модуль трудочасов (Этап 3, 07_ARCHITECTURE_AND_UX.md §3)
+// Восстановление калькуляции листа «Спецификации 2022»
+// ------------------------------------------------------
+
+/// Участок с собственной ставкой — вместо единой 2 040 ₸ из скрытого листа «ЗП сотр.»
+model WorkCenter {
+  id             String       @id @default(uuid()) @db.Uuid
+  code           String       @unique @db.VarChar(20)
+  name           String       @db.VarChar(100)
+  stage          RoutingStage
+  hourlyRate     Decimal      @map("hourly_rate") @db.Decimal(12, 2)
+  capacityPerDay Decimal      @default(0) @map("capacity_per_day") @db.Decimal(8, 2)
+  isActive       Boolean      @default(true) @map("is_active")
+
+  operations RoutingOperation[]
+
+  @@map("work_centers")
+}
+
+/// Норма труда по переделу (engineer) + факт из цеха (shop_foreman).
+/// Разные группы прав: routing.norm / routing.actual (§1.7).
+model RoutingOperation {
+  id        String       @id @default(uuid()) @db.Uuid
+  articleId String       @map("article_id") @db.Uuid
+  stage     RoutingStage
+  sortOrder Int          @default(0) @map("sort_order")
+
+  // Норма (engineer): «человек» и «часов» из колонок Y/Z, AB/AC, AE/AF
+  workers      Decimal @db.Decimal(6, 2)
+  hoursPerUnit Decimal @map("hours_per_unit") @db.Decimal(8, 3)
+
+  // Факт (shop_foreman) — в Excel его не было вовсе
+  actualWorkers Decimal? @map("actual_workers") @db.Decimal(6, 2)
+  actualHours   Decimal? @map("actual_hours") @db.Decimal(8, 3)
+
+  workCenterId String?  @map("work_center_id") @db.Uuid
+  notes        String?  @db.Text
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  updatedById  String?  @map("updated_by_id") @db.Uuid
+
+  article    Article                   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  workCenter WorkCenter?               @relation(fields: [workCenterId], references: [id])
+  history    RoutingOperationHistory[]
+
+  @@unique([articleId, stage])
+  @@index([workCenterId])
+  @@map("routing_operations")
+}
+
+/// История норм — в Excel правка затирала значение безвозвратно
+model RoutingOperationHistory {
+  id           String   @id @default(uuid()) @db.Uuid
+  operationId  String   @map("operation_id") @db.Uuid
+  workers      Decimal  @db.Decimal(6, 2)
+  hoursPerUnit Decimal  @map("hours_per_unit") @db.Decimal(8, 3)
+  changedAt    DateTime @default(now()) @map("changed_at")
+  changedById  String?  @map("changed_by_id") @db.Uuid
+  reason       String?  @db.Text
+
+  operation RoutingOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@index([operationId, changedAt])
+  @@map("routing_operation_history")
+}
+
+/// Версионируемые коэффициенты вместо констант в ячейках строки 1
+/// «Спецификации 2022»: логистика 3 %, вода/газ/эл. 1 %, НДС 12 %, маржа 10 %.
+model CostingConfig {
+  id              String    @id @default(uuid()) @db.Uuid
+  validFrom       DateTime  @map("valid_from") @db.Date
+  validTo         DateTime? @map("valid_to") @db.Date
+  hourlyRate      Decimal   @map("hourly_rate") @db.Decimal(12, 2)
+  logisticsPct    Decimal   @map("logistics_pct") @db.Decimal(6, 4)
+  utilitiesPct    Decimal   @map("utilities_pct") @db.Decimal(6, 4)
+  vatPct          Decimal   @map("vat_pct") @db.Decimal(6, 4)
+  marginPct       Decimal   @map("margin_pct") @db.Decimal(6, 4)
+  paymentTermDays Int       @default(30) @map("payment_term_days")
+  weldingFactor   Decimal   @default(0.02) @map("welding_factor") @db.Decimal(6, 4)
+  createdById     String?   @map("created_by_id") @db.Uuid
+
+  @@map("costing_configs")
+}
+
+/// Снимок расчёта себестоимости — чтобы цифры не «плыли» задним числом
+model ArticleCosting {
+  id            String   @id @default(uuid()) @db.Uuid
+  articleId     String   @map("article_id") @db.Uuid
+  calculatedAt  DateTime @default(now()) @map("calculated_at")
+  materialCost  Decimal  @map("material_cost") @db.Decimal(14, 2)
+  laborCost     Decimal  @map("labor_cost") @db.Decimal(14, 2)
+  totalManHours Decimal  @map("total_man_hours") @db.Decimal(10, 3)
+  logisticsCost Decimal  @map("logistics_cost") @db.Decimal(14, 2)
+  utilitiesCost Decimal  @map("utilities_cost") @db.Decimal(14, 2)
+  totalCost     Decimal  @map("total_cost") @db.Decimal(14, 2)
+  margin        Decimal  @db.Decimal(14, 2)
+  price         Decimal  @db.Decimal(14, 2)
+  /// Что вызвало пересчёт: routing_change | bom_change | material_price | manual
+  trigger       String?  @db.VarChar(30)
+  triggeredById String?  @map("triggered_by_id") @db.Uuid
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([articleId, calculatedAt])
+  @@map("article_costings")
+}
+
+/// Заявка на создание номенклатуры (процесс «как в 1С»): если артикула нет —
+/// заявка, при одобрении номенклатуре присваивается артикул.
+model NomenclatureRequest {
+  id              String                    @id @default(uuid()) @db.Uuid
+  proposedName    String                    @map("proposed_name") @db.Text
+  series          String?                   @db.VarChar(10)
+  description     String?                   @db.Text
+  reason          String?                   @db.Text
+  status          NomenclatureRequestStatus @default(PENDING)
+  requestedBy     String?                   @map("requested_by") @db.VarChar(100)
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  decidedBy       String?                   @map("decided_by") @db.VarChar(100)
+  decidedAt       DateTime?                 @map("decided_at")
+  decisionComment String?                   @map("decision_comment") @db.Text
+  articleId       String?                   @map("article_id") @db.Uuid
+
+  article Article? @relation(fields: [articleId], references: [id])
+
+  @@index([status, createdAt])
+  @@map("nomenclature_requests")
+}
+
+/// Заявка на пересмотр утверждённой цены (§3.4 07_ARCHITECTURE_AND_UX.md):
+/// расчёт разошёлся с прайсом — цена меняется только решением директора.
+model PriceReviewRequest {
+  id              String            @id @default(uuid()) @db.Uuid
+  articleId       String            @map("article_id") @db.Uuid
+  calculatedPrice Decimal           @map("calculated_price") @db.Decimal(14, 2)
+  approvedPrice   Decimal           @map("approved_price") @db.Decimal(14, 2)
+  deviationPct    Decimal           @map("deviation_pct") @db.Decimal(8, 2)
+  reason          String?           @db.Text
+  status          PriceReviewStatus @default(PENDING)
+  requestedById   String?           @map("requested_by_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at")
+  decidedById     String?           @map("decided_by_id") @db.Uuid
+  decidedAt       DateTime?         @map("decided_at")
+  newPrice        Decimal?          @map("new_price") @db.Decimal(14, 2)
+  decisionComment String?           @map("decision_comment") @db.Text
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("price_review_requests")
+}
+
+// 3.5 Customers
+model Customer {
+  id           String       @id @default(uuid()) @db.Uuid
+  name         String       @db.Text
+  binIin       String       @unique @map("bin_iin") @db.VarChar(20)
+  region       String?      @db.VarChar(50)
+  customerType CustomerType @default(OUTSIDE) @map("customer_type")
+
+  orders           Order[]
+  paymentDocuments PaymentDocument[]
+  acceptanceActs   AcceptanceAct[]
+  deals            Deal[]
+  linkedUsers      User[]
+
+  @@map("customers")
+}
+
+// 3.6 Orders & OrderLines
+model Order {
+  id                  String      @id @default(uuid()) @db.Uuid
+  orderNumber         String      @unique @map("order_number") @db.VarChar(30)
+  customerId          String      @map("customer_id") @db.Uuid
+  region              String?     @db.VarChar(50)
+  managerId           String?     @map("manager_id") @db.Uuid
+  orderType           OrderType   @map("order_type")
+  bitrixDealId        String?     @map("bitrix_deal_id") @db.VarChar(50)
+  bitrixStage         String?     @map("bitrix_stage") @db.VarChar(50)
+  status              OrderStatus @default(DRAFT)
+  plannedShipmentDate DateTime?   @map("planned_shipment_date") @db.Date
+  actualShipmentDate  DateTime?   @map("actual_shipment_date") @db.Date
+
+  // Calculated
+  overdueDays Int @default(0) @map("overdue_days")
+
+  requestDate DateTime? @map("request_date") @db.Date
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  customer         Customer          @relation(fields: [customerId], references: [id])
+  manager          Employee?         @relation("OrderManager", fields: [managerId], references: [id])
+  orderLines       OrderLine[]
+  paymentDocuments PaymentDocument[]
+  acceptanceActs   AcceptanceAct[]
+  productionStages ProductionStage[]
+  finishedGoodsMovements FinishedGoodsMovement[]
+
+  // ---- Данные из 1С (владелец — 1С, мы только читаем; 08_INTEGRATION_1C.md §2)
+  /// Номер заказа в 1С, когда наш orderNumber — прежний «адемовский» (П-100014-22)
+  onecNum          String?   @map("onec_num") @db.VarChar(30)
+  /// Статус как его называет 1С: «На согласовании», «К выполнению», «Закрыт»
+  onecStatus       String?   @map("onec_status") @db.VarChar(50)
+  onecApprovalStatus String? @map("onec_approval_status") @db.VarChar(50)
+  /// Суммы по данным 1С — не смешиваются с нашими расчётными полями
+  onecTotalAmount  Decimal?  @map("onec_total_amount") @db.Decimal(14, 2)
+  onecPaidAmount   Decimal?  @map("onec_paid_amount") @db.Decimal(14, 2)
+  projectGroup     String?   @map("project_group") @db.VarChar(100)
+  projectSite      String?   @map("project_site") @db.VarChar(150)
+  divisionCode     String?   @map("division_code") @db.VarChar(20)
+  clientAgreement  String?   @map("client_agreement") @db.VarChar(100)
+  onecSyncedAt     DateTime? @map("onec_synced_at")
+
+  // Full fidelity import from Google Sheets
+  sourceSheet     String? @map("source_sheet") @db.VarChar(100)
+  sourceRowNumber Int?    @map("source_row_number")
+  rawColumns      Json?   @map("raw_columns")
+
+  @@index([sourceSheet])
+  @@map("orders")
+}
+
+model OrderLine {
+  id        String  @id @default(uuid()) @db.Uuid
+  orderId   String  @map("order_id") @db.Uuid
+  articleId String? @map("article_id") @db.Uuid
+  qty       Decimal @db.Decimal(12, 3)
+  unit      String  @db.VarChar(10)
+
+  // Calculated fields
+  unitPrice    Decimal @default(0) @map("unit_price") @db.Decimal(14, 2)
+  lineTotalVat Decimal @default(0) @map("line_total_vat") @db.Decimal(14, 2)
+
+  prepayment   Decimal @default(0) @db.Decimal(14, 2)
+  postPayment1 Decimal @default(0) @map("post_payment_1") @db.Decimal(14, 2)
+  postPayment2 Decimal @default(0) @map("post_payment_2") @db.Decimal(14, 2)
+  penalty      Decimal @default(0) @db.Decimal(14, 2)
+
+  // Calculated fields
+  balanceDue  Decimal @default(0) @map("balance_due") @db.Decimal(14, 2)
+  reservedQty Decimal @default(0) @map("reserved_qty") @db.Decimal(12, 3)
+  shippedQty  Decimal @default(0) @map("shipped_qty") @db.Decimal(12, 3)
+
+  // Full fidelity import from Google Sheets
+  sourceSheet     String? @map("source_sheet") @db.VarChar(100)
+  sourceRowNumber Int?    @map("source_row_number")
+  articleCodeRaw  String? @map("article_code_raw") @db.VarChar(50)
+  productNameRaw  String? @map("product_name_raw") @db.Text
+  rawColumns      Json?   @map("raw_columns")
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  article Article? @relation(fields: [articleId], references: [id])
+
+  @@index([sourceSheet, sourceRowNumber])
+  @@map("order_lines")
+}
+
+// 3.7 PaymentDocument & Payment
+model PaymentDocument {
+  id           String    @id @default(uuid()) @db.Uuid
+  doNumber     String    @unique @map("do_number") @db.VarChar(30)
+  doDate       DateTime? @map("do_date") @db.Date
+  contractorId String    @map("contractor_id") @db.Uuid
+  currency     String    @default("KZT") @db.VarChar(3)
+  totalAmount  Decimal   @map("total_amount") @db.Decimal(14, 2)
+
+  // Calculated fields
+  paidAmount   Decimal @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  unpaidAmount Decimal @default(0) @map("unpaid_amount") @db.Decimal(14, 2)
+
+  category String?          @db.VarChar(30)
+  status   PaymentDocStatus @default(UNPAID)
+  orderId  String?          @map("order_id") @db.Uuid
+
+  contractor Customer  @relation(fields: [contractorId], references: [id])
+  order      Order?    @relation(fields: [orderId], references: [id])
+  payments   Payment[]
+
+  @@map("payment_documents")
+}
+
+model Payment {
+  id                String   @id @default(uuid()) @db.Uuid
+  paymentDocumentId String   @map("payment_document_id") @db.Uuid
+  amount            Decimal  @db.Decimal(14, 2)
+  paymentDate       DateTime @map("payment_date") @db.Date
+  paymentType       String?  @map("payment_type") @db.VarChar(30)
+
+  paymentDocument PaymentDocument @relation(fields: [paymentDocumentId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+// AcceptanceAct
+model AcceptanceAct {
+  id          String   @id @default(uuid()) @db.Uuid
+  appNumber   String   @unique @map("app_number") @db.VarChar(30)
+  customerId  String   @map("customer_id") @db.Uuid
+  orderId     String?  @map("order_id") @db.Uuid
+  actDate     DateTime @map("act_date") @db.Date
+  totalAmount Decimal  @map("total_amount") @db.Decimal(14, 2)
+
+  customer Customer @relation(fields: [customerId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
+
+  @@map("acceptance_acts")
+}
+
+// 3.8 Movements
+model MaterialStockMovement {
+  id               String            @id @default(uuid()) @db.Uuid
+  itemId           String            @map("item_id") @db.Uuid
+  movementType     StockMovementType @map("movement_type")
+  qty              Decimal           @db.Decimal(14, 3)
+  unitPrice        Decimal           @default(0) @map("unit_price") @db.Decimal(14, 2)
+  movementDate     DateTime          @map("movement_date") @db.Date
+  project          String?           @db.VarChar(50)
+  sourceDocumentId String?           @map("source_document_id") @db.Uuid
+  /// Кто поставил и по какому документу — «за сколько и у кого купили»
+  supplierName     String?           @map("supplier_name") @db.VarChar(200)
+  documentNumber   String?           @map("document_number") @db.VarChar(50)
+  comment          String?           @db.Text
+  createdAt        DateTime          @default(now()) @map("created_at")
+
+  material Material @relation(fields: [itemId], references: [id])
+
+  @@index([itemId, movementDate])
+  @@map("material_stock_movements")
+}
+
+model FinishedGoodsMovement {
+  id               String            @id @default(uuid()) @db.Uuid
+  itemId           String            @map("item_id") @db.Uuid
+  /// Заказ-источник движения — нужен state machine для проверки «отгрузка была»
+  orderId          String?           @map("order_id") @db.Uuid
+  movementType     StockMovementType @map("movement_type")
+  qty              Decimal           @db.Decimal(14, 3)
+  unitPrice        Decimal           @default(0) @map("unit_price") @db.Decimal(14, 2)
+  movementDate     DateTime          @map("movement_date") @db.Date
+  project          String?           @db.VarChar(50)
+  sourceDocumentId String?           @map("source_document_id") @db.Uuid
+
+  article Article @relation(fields: [itemId], references: [id])
+  order   Order?  @relation(fields: [orderId], references: [id])
+
+  @@index([orderId])
+  @@map("finished_goods_movements")
+}
+
+// Deals (Telecom / Other projects)
+model Deal {
+  id            String    @id @default(uuid()) @db.Uuid
+  source        String    @db.VarChar(20)
+  customerId    String    @map("customer_id") @db.Uuid
+  articleId     String?   @map("article_id") @db.Uuid
+  managerId     String?   @map("manager_id") @db.Uuid
+  qtyOrdered    Decimal   @map("qty_ordered") @db.Decimal(12, 2)
+  qtyShipped    Decimal   @default(0) @map("qty_shipped") @db.Decimal(12, 2)
+  amountOrdered Decimal   @map("amount_ordered") @db.Decimal(14, 2)
+  amountPaid    Decimal   @default(0) @map("amount_paid") @db.Decimal(14, 2)
+  status        String    @db.VarChar(30)
+  periodKey     String?   @map("period_key") @db.VarChar(10)
+  shipmentDate  DateTime? @map("shipment_date") @db.Date
+
+  customer Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  article  Article?  @relation(fields: [articleId], references: [id], onDelete: SetNull)
+  manager  Employee? @relation("DealManager", fields: [managerId], references: [id], onDelete: SetNull)
+
+  @@index([customerId])
+  @@index([articleId])
+  @@index([managerId])
+  @@index([source, status])
+  @@index([periodKey])
+  @@map("deals")
+}
+
+// Supplier documents ("приходы др проектам")
+model SupplierDocument {
+  id           String  @id @default(uuid()) @db.Uuid
+  docNumber    String  @unique @map("doc_number") @db.VarChar(30)
+  supplierName String  @map("supplier_name") @db.Text
+  buyerId      String? @map("buyer_id") @db.Uuid
+  totalAmount  Decimal @map("total_amount") @db.Decimal(14, 2)
+  paidAmount   Decimal @default(0) @map("paid_amount") @db.Decimal(14, 2)
+  currency     String  @default("KZT") @db.VarChar(5)
+  category     String? @db.VarChar(30)
+
+  buyer Employee? @relation("SupplierDocumentBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
+
+  @@index([buyerId])
+  @@index([category])
+  @@map("supplier_documents")
+}
+
+// 3.9 MinStockLevel
+model MinStockLevel {
+  id           String  @id @default(uuid()) @db.Uuid
+  articleId    String  @unique @map("article_id") @db.Uuid
+  periodMonths Decimal @default(0.517) @map("period_months") @db.Decimal(6, 3)
+  targetQty    Decimal @default(0) @map("target_qty") @db.Decimal(12, 2)
+
+  // Calculated fields
+  actualQty    Decimal @default(0) @map("actual_qty") @db.Decimal(12, 2)
+  deficitQty   Decimal @default(0) @map("deficit_qty") @db.Decimal(12, 2)
+  readinessPct Decimal @default(0) @map("readiness_pct") @db.Decimal(5, 2)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@map("min_stock_levels")
+}
+
+// PurchaseRequest
+model PurchaseRequest {
+  id           String                @id @default(uuid()) @db.Uuid
+  materialId   String                @map("material_id") @db.Uuid
+  requestedQty Decimal               @map("requested_qty") @db.Decimal(14, 3)
+  status       PurchaseRequestStatus @default(DRAFT)
+  createdAt    DateTime              @default(now()) @map("created_at")
+
+  material Material @relation(fields: [materialId], references: [id])
+
+  @@map("purchase_requests")
+}
+
+// 3.10 ProductionPlanItem
+model ProductionPlanItem {
+  id         String     @id @default(uuid()) @db.Uuid
+  articleId  String     @map("article_id") @db.Uuid
+  periodType PeriodType @map("period_type")
+  periodKey  String     @map("period_key") @db.VarChar(10)
+
+  // Calculated fields
+  qtyFromOrders Decimal @default(0) @map("qty_from_orders") @db.Decimal(12, 2)
+  qtyMinStock   Decimal @default(0) @map("qty_min_stock") @db.Decimal(12, 2)
+  qtyReserved   Decimal @default(0) @map("qty_reserved") @db.Decimal(12, 2)
+  qtyInStock    Decimal @default(0) @map("qty_in_stock") @db.Decimal(12, 2)
+  qtyToProduce  Decimal @default(0) @map("qty_to_produce") @db.Decimal(12, 2)
+
+  article Article @relation(fields: [articleId], references: [id], onDelete: Cascade)
+
+  @@unique([articleId, periodType, periodKey])
+  @@map("production_plan_items")
+}
+
+// 3.11 ProductionStage
+model ProductionStage {
+  id             String      @id @default(uuid()) @db.Uuid
+  orderId        String      @map("order_id") @db.Uuid
+  stageCode      StageCode   @map("stage_code")
+  status         StageStatus @default(NOT_STARTED)
+  completedAt    DateTime?   @map("completed_at")
+  completedById  String?     @map("completed_by_id") @db.Uuid
+  defectPhotoUrl String?     @map("defect_photo_url") @db.Text
+
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  completedBy Employee? @relation(fields: [completedById], references: [id])
+
+  @@unique([orderId, stageCode])
+  @@map("production_stages")
+}
+
+// 3.12 WorkCalendarDay
+model WorkCalendarDay {
+  date                   DateTime @id @db.Date
+  weekNumber             Int      @map("week_number")
+  isWorkingDay           Boolean  @map("is_working_day")
+  cumulativeWorkingDayNo Int      @map("cumulative_working_day_no")
+
+  @@map("work_calendar_days")
+}
+
+// Employees
+model Employee {
+  id         String   @id @default(uuid()) @db.Uuid
+  name       String   @db.Text
+  role       String?  @db.VarChar(50)
+  department String?  @db.VarChar(50)
+  telegramId String?  @unique @map("telegram_id") @db.VarChar(50)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  users             User[]
+  managedOrders     Order[]            @relation("OrderManager")
+  completedStages   ProductionStage[]
+  managedDeals      Deal[]             @relation("DealManager")
+  supplierDocuments SupplierDocument[] @relation("SupplierDocumentBuyer")
+
+  @@map("employees")
+}
+
+// Platform: Users & Roles
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique @db.VarChar(100)
+  passwordHash String   @map("password_hash") @db.Text
+  employeeId   String?  @map("employee_id") @db.Uuid
+  /// Привязка внешнего наблюдателя (viewer) к заказчику — row scope §1.8: видит только свои заказы
+  linkedCustomerId String? @map("linked_customer_id") @db.Uuid
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  employee       Employee?       @relation(fields: [employeeId], references: [id])
+  linkedCustomer Customer?       @relation(fields: [linkedCustomerId], references: [id])
+  userRoles      UserRole[]
+  priceHistories PriceHistory[]
+  auditLogs      AuditLogEntry[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String  @id @default(uuid()) @db.Uuid
+  code        String  @unique @db.VarChar(50)
+  name        String  @db.VarChar(100)
+  description String? @db.Text
+  /// Семейство для группировки в UI: admin | commercial | engineering | supply | viewer
+  family      String  @default("commercial") @db.VarChar(30)
+  /// Системную роль (admin) нельзя удалить или лишить прав через UI
+  isSystem    Boolean @default(false) @map("is_system")
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+enum PermissionAction {
+  READ
+  WRITE
+  APPROVE
+}
+
+/// Право = ресурс + группа полей + действие. Код: "order.commercial:write".
+/// Сид — из src/common/field-access.ts (единый источник правды).
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  code        String           @unique @db.VarChar(80)
+  resource    String           @db.VarChar(50)
+  fieldGroup  String?          @map("field_group") @db.VarChar(50)
+  action      PermissionAction
+  description String?          @db.Text
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, fieldGroup, action])
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String  @map("role_id") @db.Uuid
+  permissionId String  @map("permission_id") @db.Uuid
+  /// Ограничение видимости строк: "own" | "division" | null (все)
+  rowScope     String? @map("row_scope") @db.VarChar(20)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+/// Описание групп полей — источник правды для API-проекции и UI-форм.
+model FieldGroupDefinition {
+  id           String  @id @default(uuid()) @db.Uuid
+  resource     String  @db.VarChar(50)
+  code         String  @db.VarChar(50)
+  label        String  @db.VarChar(100)
+  fields       Json
+  isCalculated Boolean @default(false) @map("is_calculated")
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  @@unique([resource, code])
+  @@map("field_group_definitions")
+}
+
+model UserRole {
+  userId String @map("user_id") @db.Uuid
+  roleId String @map("role_id") @db.Uuid
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+// ------------------------------------------------------
+// Интеграционный слой (08_INTEGRATION_1C.md, Этап 1)
+// Обмен с внешними системами: маппинг ID + гарантированная доставка
+// ------------------------------------------------------
+
+enum IntegrationMessageStatus {
+  PENDING
+  SENT
+  FAILED
+  DEAD
+  PROCESSED
+  IGNORED
+}
+
+/// Соответствие «наш объект ↔ объект внешней системы».
+/// Без него любая повторная выгрузка создаёт дубли.
+model ExternalRef {
+  id           String   @id @default(uuid()) @db.Uuid
+  entityType   String   @map("entity_type") @db.VarChar(50)
+  localId      String   @map("local_id") @db.Uuid
+  system       String   @default("1C") @db.VarChar(20)
+  externalId   String   @map("external_id") @db.VarChar(64)
+  externalCode String?  @map("external_code") @db.VarChar(50)
+  payloadHash  String?  @map("payload_hash") @db.VarChar(64)
+  syncedAt     DateTime @updatedAt @map("synced_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@unique([system, entityType, localId])
+  @@unique([system, entityType, externalId])
+  @@map("external_refs")
+}
+
+/// Исходящие сообщения. Пишутся в одной транзакции с самим изменением —
+/// иначе при обрыве сети заказ создан, а в 1С не ушёл, и никто не заметил.
+model OutboxMessage {
+  id         String                   @id @default(uuid()) @db.Uuid
+  system     String                   @default("1C") @db.VarChar(20)
+  type       String                   @db.VarChar(50)
+  entityType String                   @map("entity_type") @db.VarChar(50)
+  entityId   String                   @map("entity_id") @db.Uuid
+  payload    Json
+  status     IntegrationMessageStatus @default(PENDING)
+  attempts   Int                      @default(0)
+  lastError  String?                  @map("last_error") @db.Text
+  nextRetryAt DateTime?               @map("next_retry_at")
+  createdAt  DateTime                 @default(now()) @map("created_at")
+  sentAt     DateTime?                @map("sent_at")
+
+  @@index([status, createdAt])
+  @@map("outbox_messages")
+}
+
+/// Входящие. Сначала сохраняем сырьё, потом обрабатываем — повторная
+/// доставка того же externalKey не применяется дважды.
+model InboxMessage {
+  id          String                   @id @default(uuid()) @db.Uuid
+  system      String                   @default("1C") @db.VarChar(20)
+  type        String                   @db.VarChar(50)
+  externalKey String                   @map("external_key") @db.VarChar(120)
+  payload     Json
+  status      IntegrationMessageStatus @default(PENDING)
+  attempts    Int                      @default(0)
+  error       String?                  @db.Text
+  receivedAt  DateTime                 @default(now()) @map("received_at")
+  processedAt DateTime?                @map("processed_at")
+
+  @@unique([system, type, externalKey])
+  @@index([status, receivedAt])
+  @@map("inbox_messages")
+}
+
+/// Сохраняемое представление реестра (§2.1 07_ARCHITECTURE_AND_UX.md):
+/// «Мои просроченные», «Q1 Телеком» — фильтры + пресет колонок под именем.
+model SavedView {
+  id         String   @id @default(uuid()) @db.Uuid
+  module     String   @db.VarChar(30)
+  name       String   @db.VarChar(100)
+  ownerEmail String   @map("owner_email") @db.VarChar(100)
+  config     Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([module, ownerEmail])
+  @@map("saved_views")
+}
+
+// AuditLogEntry
+model AuditLogEntry {
+  id         String   @id @default(uuid()) @db.Uuid
+  entityType String   @map("entity_type") @db.VarChar(50)
+  entityId   String   @map("entity_id") @db.Uuid
+  action     String   @db.VarChar(50)
+  before     Json?
+  after      Json?
+  userId     String?  @map("user_id") @db.Uuid
+  userRole   String?  @map("user_role") @db.VarChar(50)
+  timestamp  DateTime @default(now())
+  comment    String?  @db.Text
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_log")
+}
+
+// ------------------------------------------------------
+// Full spreadsheet import (Google Sheets fidelity)
+// ------------------------------------------------------
+
+model SpreadsheetImport {
+  id          String   @id @default(uuid()) @db.Uuid
+  sourceFile  String   @map("source_file") @db.Text
+  importedAt  DateTime @default(now()) @map("imported_at")
+  totalSheets Int      @default(0) @map("total_sheets")
+  totalRows   Int      @default(0) @map("total_rows")
+  status      String   @default("completed") @db.VarChar(30)
+  report      Json?
+
+  sheets SpreadsheetSheet[]
+
+  @@map("spreadsheet_imports")
+}
+
+model SpreadsheetSheet {
+  id         String @id @default(uuid()) @db.Uuid
+  importId   String @map("import_id") @db.Uuid
+  name       String @db.VarChar(200)
+  headerRow  Int    @default(1) @map("header_row")
+  colCount   Int    @default(0) @map("col_count")
+  rowCount   Int    @default(0) @map("row_count")
+  headers    Json // string[] — column labels in order
+  headerRows Json?  @map("header_rows") // raw multi-row headers for display
+
+  import SpreadsheetImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  rows   SpreadsheetRow[]
+
+  @@unique([importId, name])
+  @@map("spreadsheet_sheets")
+}
+
+model SpreadsheetRow {
+  id        String  @id @default(uuid()) @db.Uuid
+  sheetId   String  @map("sheet_id") @db.Uuid
+  rowNumber Int     @map("row_number")
+  cells     Json // (string|null)[] — every cell by column index, 1:1 with sheet
+  data      Json // { header: value } mapped columns
+  isEmpty   Boolean @default(false) @map("is_empty")
+
+  sheet SpreadsheetSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  @@unique([sheetId, rowNumber])
+  @@index([sheetId, rowNumber])
+  @@map("spreadsheet_rows")
+}

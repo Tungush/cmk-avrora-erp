@@ -1,0 +1,23 @@
+{
+  "name": "cmk-avrora-erp",
+  "private": true,
+  "version": "1.0.0",
+  "description": "ЦМК АВРОРА — ERP-система планирования производства (frontend + backend monorepo)",
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "db:up": "docker compose -f backend/docker-compose.yml up -d",
+    "db:down": "docker compose -f backend/docker-compose.yml down",
+    "db:setup": "npm --prefix backend run db:setup",
+    "dev": "npm run db:up && concurrently -n BACKEND,FRONTEND -c magenta,cyan -k \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "npm --prefix backend run start:local",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
+    "build": "concurrently -n BACKEND,FRONTEND -c magenta,cyan \"npm --prefix backend run build\" \"npm --prefix frontend run build\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

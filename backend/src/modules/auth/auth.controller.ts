@@ -1,0 +1,82 @@
+import { Controller, Post, Get, Body, UnauthorizedException } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
+import * as jwt from 'jsonwebtoken';
+import { Public } from '../../common/decorators/public.decorator';
+import { JWT_SECRET } from '../../common/guards/jwt-auth.guard';
+import { CurrentUser, UserPayload } from '../../common/decorators/current-user.decorator';
+import { PrismaService } from '../../services/prisma.service';
+import { runWithFallback } from '../../common/fallback';
+import { permissionsForRoles, fieldGroupsForUi, ROLE_FAMILIES } from '../../common/field-access';
+
+/** Семейство пользователя — по старшей роли (для навигации/онбординга) */
+function familyForRoles(roles: string[]): string {
+  if (roles.includes('admin')) return 'admin';
+  for (const role of roles) {
+    if (ROLE_FAMILIES[role]) return ROLE_FAMILIES[role];
+  }
+  return 'viewer';
+}
+
+@ApiTags('Auth')
+@Controller('auth')
+export class AuthController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Public()
+  @Post('login')
+  @ApiOperation({ summary: 'User login & JWT token retrieval' })
+  async login(@Body() body: { email: string; password?: string; roles?: string[] }) {
+    if (!body.email) {
+      throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Email is required' });
+    }
+
+    const selectedRoles = body.roles && body.roles.length > 0 ? body.roles : ['sales_manager'];
+
+    const dbUser = await runWithFallback(
+      this.prisma,
+      () => this.prisma.user.findUnique({
+        where: { email: body.email },
+        include: { userRoles: { include: { role: true } } },
+      }),
+      () => null,
+    );
+
+    let userId: string;
+    let email: string;
+    let roles: string[];
+
+    if (dbUser) {
+      userId = dbUser.id;
+      email = dbUser.email;
+      roles = dbUser.userRoles.map(ur => ur.role.code);
+    } else {
+      userId = `usr-${Date.now()}`;
+      email = body.email;
+      roles = selectedRoles;
+    }
+
+    // JWT несёт только роли — права вычисляются на сервере при каждом запросе,
+    // чтобы смена матрицы прав действовала сразу, без перевыпуска токена.
+    const payload = { userId, email, roles };
+    const accessToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '8h' });
+
+    return {
+      accessToken,
+      user: { userId, email, roles },
+      permissions: permissionsForRoles(roles),
+      family: familyForRoles(roles),
+    };
+  }
+
+  @Get('me')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Current user: roles, permissions, field groups' })
+  async me(@CurrentUser() user: UserPayload) {
+    return {
+      user: { userId: user.userId, email: user.email, roles: user.roles },
+      family: familyForRoles(user.roles),
+      permissions: permissionsForRoles(user.roles),
+      fieldGroups: fieldGroupsForUi(),
+    };
+  }
+}

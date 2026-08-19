@@ -1,0 +1,57 @@
+{
+  "name": "cmk-avrora-backend",
+  "version": "1.0.0",
+  "description": "ЦМК АВРОРА — backend ERP-системы планирования производства",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start:dev": "ts-node src/main.ts",
+    "start:local": "npm run db:setup && ts-node src/main.ts",
+    "db:setup": "npm run prisma:generate && npm run prisma:push && npm run prisma:seed",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "prisma:push": "prisma db push",
+    "prisma:seed": "prisma db seed",
+    "migrate:xlsx": "ts-node prisma/migrate-from-xlsx.ts",
+    "migrate:full": "ts-node prisma/migrate-full-xlsx.ts",
+    "test": "jest",
+    "migrate:payment-docs": "ts-node prisma/import-payment-docs.ts",
+    "migrate:bom": "ts-node prisma/import-bom.ts",
+    "migrate:receipts": "ts-node prisma/import-material-receipts.ts",
+    "mock:1c": "node tools/mock-1c-server.js"
+  },
+  "prisma": {
+    "seed": "ts-node prisma/seed.ts"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.29",
+    "@nestjs/core": "^11.1.29",
+    "@nestjs/platform-express": "^11.1.29",
+    "@nestjs/swagger": "^11.4.6",
+    "@prisma/client": "5.22.0",
+    "@types/bcrypt": "^6.0.0",
+    "bcrypt": "^6.0.0",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.15.1",
+    "dotenv": "^16.4.7",
+    "exceljs": "^4.4.0",
+    "jsonwebtoken": "^9.0.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.1.29",
+    "@types/express": "^5.0.6",
+    "@types/jest": "^29.5.14",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.1",
+    "@types/supertest": "^7.2.1",
+    "jest": "^29.7.0",
+    "prisma": "5.22.0",
+    "supertest": "^7.2.2",
+    "ts-jest": "^29.2.5",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.7.0"
+  }
+}

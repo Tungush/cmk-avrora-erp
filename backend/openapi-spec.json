@@ -1,0 +1,2286 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "User login & JWT token retrieval",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "operationId": "AuthController_me",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Current user: roles, permissions, field groups",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/articles": {
+      "get": {
+        "operationId": "ArticlesController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List articles with search & pagination",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      },
+      "post": {
+        "operationId": "ArticlesController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create article",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      }
+    },
+    "/api/v1/articles/{id}": {
+      "get": {
+        "operationId": "ArticlesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get article by ID",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      },
+      "patch": {
+        "operationId": "ArticlesController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update article (field-level RBAC)",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      }
+    },
+    "/api/v1/articles/{id}/bom": {
+      "get": {
+        "operationId": "ArticlesController_getBom",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Состав изделия (BOM): из чего оно собирается",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      },
+      "post": {
+        "operationId": "ArticlesController_addBomItem",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Добавить позицию состава (расход материала на единицу)",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      },
+      "put": {
+        "operationId": "ArticlesController_replaceBom",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Заменить состав целиком («собрать ГП»: полный список расхода)",
+        "tags": [
+          "Catalog - Articles"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing": {
+      "get": {
+        "operationId": "RoutingController_getRouting",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Нормы и факт по переделам + отклонения",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/{stage}": {
+      "put": {
+        "operationId": "RoutingController_putNorm",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stage",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Задать норму передела (engineer)",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/{stage}/actual": {
+      "post": {
+        "operationId": "RoutingController_postActual",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stage",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Зафиксировать факт из цеха (shop_foreman)",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/{stage}/promote": {
+      "post": {
+        "operationId": "RoutingController_promote",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stage",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "«Принять факт как норму» — перенос с историей",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/history": {
+      "get": {
+        "operationId": "RoutingController_history",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "История изменения норм",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/recalculate": {
+      "post": {
+        "operationId": "RoutingController_recalculate",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Пересчитать себестоимость артикула (точечно)",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/costing/preview": {
+      "post": {
+        "operationId": "RoutingController_previewCosting",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Предпросмотр влияния правки нормы — до сохранения (§2.3 ④)",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/usage": {
+      "get": {
+        "operationId": "RoutingController_usage",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "«Где применяется»: позиции в активных заказах (§3.3)",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/costing/history": {
+      "get": {
+        "operationId": "RoutingController_costingHistory",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Снимки калькуляции во времени (§3.5)",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/routing/costing": {
+      "get": {
+        "operationId": "RoutingController_costing",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Калькуляция + разбор формулы для UI",
+        "tags": [
+          "Catalog - Routing (трудочасы)"
+        ]
+      }
+    },
+    "/api/v1/work-centers": {
+      "get": {
+        "operationId": "WorkCentersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Участки со ставками",
+        "tags": [
+          "Catalog - Work centers"
+        ]
+      }
+    },
+    "/api/v1/costing-config": {
+      "get": {
+        "operationId": "CostingConfigController_active",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Активные коэффициенты калькуляции",
+        "tags": [
+          "Costing config"
+        ]
+      },
+      "put": {
+        "operationId": "CostingConfigController_update",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Новая версия коэффициентов (admin, версионируется)",
+        "tags": [
+          "Costing config"
+        ]
+      }
+    },
+    "/api/v1/articles/{articleId}/price-review": {
+      "post": {
+        "operationId": "PriceReviewsController_request",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Запросить пересмотр цены (расчёт разошёлся с прайсом)",
+        "tags": [
+          "Catalog - Price reviews"
+        ]
+      }
+    },
+    "/api/v1/price-reviews": {
+      "get": {
+        "operationId": "PriceReviewsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Заявки на пересмотр цен",
+        "tags": [
+          "Catalog - Price reviews"
+        ]
+      }
+    },
+    "/api/v1/price-reviews/{id}/approve": {
+      "post": {
+        "operationId": "PriceReviewsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Утвердить новую цену (article.price:approve, §1.7)",
+        "tags": [
+          "Catalog - Price reviews"
+        ]
+      }
+    },
+    "/api/v1/price-reviews/{id}/reject": {
+      "post": {
+        "operationId": "PriceReviewsController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отклонить заявку — прайс остаётся прежним",
+        "tags": [
+          "Catalog - Price reviews"
+        ]
+      }
+    },
+    "/api/v1/nomenclature-requests": {
+      "post": {
+        "operationId": "NomenclatureRequestsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Запросить создание номенклатуры (нет артикула)",
+        "tags": [
+          "Catalog - Nomenclature requests"
+        ]
+      },
+      "get": {
+        "operationId": "NomenclatureRequestsController_list",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Заявки на номенклатуру",
+        "tags": [
+          "Catalog - Nomenclature requests"
+        ]
+      }
+    },
+    "/api/v1/nomenclature-requests/{id}/approve": {
+      "post": {
+        "operationId": "NomenclatureRequestsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Создать номенклатуру: присвоить артикул (следующий в серии)",
+        "tags": [
+          "Catalog - Nomenclature requests"
+        ]
+      }
+    },
+    "/api/v1/nomenclature-requests/{id}/reject": {
+      "post": {
+        "operationId": "NomenclatureRequestsController_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отклонить заявку на номенклатуру",
+        "tags": [
+          "Catalog - Nomenclature requests"
+        ]
+      }
+    },
+    "/api/v1/saved-views": {
+      "get": {
+        "operationId": "SavedViewsController_list",
+        "parameters": [
+          {
+            "name": "module",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Мои представления модуля",
+        "tags": [
+          "Platform - Saved views"
+        ]
+      },
+      "post": {
+        "operationId": "SavedViewsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Сохранить текущий вид",
+        "tags": [
+          "Platform - Saved views"
+        ]
+      }
+    },
+    "/api/v1/saved-views/{id}": {
+      "delete": {
+        "operationId": "SavedViewsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Удалить своё представление",
+        "tags": [
+          "Platform - Saved views"
+        ]
+      }
+    },
+    "/api/v1/integrations/1c/webhook/{type}": {
+      "post": {
+        "operationId": "IntegrationController_receive",
+        "parameters": [
+          {
+            "name": "type",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "Вебхук 1С: POST /integrations/1c/webhook/{тип} (HMAC, идемпотентно)",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/status": {
+      "get": {
+        "operationId": "IntegrationController_status",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Состояние обмена: настроен ли, что ждёт отправки",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/messages": {
+      "get": {
+        "operationId": "IntegrationController_messages",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Журнал обмена: исходящие и входящие",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/1c/sync/orders": {
+      "post": {
+        "operationId": "IntegrationController_syncOrders",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Забрать заказы клиентов из 1С (GET A) — пакетом",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/1c/sync/order/{orderNumber}": {
+      "post": {
+        "operationId": "IntegrationController_syncOrder",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Забрать один заказ из 1С по номеру",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/1c/sync/procurement/{orderNumber}": {
+      "post": {
+        "operationId": "IntegrationController_syncProcurement",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Забрать закуп под заказ (GET D → GET C)",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/1c/ping": {
+      "get": {
+        "operationId": "IntegrationController_ping",
+        "parameters": [
+          {
+            "name": "orderNumber",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Проверить связь с 1С на примере номера заказа",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/outbox/flush": {
+      "post": {
+        "operationId": "IntegrationController_flush",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отправить накопленные исходящие сейчас",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/inbox/process": {
+      "post": {
+        "operationId": "IntegrationController_process",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Разобрать необработанные входящие",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/integrations/messages/{id}/retry": {
+      "post": {
+        "operationId": "IntegrationController_retry",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Повторить доставку сообщения (сброс счётчика попыток)",
+        "tags": [
+          "Integration - 1C"
+        ]
+      }
+    },
+    "/api/v1/events/stream": {
+      "get": {
+        "operationId": "EventsController_stream",
+        "parameters": [
+          {
+            "name": "token",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "SSE: article:cost_updated и другие живые события",
+        "tags": [
+          "Platform - Events"
+        ]
+      }
+    },
+    "/api/v1/materials": {
+      "get": {
+        "operationId": "MaterialsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List materials with search & pagination",
+        "tags": [
+          "Catalog - Materials"
+        ]
+      },
+      "post": {
+        "operationId": "MaterialsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create material",
+        "tags": [
+          "Catalog - Materials"
+        ]
+      }
+    },
+    "/api/v1/materials/{id}": {
+      "get": {
+        "operationId": "MaterialsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get material by ID",
+        "tags": [
+          "Catalog - Materials"
+        ]
+      },
+      "patch": {
+        "operationId": "MaterialsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update material (field-level RBAC)",
+        "tags": [
+          "Catalog - Materials"
+        ]
+      }
+    },
+    "/api/v1/customers": {
+      "get": {
+        "operationId": "CustomersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List customers",
+        "tags": [
+          "Catalog - Customers"
+        ]
+      },
+      "post": {
+        "operationId": "CustomersController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create customer",
+        "tags": [
+          "Catalog - Customers"
+        ]
+      }
+    },
+    "/api/v1/customers/{id}": {
+      "get": {
+        "operationId": "CustomersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get customer by ID",
+        "tags": [
+          "Catalog - Customers"
+        ]
+      },
+      "patch": {
+        "operationId": "CustomersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update customer",
+        "tags": [
+          "Catalog - Customers"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "get": {
+        "operationId": "OrdersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List orders",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "post": {
+        "operationId": "OrdersController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create order",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}": {
+      "get": {
+        "operationId": "OrdersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get order by ID",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "patch": {
+        "operationId": "OrdersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update order (field-level RBAC)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/status": {
+      "post": {
+        "operationId": "OrdersController_transitionStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Transition order status (state machine + RBAC + audit)",
+        "tags": [
+          "Orders"
+        ]
+      },
+      "patch": {
+        "operationId": "OrdersController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Transition order status (alias for POST :id/status)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/production-stages/{code}": {
+      "patch": {
+        "operationId": "OrdersController_updateProductionStage",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update production stage status (Канбан цеха)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/production-plan": {
+      "get": {
+        "operationId": "ProductionPlanController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List production stages / plan",
+        "tags": [
+          "Production Plan"
+        ]
+      },
+      "post": {
+        "operationId": "ProductionPlanController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create production stage",
+        "tags": [
+          "Production Plan"
+        ]
+      }
+    },
+    "/api/v1/production-plan/shop-floor": {
+      "get": {
+        "operationId": "ProductionPlanController_shopFloor",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Цех: заказы в работе + прогресс по этапам",
+        "tags": [
+          "Production Plan"
+        ]
+      }
+    },
+    "/api/v1/production-plan/weekly": {
+      "get": {
+        "operationId": "ProductionPlanController_weekly",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "План по неделям: активные заказы по неделе плановой отгрузки",
+        "tags": [
+          "Production Plan"
+        ]
+      }
+    },
+    "/api/v1/production-plan/{id}": {
+      "get": {
+        "operationId": "ProductionPlanController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get production stage by ID",
+        "tags": [
+          "Production Plan"
+        ]
+      }
+    },
+    "/api/v1/production-plan/{id}/status": {
+      "patch": {
+        "operationId": "ProductionPlanController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update stage status",
+        "tags": [
+          "Production Plan"
+        ]
+      }
+    },
+    "/api/v1/min-stock-levels": {
+      "get": {
+        "operationId": "MinStockController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List min stock levels",
+        "tags": [
+          "Min Stock Levels"
+        ]
+      }
+    },
+    "/api/v1/min-stock-levels/{articleId}": {
+      "patch": {
+        "operationId": "MinStockController_update",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update min stock level",
+        "tags": [
+          "Min Stock Levels"
+        ]
+      }
+    },
+    "/api/v1/warehouse/materials/balance": {
+      "get": {
+        "operationId": "WarehouseController_getMaterialBalance",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get material stock balances",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/materials/receipt": {
+      "post": {
+        "operationId": "WarehouseController_postMaterialReceipt",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Приход материала (закуп): остаток + цена + каскад в себестоимость",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/materials/{id}/movements": {
+      "get": {
+        "operationId": "WarehouseController_getMaterialMovements",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "История движений материала — за сколько и когда покупали",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/receipts": {
+      "get": {
+        "operationId": "WarehouseController_getReceipts",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Журнал приходов материалов",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/materials/movements": {
+      "post": {
+        "operationId": "WarehouseController_postMaterialMovement",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record material stock movement",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/finished-goods/balance": {
+      "get": {
+        "operationId": "WarehouseController_getFGBalance",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get finished goods stock balance",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/finished-goods/movements": {
+      "post": {
+        "operationId": "WarehouseController_postFGMovement",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record finished goods movement",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/purchase-requests": {
+      "get": {
+        "operationId": "PurchaseRequestsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List purchase requests",
+        "tags": [
+          "Purchase Requests"
+        ]
+      },
+      "post": {
+        "operationId": "PurchaseRequestsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create purchase request",
+        "tags": [
+          "Purchase Requests"
+        ]
+      }
+    },
+    "/api/v1/purchase-requests/{id}/approve": {
+      "post": {
+        "operationId": "PurchaseRequestsController_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Approve purchase request",
+        "tags": [
+          "Purchase Requests"
+        ]
+      }
+    },
+    "/api/v1/payment-documents": {
+      "get": {
+        "operationId": "PaymentDocumentsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List payment documents",
+        "tags": [
+          "Finance - Payment Documents"
+        ]
+      },
+      "post": {
+        "operationId": "PaymentDocumentsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create payment document",
+        "tags": [
+          "Finance - Payment Documents"
+        ]
+      }
+    },
+    "/api/v1/payment-documents/receivables": {
+      "get": {
+        "operationId": "PaymentDocumentsController_getReceivables",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get receivables summary",
+        "tags": [
+          "Finance - Payment Documents"
+        ]
+      }
+    },
+    "/api/v1/payment-documents/reconciliation": {
+      "get": {
+        "operationId": "PaymentDocumentsController_reconciliation",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Сверка долгов: заказы ↔ договоры-основания по заказчикам",
+        "tags": [
+          "Finance - Payment Documents"
+        ]
+      }
+    },
+    "/api/v1/payment-documents/{id}": {
+      "get": {
+        "operationId": "PaymentDocumentsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get payment document by ID",
+        "tags": [
+          "Finance - Payment Documents"
+        ]
+      }
+    },
+    "/api/v1/payment-documents/{id}/payments": {
+      "post": {
+        "operationId": "PaymentDocumentsController_addPayment",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Record payment against document",
+        "tags": [
+          "Finance - Payment Documents"
+        ]
+      }
+    },
+    "/api/v1/acceptance-acts": {
+      "get": {
+        "operationId": "AcceptanceActsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List acceptance acts",
+        "tags": [
+          "Finance - Acceptance Acts"
+        ]
+      },
+      "post": {
+        "operationId": "AcceptanceActsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create acceptance act (APP)",
+        "tags": [
+          "Finance - Acceptance Acts"
+        ]
+      }
+    },
+    "/api/v1/audit-log": {
+      "get": {
+        "operationId": "AuditLogController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get audit log",
+        "tags": [
+          "Platform - Audit Log"
+        ]
+      }
+    },
+    "/api/v1/spreadsheet/imports/latest": {
+      "get": {
+        "operationId": "SpreadsheetController_getLatestImport",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get latest spreadsheet import metadata",
+        "tags": [
+          "Spreadsheet"
+        ]
+      }
+    },
+    "/api/v1/spreadsheet/sheets": {
+      "get": {
+        "operationId": "SpreadsheetController_listSheets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List all imported sheets",
+        "tags": [
+          "Spreadsheet"
+        ]
+      }
+    },
+    "/api/v1/spreadsheet/sheets/{name}": {
+      "get": {
+        "operationId": "SpreadsheetController_getSheet",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get sheet metadata by name",
+        "tags": [
+          "Spreadsheet"
+        ]
+      }
+    },
+    "/api/v1/spreadsheet/sheets/{name}/rows": {
+      "get": {
+        "operationId": "SpreadsheetController_getSheetRows",
+        "parameters": [
+          {
+            "name": "name",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get sheet rows with all columns (paginated)",
+        "tags": [
+          "Spreadsheet"
+        ]
+      }
+    },
+    "/api/v1/dashboards/role-widgets": {
+      "get": {
+        "operationId": "DashboardsController_getRoleWidgets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Виджеты дашборда по правам ролей (§2.4)",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/production-summary": {
+      "get": {
+        "operationId": "DashboardsController_getProductionSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get production dashboard summary",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/finished-goods-summary": {
+      "get": {
+        "operationId": "DashboardsController_getFinishedGoodsSummary",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get finished goods dashboard summary",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "ЦМК АВРОРА — ERP REST API",
+    "description": "REST API v1 ЦМК АВРОРА — планирование производства, заказы, склад, финансы",
+    "version": "1.0",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {}
+  }
+}

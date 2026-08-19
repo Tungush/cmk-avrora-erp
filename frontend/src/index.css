@@ -1,0 +1,345 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------
+   ЦМК АВРОРА — базовые стили
+   --------------------------------------------------------------- */
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* горизонтальный скролл страницы недопустим — тянут только внутренние контейнеры */
+  overflow-x: hidden;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Длинные заголовки не должны растягивать раскладку.
+   Ячейки таблиц сюда не входят: перенос внутри слова ломает ритм строк */
+h1, h2, h3, h4, h5, h6, p {
+  overflow-wrap: anywhere;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--gray-3);
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-5);
+}
+
+
+/* ---------------------------------------------------------------
+   Дизайн-токены (§4.2 07_ARCHITECTURE_AND_UX.md)
+   Данные важнее украшений; один акцент; числа — tabular-nums.
+   --------------------------------------------------------------- */
+
+:root {
+  /* Нейтральные — тёплый графит на бумаге, без синевы */
+  --gray-0: #FAF9F7; --gray-1: #F2F1ED; --gray-2: #E7E5DF; --gray-3: #D7D4CC;
+  --gray-5: #8A867B; --gray-6: #6B675D; --gray-7: #504D45; --gray-9: #1E1D19;
+
+  /* Акцент — раскалённый металл: единственный насыщенный цвет системы */
+  --brand-6: #D9480F; --brand-7: #B93B0B; --brand-0: #FDF1E8;
+
+  /* Статусы — чернильные, не спорят с акцентом */
+  --ok-6: #2B8A57;   --ok-0: #EAF6EE;
+  --warn-6: #96700A; --warn-0: #FBF4DE;
+  --err-6: #C92A2A;  --err-0: #FBEBEA;
+  --info-6: #0891B2; --info-0: #E6F6FA;
+
+  /* Поверхности: тёплая бумага, глубина светлотой, а не тенями */
+  --app-bg: #F5F4F0;
+  --app-surface: #FFFFFF;
+
+  /* Палитра графиков — валидирована (CVD + контраст) для светлой поверхности */
+  --chart-cat1: #D9480F; --chart-cat2: #0891B2;
+  --chart-cat3: #96700A; --chart-cat4: #8A4FBF;
+  --chart-grid: rgba(107, 103, 93, .14);
+  --chart-tick: #6B675D;
+
+  /* Типографика: 6 размеров, больше не нужно */
+  --fz-xs: 11px;  /* подписи, метки колонок */
+  --fz-sm: 13px;  /* таблицы, вспомогательный текст */
+  --fz-md: 14px;  /* основной */
+  --fz-lg: 16px;  /* заголовки карточек */
+  --fz-xl: 20px;  /* заголовки разделов */
+  --fz-2xl: 28px; /* KPI-числа */
+
+  /* Числа — моноширинный с табличными цифрами */
+  --ff-num: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-full: 999px;
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
+
+  /* Тени — две, и обе едва заметные */
+  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05);
+  --sh-md: 0 4px 12px rgba(16, 24, 40, .08);
+}
+
+/* ---------------------------------------------------------------
+   Таблицы: ровный ритм строк, тихие разделители, минимум шума.
+   Данные читаются построчно — значит строка должна быть невысокой,
+   а линии — почти незаметными.
+   --------------------------------------------------------------- */
+
+.mantine-Table-table {
+  --table-border-color: var(--gray-2);
+}
+
+.mantine-Table-th {
+  padding: 7px 10px !important;
+  font-size: var(--fz-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-6);
+  white-space: nowrap;
+  background: var(--gray-0);
+  border-bottom: 1px solid var(--gray-2) !important;
+}
+
+.mantine-Table-td {
+  padding: 6px 10px !important;
+  font-size: var(--fz-sm);
+  line-height: 1.35;
+  border-bottom: 1px solid var(--gray-1) !important;
+  /* Строка таблицы — всегда одной высоты: перенос внутри слова
+     превращает столбец в рваный текст и мешает сравнивать значения */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+.shop-floor-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+
+/* Ячейки, где перенос осмыслен (ошибки интеграции, комментарии) */
+.mantine-Table-td[data-wrap='true'] {
+  white-space: normal;
+  overflow: visible;
+}
+
+/* Зебра создаёт полосатый шум там, где строки и так разделены линией */
+.mantine-Table-tr[data-striped] > .mantine-Table-td,
+.mantine-Table-tbody .mantine-Table-tr:nth-child(odd) > .mantine-Table-td {
+  background: transparent;
+}
+
+.mantine-Table-tbody .mantine-Table-tr:hover > .mantine-Table-td {
+  background: var(--gray-0);
+}
+
+/* Второстепенная строка в ячейке (название под кодом) не должна
+   раздувать высоту — она мельче и притушена */
+.mantine-Table-td .mantine-Text-root[data-size='xs'] {
+  line-height: 1.25;
+}
+
+/* Бейджи внутри таблиц — компактные, без «таблеток» */
+.mantine-Table-td .mantine-Badge-root {
+  height: 20px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--r-sm);
+}
+
+/* Свой стол цеха — тот же ритм, что у остальных таблиц */
+.shop-floor-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.shop-floor-table th {
+  padding: 7px 10px;
+  font-size: var(--fz-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-6);
+  text-align: left;
+  white-space: nowrap;
+  background: var(--gray-0);
+  border-bottom: 1px solid var(--gray-2);
+}
+.shop-floor-table td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--gray-1);
+  vertical-align: middle;
+}
+.shop-floor-table tbody tr:hover td {
+  background: var(--gray-0);
+}
+
+/* ---------------------------------------------------------------
+   Плотность (§4.1 п.3): data-density="compact" на <html> ужимает
+   таблицы и карточки — «40 строк на экран» для плановика.
+   --------------------------------------------------------------- */
+
+[data-density='compact'] .mantine-Table-td,
+[data-density='compact'] .mantine-Table-th,
+[data-density='compact'] .shop-floor-table td,
+[data-density='compact'] .shop-floor-table th {
+  padding-top: 3px !important;
+  padding-bottom: 3px !important;
+  font-size: var(--fz-xs);
+}
+
+[data-density='compact'] .mantine-Card-root {
+  --card-padding: 10px;
+}
+
+[data-density='compact'] .mantine-NavLink-root {
+  min-height: 34px;
+  height: 34px;
+}
+
+/* Числа в таблицах: без tabular-nums столбец сумм «пляшет»,
+   и сравнить значения глазом невозможно (§4.2) */
+table td, table th,
+[style*="monospace"], .mantine-Table-td, .mantine-Table-th {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------
+   Компонентные классы, которые используют формы заказа
+   (OrderWizard / OrderDetail / GanttChart)
+   --------------------------------------------------------------- */
+
+.input-field {
+  display: block;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--mantine-color-black, #1f1f1f);
+  background-color: #fff;
+  border: 1px solid var(--mantine-color-gray-3, #dee2e6);
+  border-radius: var(--mantine-radius-md, 8px);
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.input-field:focus {
+  border-color: var(--mantine-color-blue-6, #0057ff);
+  box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.14);
+}
+
+.input-field:disabled {
+  background-color: var(--mantine-color-gray-1, #f1f3f5);
+  color: var(--mantine-color-gray-6, #868e96);
+  cursor: not-allowed;
+}
+
+textarea.input-field {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 18px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease, opacity 0.12s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--mantine-color-blue-6, #0057ff);
+  color: #fff;
+}
+.btn-primary:not(:disabled):hover {
+  background-color: var(--mantine-color-blue-7, #0047d4);
+}
+
+.btn-secondary {
+  background-color: #fff;
+  color: var(--mantine-color-dark-7, #2a2a2a);
+  border-color: var(--mantine-color-gray-3, #dee2e6);
+}
+.btn-secondary:not(:disabled):hover {
+  background-color: var(--mantine-color-gray-1, #f1f3f5);
+}
+
+.btn-danger {
+  background-color: var(--mantine-color-danger-6, #e53228);
+  color: #fff;
+}
+.btn-danger:not(:disabled):hover {
+  background-color: var(--mantine-color-danger-7, #b8261e);
+}
+
+/* Таблица в карточке заказа: скроллится сама, не ломая страницу */
+.table-container {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--mantine-color-gray-2, #e9ecef);
+  border-radius: var(--mantine-radius-md, 8px);
+  background: #fff;
+}
+
+.table-container table {
+  width: 100%;
+  min-width: 640px;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.table-container th,
+.table-container td {
+  padding: 10px 14px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--mantine-color-gray-2, #e9ecef);
+}
+
+.table-container th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mantine-color-gray-6, #868e96);
+  background: var(--mantine-color-gray-0, #f8f9fa);
+}
+
+.table-container tbody tr:last-child td {
+  border-bottom: none;
+}
