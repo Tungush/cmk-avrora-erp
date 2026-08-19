@@ -111,22 +111,60 @@ export interface OneCTurnover {
   [key: string]: unknown;
 }
 
-/**
- * Разбор номера заказа на пару «номер + год», как того требуют GET-запросы.
- *
- * В базе два формата, оба реальные:
- *  - «Т7АА-002345-2026» — номер 1С: последняя группа это год → num + year;
- *  - «П-100014-22»      — номер прежней системы (Адем) → ищем по clientorder_adem.
- */
-export function parseOrderNumber(orderNumber: string): {
+/** Вариант запроса к 1С: набор query-параметров, которым можно попробовать найти документ */
+export interface LookupAttempt {
   kind: 'onec' | 'adem';
   num: string;
   year?: string;
-} {
+}
+
+const ONEC_WITH_YEAR = /^(.+?)-((?:19|20)\d{2})$/;   // Т7АА-002345-2026
+const ADEM_SHORT_YEAR = /^.+-\d{2}$/;                 // П-100014-22
+const NUMERIC = /^\d{4,10}$/;                         // 1151185 (supplier_invoice_adem из Лист3)
+
+/**
+ * Во что превратить наш номер, чтобы найти документ в 1С.
+ *
+ * Форматы, которые реально встречаются:
+ *   «Т7АА-002345-2026» — номер 1С + год: последняя группа из четырёх цифр это год;
+ *   «П-100014-22»      — прежняя система (Адем), год двузначный и частью номера не является;
+ *   «LVАА-000135»      — номер 1С без года (пример из Лист3 ТЗ) — года мы не знаем;
+ *   «1151185»          — чисто цифровой идентификатор Адем.
+ *
+ * Возвращаем НЕСКОЛЬКО вариантов, а не один: год в номере и год документа —
+ * не одно и то же, и угадать по маске нельзя. Клиент пробует варианты по
+ * очереди и берёт первый непустой ответ.
+ */
+export function lookupAttempts(orderNumber: string): LookupAttempt[] {
   const trimmed = orderNumber.trim();
-  const m = /^(.+)-(\d{4})$/.exec(trimmed);
-  if (m) return { kind: 'onec', num: m[1], year: m[2] };
-  return { kind: 'adem', num: trimmed };
+  if (!trimmed) return [];
+
+  // Чисто цифровой — это идентификатор прежней системы
+  if (NUMERIC.test(trimmed)) return [{ kind: 'adem', num: trimmed }];
+
+  const withYear = ONEC_WITH_YEAR.exec(trimmed);
+  if (withYear) {
+    // Основная догадка — «номер + год», запасная — весь текст как номер Адем
+    return [
+      { kind: 'onec', num: withYear[1], year: withYear[2] },
+      { kind: 'adem', num: trimmed },
+    ];
+  }
+
+  if (ADEM_SHORT_YEAR.test(trimmed)) {
+    return [{ kind: 'adem', num: trimmed }];
+  }
+
+  // Номер без года: сначала как документ 1С (год не указываем), затем как Адем
+  return [
+    { kind: 'onec', num: trimmed },
+    { kind: 'adem', num: trimmed },
+  ];
+}
+
+/** Совместимость: первый вариант разбора */
+export function parseOrderNumber(orderNumber: string): LookupAttempt {
+  return lookupAttempts(orderNumber)[0] ?? { kind: 'adem', num: orderNumber };
 }
 
 /**
@@ -173,51 +211,90 @@ export class OneCClientService {
     }
     const text = await res.text();
     if (!text.trim()) return [] as unknown as T;
+    let parsed: unknown;
     try {
-      return JSON.parse(text) as T;
+      parsed = JSON.parse(text);
     } catch {
       throw new Error(`1С ${path}: ответ не JSON — ${text.slice(0, 200)}`);
     }
+    // 1С нередко отвечает 200 с телом-ошибкой: не принимаем это за данные
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const err = (parsed as Record<string, unknown>).error ?? (parsed as Record<string, unknown>).Error;
+      if (err) throw new Error(`1С ${path}: ${String(err).slice(0, 200)}`);
+    }
+    return parsed as T;
+  }
+
+  /** Последний сырой ответ по каждому пути — чтобы при первом включении
+   *  увидеть фактическую структуру JSON, а не гадать по документации */
+  private readonly lastRaw = new Map<string, { at: string; params: unknown; sample: unknown }>();
+
+  getLastRaw(): Record<string, { at: string; params: unknown; sample: unknown }> {
+    return Object.fromEntries(this.lastRaw);
+  }
+
+  /** Перебор вариантов номера: берём первый непустой ответ */
+  private async tryLookup<T>(
+    path: string,
+    orderNumber: string,
+    build: (a: LookupAttempt) => Record<string, string | undefined>,
+  ): Promise<T[]> {
+    const attempts = lookupAttempts(orderNumber);
+    let lastError: unknown = null;
+
+    for (const attempt of attempts) {
+      const params = build(attempt);
+      try {
+        const data = await this.get<T | T[]>(path, params);
+        const rows = (Array.isArray(data) ? data : [data]).filter(Boolean) as T[];
+        this.lastRaw.set(path, {
+          at: new Date().toISOString(),
+          params,
+          sample: rows[0] ?? null,
+        });
+        if (rows.length > 0) return rows;
+      } catch (e) {
+        lastError = e;
+      }
+    }
+    if (lastError) throw lastError;
+    return [];
   }
 
   /** GET A — заказ клиента со строками и оплатами */
   async getClientOrder(orderNumber: string): Promise<OneCClientOrder[]> {
-    const p = parseOrderNumber(orderNumber);
-    const params = p.kind === 'onec'
-      ? { clientorder_num: p.num, clientorder_year: p.year }
-      : { clientorder_adem: p.num };
-    const data = await this.get<OneCClientOrder | OneCClientOrder[]>('/erp/hs/fm/orders', params);
-    return Array.isArray(data) ? data : [data];
+    return this.tryLookup<OneCClientOrder>('/erp/hs/fm/orders', orderNumber, (a) =>
+      a.kind === 'onec'
+        ? { clientorder_num: a.num, clientorder_year: a.year }
+        : { clientorder_adem: a.num },
+    );
   }
 
   /** GET B — счета и акты по документу */
   async getInvoices(invoiceNumber: string): Promise<Record<string, unknown>[]> {
-    const p = parseOrderNumber(invoiceNumber);
-    const params = p.kind === 'onec'
-      ? { invoice_num: p.num, invoice_year: p.year }
-      : { invoice_num: p.num };
-    const data = await this.get<Record<string, unknown> | Record<string, unknown>[]>('/erp/hs/fm/invoices', params);
-    return Array.isArray(data) ? data : [data];
+    return this.tryLookup<Record<string, unknown>>('/erp/hs/fm/invoices', invoiceNumber, (a) =>
+      a.kind === 'onec'
+        ? { invoice_num: a.num, invoice_year: a.year }
+        : { invoice_num: a.num },
+    );
   }
 
   /** GET C — заказ поставщику: закуп, оплаты, закрывающие документы */
   async getSupplierOrder(number: string): Promise<OneCSupplierOrder[]> {
-    const p = parseOrderNumber(number);
-    const params = p.kind === 'onec'
-      ? { supplier_invoice_num: p.num, supplier_invoice_year: p.year }
-      : { supplier_invoice_adem: p.num };
-    const data = await this.get<OneCSupplierOrder | OneCSupplierOrder[]>('/erp/hs/TurnOver/v1/get_c', params);
-    return Array.isArray(data) ? data : [data];
+    return this.tryLookup<OneCSupplierOrder>('/erp/hs/TurnOver/v1/get_c', number, (a) =>
+      a.kind === 'onec'
+        ? { supplier_invoice_num: a.num, supplier_invoice_year: a.year }
+        : { supplier_invoice_adem: a.num },
+    );
   }
 
   /** GET D — обороты: какие заказы поставщику идут под этот заказ клиента */
   async getTurnover(orderNumber: string): Promise<OneCTurnover[]> {
-    const p = parseOrderNumber(orderNumber);
-    const params = p.kind === 'onec'
-      ? { clientorder_num: p.num, clientorder_year: p.year }
-      : { clientorder_adem: p.num };
-    const data = await this.get<OneCTurnover | OneCTurnover[]>('/erp/hs/TurnOver/v1/get_d', params);
-    return Array.isArray(data) ? data : [data];
+    return this.tryLookup<OneCTurnover>('/erp/hs/TurnOver/v1/get_d', orderNumber, (a) =>
+      a.kind === 'onec'
+        ? { clientorder_num: a.num, clientorder_year: a.year }
+        : { clientorder_adem: a.num },
+    );
   }
 
   /** Проверка связи — для экрана «Обмен с 1С» */

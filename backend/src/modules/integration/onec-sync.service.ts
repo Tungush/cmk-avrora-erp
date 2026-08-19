@@ -19,11 +19,37 @@ const STATUS_MAP: Record<string, string> = {
 /** Наши статусы, которые 1С не должна перебивать: производство ведём мы */
 const OUR_PRODUCTION_STATUSES = new Set(['IN_PRODUCTION', 'READY_TO_SHIP', 'SHIPPED']);
 
-const num = (v: unknown): number => {
-  if (v == null || v === '') return 0;
-  const n = Number(String(v).replace(/\s/g, '').replace(',', '.'));
-  return Number.isFinite(n) ? n : 0;
-};
+/**
+ * Разбор числа из 1С. Возвращает null, если разобрать не удалось —
+ * «не поняли значение» и «пришёл ноль» это разные вещи, и путать их нельзя:
+ * иначе неразобранная цена молча затирает реальную нулём.
+ *
+ * Понимает «1 234,56», «1 234.56», «1.234.567,89», «1,234,567.89», «4 500,00 ₸».
+ */
+function numOrNull(v: unknown): number | null {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+
+  let raw = String(v).replace(/[\s\u00A0\u202F]/g, '');
+  const negative = /^\(.*\)$/.test(raw) || raw.startsWith('-');
+  raw = raw.replace(/[^\d.,]/g, '');
+  if (!raw) return null;
+
+  // Последний разделитель считаем десятичным, остальные — разрядными
+  const lastComma = raw.lastIndexOf(',');
+  const lastDot = raw.lastIndexOf('.');
+  const dec = Math.max(lastComma, lastDot);
+  const normalized = dec >= 0
+    ? raw.slice(0, dec).replace(/[.,]/g, '') + '.' + raw.slice(dec + 1).replace(/[.,]/g, '')
+    : raw;
+
+  const n = Number(normalized);
+  if (!Number.isFinite(n)) return null;
+  return negative ? -Math.abs(n) : n;
+}
+
+/** Число со значением по умолчанию — там, где отсутствие значения безопасно трактовать как 0 */
+const num = (v: unknown): number => numOrNull(v) ?? 0;
 
 const str = (v: unknown): string => (v == null ? '' : String(v).trim());
 
@@ -48,13 +74,19 @@ function parseDate(v: unknown): Date | null {
   // «2026-09-30», «2026-09-30T00:00:00», «2026-09-30T00:00:00.000Z»
   const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
   if (iso) {
-    return new Date(Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3])));
+    const [Y, M, D] = [Number(iso[1]), Number(iso[2]), Number(iso[3])];
+    // 1С отдаёт пустую дату как 0001-01-01 — это не дата, а «не заполнено»
+    if (Y < 1900 || Y > 2100 || M < 1 || M > 12 || D < 1 || D > 31) return null;
+    const d = new Date(Date.UTC(Y, M - 1, D));
+    // отсекает 31 февраля и подобное
+    return d.getUTCFullYear() === Y && d.getUTCMonth() === M - 1 && d.getUTCDate() === D ? d : null;
   }
 
   // «Wed May 13 2026 05:00:00 GMT+0500 (Kazakhstan Time)» — формат из ТЗ (GET C).
   // Смещение указано, поэтому берём календарную дату в поясе предприятия.
   const d = new Date(raw);
   if (isNaN(d.getTime())) return null;
+  if (d.getUTCFullYear() < 1900 || d.getUTCFullYear() > 2100) return null;
   const [y, m, day] = new Intl.DateTimeFormat('en-CA', {
     timeZone: ONEC_TIMEZONE, year: 'numeric', month: '2-digit', day: '2-digit',
   }).format(d).split('-');
@@ -65,11 +97,49 @@ export interface SyncReport {
   requested: number;
   found: number;
   updated: number;
+  /** Не найдено в 1С */
   notFound: string[];
+  /** Есть в 1С, но нет у нас — синхронизировать нечего */
+  missingLocally: string[];
+  /** Ответ получен, но массив строк не распознан: структура JSON иная */
+  linesNotParsed: Array<{ orderNumber: string; keys: string[] }>;
+  /** Значения, которые не удалось разобрать — в БД не записаны */
+  unparsed: Array<{ orderNumber: string; field: string; raw: string }>;
   unknownArticles: string[];
   unknownStatuses: string[];
   errors: Array<{ orderNumber: string; error: string }>;
 }
+
+export function emptyReport(): SyncReport {
+  return {
+    requested: 0, found: 0, updated: 0,
+    notFound: [], missingLocally: [], linesNotParsed: [], unparsed: [],
+    unknownArticles: [], unknownStatuses: [], errors: [],
+  };
+}
+
+/** Массив строк номенклатуры: в ТЗ имя поля для GET A не указано — пробуем известные */
+const ITEM_ARRAY_KEYS = ['items', 'item_alldata', 'item_data', 'itemdata', 'lines', 'nomenclature'];
+
+function findItemsArray(data: Record<string, unknown>): { rows: any[] | null; keys: string[] } {
+  for (const key of ITEM_ARRAY_KEYS) {
+    const v = data[key];
+    if (Array.isArray(v)) return { rows: v, keys: Object.keys(data) };
+  }
+  // Ничего из известных имён — возможно, 1С назвала массив иначе
+  const anyArray = Object.entries(data).find(
+    ([, v]) => Array.isArray(v) && v.length > 0 && typeof v[0] === 'object'
+      && v[0] !== null && ('item_code' in (v[0] as object) || 'item' in (v[0] as object)),
+  );
+  if (anyArray) return { rows: anyArray[1] as any[], keys: Object.keys(data) };
+  return { rows: null, keys: Object.keys(data) };
+}
+
+/** Обрезка под VarChar: длинное значение из 1С не должно ронять весь заказ */
+const cut = (v: unknown, len: number): string | null => {
+  const t = str(v);
+  return t ? t.slice(0, len) : null;
+};
 
 /**
  * Приём данных из 1С (08_INTEGRATION_1C.md §4).
@@ -138,6 +208,22 @@ export class OneCSyncService {
       report.notFound.push(orderNumber);
       return false;
     }
+
+    // Ответ должен относиться к запрошенному документу: без сверки один
+    // неверный номер запишет чужие данные в чужой заказ
+    const returnedNums = [str(data.clientorder_num), str(data.clientorder_adem)].filter(Boolean);
+    const asked = orderNumber.trim().toLowerCase();
+    const matches = returnedNums.some((n) => {
+      const low = n.toLowerCase();
+      return low === asked || asked.startsWith(low) || low.startsWith(asked);
+    });
+    if (returnedNums.length > 0 && !matches) {
+      report.errors.push({
+        orderNumber,
+        error: `1С вернула другой документ: ${returnedNums.join(' / ')}`,
+      });
+      return false;
+    }
     report.found++;
 
     const order = await this.prisma.order.findUnique({
@@ -145,7 +231,18 @@ export class OneCSyncService {
       include: { orderLines: true },
     });
     if (!order) {
-      report.notFound.push(orderNumber);
+      report.missingLocally.push(orderNumber);
+      return false;
+    }
+
+    // Строки: имя массива в ТЗ не указано — ищем по известным вариантам.
+    // Не нашли — это НЕ успех: молча обнулять суммы нельзя.
+    const { rows: itemRows, keys } = findItemsArray(data as Record<string, unknown>);
+    if (itemRows === null) {
+      report.linesNotParsed.push({ orderNumber, keys });
+      this.logger.warn(
+        `Заказ ${orderNumber}: массив строк не распознан. Ключи ответа: ${keys.join(', ')}`,
+      );
       return false;
     }
 
@@ -161,75 +258,122 @@ export class OneCSyncService {
 
     const customerId = await this.upsertCustomer(str(data.client), str(data.client_bin));
 
-    const items = Array.isArray(data.items) ? data.items : [];
-    const totalAmount = items.reduce((s, i) => s + num(i.amount), 0);
+    const totalAmount = itemRows.reduce((s: number, i: any) => s + num(i.amount), 0);
     const payments = Array.isArray(data.clientorder_pay_data) ? data.clientorder_pay_data : [];
     const paidAmount = payments.reduce((s, p) => s + num(p.clientorder_paid_amount), 0);
 
-    const p = parseOrderNumber(orderNumber);
-    await this.prisma.order.update({
-      where: { id: order.id },
-      data: {
-        status: nextStatus as any,
-        ...(customerId ? { customerId } : {}),
-        requestDate: parseDate(data.clientorder_date) ?? order.requestDate,
-        plannedShipmentDate: parseDate(data.workplandate) ?? order.plannedShipmentDate,
-        region: str(data.region) || order.region,
-        // Номер 1С храним отдельно: наш orderNumber может быть «адемовским»
-        onecNum: p.kind === 'adem' ? str(data.clientorder_num) || null : order.onecNum,
-        onecStatus: str(data.clientorder_status) || null,
-        onecApprovalStatus: str(data.clientorder_approval_status) || null,
-        onecTotalAmount: totalAmount || null,
-        onecPaidAmount: paidAmount || null,
-        projectGroup: str(data.project_group) || null,
-        projectSite: str(data.project_site) || null,
-        divisionCode: str(data.division_code) || null,
-        clientAgreement: str(data.client_agreement) || null,
-        onecSyncedAt: new Date(),
-      },
+    const attempt = parseOrderNumber(orderNumber);
+    const externalId = str(data.clientorder_num)
+      ? `${str(data.clientorder_num)}${attempt.year ? '-' + attempt.year : ''}`
+      : orderNumber;
+
+    // Всё одной транзакцией: иначе сбой на строках оставит шапку обновлённой,
+    // а отметку синхронизации — проставленной, и заказ уйдёт из очереди
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: nextStatus as any,
+          ...(customerId ? { customerId } : {}),
+          requestDate: parseDate(data.clientorder_date) ?? order.requestDate,
+          plannedShipmentDate: parseDate(data.workplandate) ?? order.plannedShipmentDate,
+          region: cut(data.region, 50) ?? order.region,
+          onecNum: attempt.kind === 'adem' ? cut(data.clientorder_num, 30) : order.onecNum,
+          onecStatus: cut(data.clientorder_status, 50),
+          onecApprovalStatus: cut(data.clientorder_approval_status, 50),
+          // Суммы пишем только если строки реально разобраны
+          ...(itemRows.length > 0 ? { onecTotalAmount: totalAmount } : {}),
+          ...(payments.length > 0 ? { onecPaidAmount: paidAmount } : {}),
+          projectGroup: cut(data.project_group, 100),
+          projectSite: cut(data.project_site, 150),
+          divisionCode: cut(data.division_code, 20),
+          clientAgreement: cut(data.client_agreement, 100),
+          onecSyncedAt: new Date(),
+        },
+      });
+
+      // Смена статуса — событие: без записи в аудит непонятно, кто её сделал
+      if (nextStatus !== order.status) {
+        await tx.auditLogEntry.create({
+          data: {
+            entityType: 'Order',
+            entityId: order.id,
+            action: 'status_change',
+            before: { status: order.status } as any,
+            after: { status: nextStatus } as any,
+            userRole: '1С',
+            comment: `Синхронизация с 1С: «${str(data.clientorder_status)}»`,
+          },
+        });
+      }
+
+      // Строки заказа: цену и количество ведёт 1С; резерв и отгрузку — мы.
+      // Сопоставляем по (артикул + цена), чтобы две позиции одного артикула
+      // не схлопнулись в одну и не задвоились.
+      const usedLineIds = new Set<string>();
+      for (const item of itemRows as any[]) {
+        const code = str(item.item_code);
+        if (!code) continue;
+        const article = await tx.article.findUnique({ where: { articleCode: code } });
+        if (!article) {
+          if (!report.unknownArticles.includes(code)) report.unknownArticles.push(code);
+          continue;
+        }
+
+        const qty = numOrNull(item.qty);
+        const unitPrice = numOrNull(item.unitprice ?? item.unit_price ?? item.price);
+        const amount = numOrNull(item.amount);
+        for (const [field, parsed, raw] of [
+          ['qty', qty, item.qty], ['unitprice', unitPrice, item.unitprice], ['amount', amount, item.amount],
+        ] as Array<[string, number | null, unknown]>) {
+          if (parsed === null && raw != null && raw !== '') {
+            report.unparsed.push({ orderNumber, field, raw: String(raw).slice(0, 40) });
+          }
+        }
+
+        const candidate = order.orderLines.find(
+          (l) => l.articleId === article.id && !usedLineIds.has(l.id),
+        );
+
+        if (candidate) {
+          usedLineIds.add(candidate.id);
+          await tx.orderLine.update({
+            where: { id: candidate.id },
+            data: {
+              // null = не разобрали → оставляем прежнее значение, а не обнуляем
+              ...(qty !== null ? { qty } : {}),
+              ...(unitPrice !== null ? { unitPrice } : {}),
+              ...(amount !== null ? { lineTotalVat: amount } : {}),
+            },
+          });
+        } else if ((qty ?? 0) > 0) {
+          await tx.orderLine.create({
+            data: {
+              orderId: order.id,
+              articleId: article.id,
+              qty: qty ?? 0,
+              unit: cut(item.unit_measure, 10) ?? 'шт',
+              unitPrice: unitPrice ?? 0,
+              lineTotalVat: amount ?? 0,
+            },
+          });
+        }
+      }
     });
 
-    // Маппинг ID: с ним повторная выгрузка не создаст дубль
-    const externalId = str(data.clientorder_num) || orderNumber;
+    // Маппинг ID — вне транзакции: конфликт здесь не должен откатывать данные
     if (externalId) {
-      await this.integration.linkExternal({
-        entityType: 'Order',
-        localId: order.id,
-        externalId,
-        externalCode: str(data.clientorder_adem) || orderNumber,
-      });
-    }
-
-    // Строки заказа: цену и количество ведёт 1С; резерв и отгрузку — мы
-    for (const item of items) {
-      const code = str(item.item_code);
-      if (!code) continue;
-      const article = await this.prisma.article.findUnique({ where: { articleCode: code } });
-      if (!article) {
-        // Номенклатура завелась в 1С мимо нас — это сигнал, а не повод создать молча
-        if (!report.unknownArticles.includes(code)) report.unknownArticles.push(code);
-        continue;
-      }
-      const qty = num(item.qty);
-      const unitPrice = num(item.unitprice);
-      const amount = num(item.amount);
-      const existing = order.orderLines.find((l) => l.articleId === article.id);
-
-      if (existing) {
-        await this.prisma.orderLine.update({
-          where: { id: existing.id },
-          data: { qty: qty || Number(existing.qty), unitPrice, lineTotalVat: amount },
+      try {
+        await this.integration.linkExternal({
+          entityType: 'Order',
+          localId: order.id,
+          externalId,
+          externalCode: str(data.clientorder_adem) || orderNumber,
         });
-      } else if (qty > 0) {
-        await this.prisma.orderLine.create({
-          data: {
-            orderId: order.id,
-            articleId: article.id,
-            qty,
-            unit: 'шт',
-            unitPrice,
-            lineTotalVat: amount,
-          },
+      } catch (e) {
+        report.errors.push({
+          orderNumber,
+          error: `Не удалось связать с 1С (${externalId}): ${e instanceof Error ? e.message : 'ошибка'}`,
         });
       }
     }
@@ -244,10 +388,7 @@ export class OneCSyncService {
    */
   async syncOrders(options: { limit?: number; onlyActive?: boolean } = {}): Promise<SyncReport> {
     const limit = options.limit ?? 50;
-    const report: SyncReport = {
-      requested: 0, found: 0, updated: 0,
-      notFound: [], unknownArticles: [], unknownStatuses: [], errors: [],
-    };
+    const report = emptyReport();
 
     const orders = await this.prisma.order.findMany({
       where: {
@@ -259,6 +400,10 @@ export class OneCSyncService {
       take: limit,
       select: { orderNumber: true },
     });
+
+    // Если 1С недоступна, нет смысла ждать таймаут на каждом из 50 заказов
+    let consecutiveErrors = 0;
+    const MAX_CONSECUTIVE_ERRORS = 5;
 
     for (const o of orders) {
       report.requested++;
@@ -297,20 +442,44 @@ export class OneCSyncService {
     for (const supplierNumber of supplierNumbers) {
       try {
         const rows = await this.onec.getSupplierOrder(supplierNumber);
-        const data: OneCSupplierOrder | undefined = rows.find((r) => r && r.supplier_invoice_num);
-        if (!data) continue;
+        const data: OneCSupplierOrder | undefined = rows.find(
+          (r) => r && (r.supplier_invoice_num || r.supplier_invoice_adem),
+        );
+        if (!data) {
+          errors.push(`${supplierNumber}: не найден в 1С`);
+          continue;
+        }
+
+        const items = Array.isArray(data.item_alldata) ? data.item_alldata : null;
+        if (items === null) {
+          // Структуру строк не разобрали — записать «оплачено» было бы враньём
+          errors.push(
+            `${supplierNumber}: массив строк не распознан (ключи: ${Object.keys(data).join(', ')})`,
+          );
+          continue;
+        }
 
         const contractorId = await this.upsertCustomer(str(data.supplier), str(data.supplier_bin));
-        if (!contractorId) continue;
+        if (!contractorId) {
+          errors.push(`${supplierNumber}: не удалось определить поставщика`);
+          continue;
+        }
 
-        const items = data.item_alldata ?? [];
-        const totalAmount = items.reduce((s, i) => s + num(i.amount), 0);
-        const paid = (data.supplier_invoice_alldata ?? [])
-          .reduce((s, p) => s + num(p.supplier_invoice_paid_amount), 0);
-        const unpaid = num(data.supplier_invoice_notpaid_amount) || Math.max(0, totalAmount - paid);
+        const totalAmount = items.reduce((s: number, i: any) => s + num(i.amount), 0);
+        const paidRows = Array.isArray(data.supplier_invoice_alldata) ? data.supplier_invoice_alldata : [];
+        const paid = paidRows.reduce((s, p) => s + num(p.supplier_invoice_paid_amount), 0);
+        const unpaidRaw = numOrNull(data.supplier_invoice_notpaid_amount);
+        const unpaid = unpaidRaw ?? Math.max(0, totalAmount - paid);
 
-        const doNumber = str(data.supplier_invoice_num).slice(0, 30) || supplierNumber.slice(0, 30);
+        const doNumber = (str(data.supplier_invoice_num) || supplierNumber).slice(0, 30);
         const existing = await this.prisma.paymentDocument.findUnique({ where: { doNumber } });
+
+        // Пустая сумма при непустом ответе — данные неполные: не трогаем оплаты
+        if (totalAmount <= 0 && !unpaidRaw) {
+          errors.push(`${supplierNumber}: суммы не разобраны, документ пропущен`);
+          continue;
+        }
+
         const payload = {
           doDate: parseDate(data.supplier_invoice_date),
           contractorId,
@@ -318,16 +487,27 @@ export class OneCSyncService {
           totalAmount,
           paidAmount: paid,
           unpaidAmount: unpaid,
-          category: str(data.supplier_invoice_category).slice(0, 30) || null,
-          status: (unpaid <= 0 ? 'PAID' : paid > 0 ? 'PARTIALLY_PAID' : 'UNPAID') as any,
-          orderId: order?.id ?? null,
+          category: cut(data.supplier_invoice_category, 30),
+          status: (unpaid <= 0 && totalAmount > 0
+            ? 'PAID'
+            : paid > 0 ? 'PARTIALLY_PAID' : 'UNPAID') as any,
         };
 
         if (existing) {
-          await this.prisma.paymentDocument.update({ where: { id: existing.id }, data: payload });
+          await this.prisma.paymentDocument.update({
+            where: { id: existing.id },
+            data: {
+              ...payload,
+              // Привязку к заказу не переписываем: один счёт может закрывать
+              // несколько заказов, и перекидывать его между ними нельзя
+              ...(order && !existing.orderId ? { orderId: order.id } : {}),
+            },
+          });
           updated++;
         } else {
-          await this.prisma.paymentDocument.create({ data: { doNumber, ...payload } });
+          await this.prisma.paymentDocument.create({
+            data: { doNumber, ...payload, orderId: order?.id ?? null },
+          });
           created++;
         }
       } catch (e) {

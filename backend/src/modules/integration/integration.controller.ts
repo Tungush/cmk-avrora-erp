@@ -9,7 +9,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { PrismaService } from '../../services/prisma.service';
 import { IntegrationService, INTEGRATION_1C_URL } from '../../services/integration.service';
 import { InboxHandlersService } from './inbox-handlers.service';
-import { OneCSyncService } from './onec-sync.service';
+import { OneCSyncService, emptyReport } from './onec-sync.service';
 import { OneCClientService, ONEC_BASE_URL } from '../../services/onec-client.service';
 import { runWithFallback } from '../../common/fallback';
 
@@ -156,11 +156,8 @@ export class IntegrationController {
   @Roles('admin', 'sales_manager', 'director')
   @ApiOperation({ summary: 'Забрать один заказ из 1С по номеру' })
   async syncOrder(@Param('orderNumber') orderNumber: string) {
-    const report = {
-      requested: 1, found: 0, updated: 0,
-      notFound: [] as string[], unknownArticles: [] as string[],
-      unknownStatuses: [] as string[], errors: [] as Array<{ orderNumber: string; error: string }>,
-    };
+    const report = emptyReport();
+    report.requested = 1;
     await this.sync.syncClientOrder(decodeURIComponent(orderNumber), report);
     return report;
   }
