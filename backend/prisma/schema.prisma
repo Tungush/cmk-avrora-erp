@@ -131,6 +131,34 @@ enum PriceSource {
   MANUAL
 }
 
+/// Кто выполняет передел (09 §5.1)
+enum LaborKind {
+  STAFF
+  CONTRACTOR
+}
+
+/// Подряд редко считают в чел/час — обычно за штуку, тонну или объект
+enum RateType {
+  PER_HOUR
+  PER_UNIT
+  PER_KG
+  PER_TON
+  FIXED
+}
+
+/// Где идут работы — от этого зависит, занимают ли они мощность цеха (09 §5.3)
+enum WorkLocation {
+  OUR_SHOP
+  CONTRACTOR_SITE
+}
+
+/// Состояние калькуляции заказа (09 §3.1)
+enum CostingStatus {
+  DRAFT
+  APPROVED
+  ARCHIVED
+}
+
 enum PriceReviewStatus {
   PENDING
   APPROVED
@@ -265,7 +293,8 @@ model WorkCenter {
   capacityPerDay Decimal      @default(0) @map("capacity_per_day") @db.Decimal(8, 2)
   isActive       Boolean      @default(true) @map("is_active")
 
-  operations RoutingOperation[]
+  operations       RoutingOperation[]
+  laborAssignments OrderLaborAssignment[]
 
   @@map("work_centers")
 }
@@ -449,6 +478,182 @@ model MaterialBatch {
   @@map("material_batches")
 }
 
+/// Подрядчик: работы, отданные на сторону или выполняемые у нас чужими руками
+model Contractor {
+  id                  String       @id @default(uuid()) @db.Uuid
+  name                String       @db.Text
+  binIin              String?      @unique @map("bin_iin") @db.VarChar(20)
+  /// Дефолт обучается на практике: запоминается последний использованный тип
+  defaultRateType     RateType     @default(PER_UNIT) @map("default_rate_type")
+  defaultRate         Decimal      @default(0) @map("default_rate") @db.Decimal(14, 2)
+  defaultWorkLocation WorkLocation @default(CONTRACTOR_SITE) @map("default_work_location")
+  isActive            Boolean      @default(true) @map("is_active")
+  notes               String?      @db.Text
+  createdAt           DateTime     @default(now()) @map("created_at")
+
+  assignments   OrderLaborAssignment[]
+  costingLabors OrderCostingLabor[]
+
+  @@map("contractors")
+}
+
+/// Кто фактически делает передел в этом заказе (09 §5.1).
+/// Норма живёт в RoutingOperation — это эталон изделия; здесь исполнение.
+model OrderLaborAssignment {
+  id          String       @id @default(uuid()) @db.Uuid
+  orderId     String       @map("order_id") @db.Uuid
+  orderLineId String?      @map("order_line_id") @db.Uuid
+  articleId   String?      @map("article_id") @db.Uuid
+  stage       RoutingStage
+  laborKind   LaborKind
+
+  workCenterId String? @map("work_center_id") @db.Uuid
+  contractorId String? @map("contractor_id") @db.Uuid
+
+  /// Доля объёма передела; сумма по переделу должна давать ровно 1
+  share            Decimal  @default(1) @db.Decimal(6, 4)
+  rateType         RateType @default(PER_UNIT) @map("rate_type")
+  rate             Decimal  @default(0) @db.Decimal(14, 2)
+  /// Работы в нашем цеху — часы идут в загрузку участка
+  countInShopHours Boolean  @default(true) @map("count_in_shop_hours")
+
+  plannedHours Decimal? @map("planned_hours") @db.Decimal(10, 3)
+  actualHours  Decimal? @map("actual_hours") @db.Decimal(10, 3)
+
+  contractDocId String?  @map("contract_doc_id") @db.Uuid
+  note          String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLine  OrderLine?  @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  workCenter WorkCenter? @relation(fields: [workCenterId], references: [id])
+  contractor Contractor? @relation(fields: [contractorId], references: [id])
+
+  @@index([orderId, stage])
+  @@index([orderLineId])
+  @@map("order_labor_assignments")
+}
+
+/// Калькуляция позиции заказа как версионируемый документ (09 §3.1).
+/// Справочник хранит «как сейчас», этот документ — «как было»: со своими
+/// ценами, нормами, коэффициентами и ссылками на источники.
+model OrderCosting {
+  id          String  @id @default(uuid()) @db.Uuid
+  orderId     String  @map("order_id") @db.Uuid
+  orderLineId String  @map("order_line_id") @db.Uuid
+  articleId   String? @map("article_id") @db.Uuid
+  qty         Decimal @db.Decimal(12, 3)
+
+  version Int
+  status  CostingStatus @default(DRAFT)
+
+  calculatedAt  DateTime  @default(now()) @map("calculated_at")
+  approvedAt    DateTime? @map("approved_at")
+  approvedById  String?   @map("approved_by_id") @db.Uuid
+  createdById   String?   @map("created_by_id") @db.Uuid
+  /// С какой версией сравнивается в отчёте «почему подорожало»
+  baseCostingId String?   @map("base_costing_id") @db.Uuid
+
+  // ---- замороженные коэффициенты
+  hourlyRate     Decimal       @map("hourly_rate") @db.Decimal(12, 2)
+  logisticsPct   Decimal       @map("logistics_pct") @db.Decimal(6, 4)
+  logisticsMode  LogisticsMode @default(PERCENT_OF_MATERIAL) @map("logistics_mode")
+  logisticsFixed Decimal       @default(0) @map("logistics_fixed") @db.Decimal(14, 2)
+  logisticsPerKg Decimal       @default(0) @map("logistics_per_kg") @db.Decimal(14, 2)
+  utilitiesPct   Decimal       @map("utilities_pct") @db.Decimal(6, 4)
+  marginPct      Decimal       @map("margin_pct") @db.Decimal(6, 4)
+  marginMode     MarginMode    @default(MARGIN) @map("margin_mode")
+  vatPct         Decimal       @default(0.12) @map("vat_pct") @db.Decimal(6, 4)
+  /// 'config' | 'manual'; при manual причина обязательна
+  ratesSource    String        @default("config") @map("rates_source") @db.VarChar(10)
+  ratesReason    String?       @map("rates_reason") @db.Text
+
+  // ---- итоги
+  materialCost   Decimal @map("material_cost") @db.Decimal(14, 2)
+  laborCost      Decimal @map("labor_cost") @db.Decimal(14, 2)
+  contractorCost Decimal @default(0) @map("contractor_cost") @db.Decimal(14, 2)
+  logisticsCost  Decimal @map("logistics_cost") @db.Decimal(14, 2)
+  utilitiesCost  Decimal @map("utilities_cost") @db.Decimal(14, 2)
+  totalCost      Decimal @map("total_cost") @db.Decimal(14, 2)
+  margin         Decimal @db.Decimal(14, 2)
+  price          Decimal @db.Decimal(14, 2)
+  totalManHours  Decimal @default(0) @map("total_man_hours") @db.Decimal(10, 3)
+  /// Часть материалов посчитана по цене, которой на складе нет (09 §4.3)
+  hasShortage    Boolean @default(false) @map("has_shortage")
+
+  note String? @db.Text
+
+  order     Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLine OrderLine              @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  materials OrderCostingMaterial[]
+  labor     OrderCostingLabor[]
+
+  @@unique([orderLineId, version])
+  @@index([orderId, status])
+  @@map("order_costings")
+}
+
+/// Снимок состава и цен: имя материала копируется, потому что переименование
+/// в 1С не должно менять уже согласованную калькуляцию (09 §3.1)
+model OrderCostingMaterial {
+  id        String @id @default(uuid()) @db.Uuid
+  costingId String @map("costing_id") @db.Uuid
+
+  materialId           String? @map("material_id") @db.Uuid
+  materialCodeSnapshot String? @map("material_code_snapshot") @db.VarChar(20)
+  materialNameSnapshot String  @map("material_name_snapshot") @db.Text
+
+  qtyPerUnit Decimal @map("qty_per_unit") @db.Decimal(12, 4)
+  qtyTotal   Decimal @map("qty_total") @db.Decimal(14, 3)
+  unitPrice  Decimal @map("unit_price") @db.Decimal(14, 2)
+  lineCost   Decimal @map("line_cost") @db.Decimal(14, 2)
+
+  priceSource      PriceSource @default(FIFO_STOCK) @map("price_source")
+  /// Партия и документ прихода: без них через месяц не ответить на «почему дороже»
+  batchId          String?     @map("batch_id") @db.Uuid
+  sourceDocumentId String?     @map("source_document_id") @db.Uuid
+  priceDate        DateTime?   @map("price_date") @db.Date
+  /// Раскладка по партиям: [{batchId, qty, unitPrice, lineCost}]
+  allocations      Json?
+
+  isShortage        Boolean @default(false) @map("is_shortage")
+  shortageQty       Decimal @default(0) @map("shortage_qty") @db.Decimal(14, 3)
+  shortageUnitPrice Decimal @default(0) @map("shortage_unit_price") @db.Decimal(14, 2)
+
+  costing OrderCosting @relation(fields: [costingId], references: [id], onDelete: Cascade)
+
+  @@index([costingId])
+  @@map("order_costing_materials")
+}
+
+/// Снимок исполнения: кто делал передел, по какой ставке и в чьём цеху
+model OrderCostingLabor {
+  id        String       @id @default(uuid()) @db.Uuid
+  costingId String       @map("costing_id") @db.Uuid
+  stage     RoutingStage
+  laborKind LaborKind
+
+  workCenterId String? @map("work_center_id") @db.Uuid
+  contractorId String? @map("contractor_id") @db.Uuid
+
+  share            Decimal  @default(1) @db.Decimal(6, 4)
+  rateType         RateType @default(PER_HOUR) @map("rate_type")
+  rate             Decimal  @db.Decimal(14, 2)
+  countInShopHours Boolean  @default(true) @map("count_in_shop_hours")
+
+  workers      Decimal @default(0) @db.Decimal(6, 2)
+  hoursPerUnit Decimal @default(0) @map("hours_per_unit") @db.Decimal(8, 3)
+  manHours     Decimal @default(0) @map("man_hours") @db.Decimal(10, 3)
+  lineCost     Decimal @map("line_cost") @db.Decimal(14, 2)
+
+  costing    OrderCosting @relation(fields: [costingId], references: [id], onDelete: Cascade)
+  contractor Contractor?  @relation(fields: [contractorId], references: [id])
+
+  @@index([costingId])
+  @@map("order_costing_labor")
+}
+
 // 3.5 Customers
 model Customer {
   id           String       @id @default(uuid()) @db.Uuid
@@ -514,9 +719,11 @@ model Order {
   onecSyncedAt       DateTime? @map("onec_synced_at")
 
   // Full fidelity import from Google Sheets
-  sourceSheet     String? @map("source_sheet") @db.VarChar(100)
-  sourceRowNumber Int?    @map("source_row_number")
-  rawColumns      Json?   @map("raw_columns")
+  sourceSheet          String?                @map("source_sheet") @db.VarChar(100)
+  sourceRowNumber      Int?                   @map("source_row_number")
+  rawColumns           Json?                  @map("raw_columns")
+  OrderLaborAssignment OrderLaborAssignment[]
+  OrderCosting         OrderCosting[]
 
   @@index([sourceSheet])
   @@map("orders")
@@ -550,9 +757,11 @@ model OrderLine {
   productNameRaw  String? @map("product_name_raw") @db.Text
   rawColumns      Json?   @map("raw_columns")
 
-  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  article          Article?          @relation(fields: [articleId], references: [id])
+  order            Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  article          Article?               @relation(fields: [articleId], references: [id])
   productionStages ProductionStage[]
+  laborAssignments OrderLaborAssignment[]
+  costings         OrderCosting[]
 
   @@index([sourceSheet, sourceRowNumber])
   @@map("order_lines")

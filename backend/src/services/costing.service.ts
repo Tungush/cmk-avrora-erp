@@ -99,7 +99,7 @@ const round3 = (n: number) => Math.round(n * 1000) / 1000;
  * а незаполненные данные: на 2 161 артикуле вес есть у 70, и молчаливый ноль
  * ушёл бы прямо в цену (09 §3.2).
  */
-function logisticsCostOf(
+export function logisticsCostOf(
   materialCost: number,
   rates: CostingRates,
   ctx?: CostingContext,
@@ -123,7 +123,7 @@ function logisticsCostOf(
 }
 
 /** Маржа и цена по выбранному режиму (09 §3.2) */
-function marginAndPrice(totalCost: number, rates: CostingRates): { margin: number; price: number } {
+export function marginAndPrice(totalCost: number, rates: CostingRates): { margin: number; price: number } {
   if (rates.marginMode === 'MARGIN') {
     // Доля маржи в цене не может быть 100 % и выше — это деление на ноль
     if (!(rates.marginPct < 1)) {

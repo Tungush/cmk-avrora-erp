@@ -20,6 +20,8 @@ import { CascadeRecalcService } from './services/cascade-recalc.service';
 import { IntegrationService } from './services/integration.service';
 import { MaterialReceiptService } from './services/material-receipt.service';
 import { MaterialBatchService } from './services/material-batch.service';
+import { OrderCostingService } from './services/order-costing.service';
+import { OrderCostingsController } from './modules/orders/order-costings.controller';
 import { MaterialBatchesController } from './modules/warehouse/material-batches.controller';
 import { IntegrationController } from './modules/integration/integration.controller';
 import { InboxHandlersService } from './modules/integration/inbox-handlers.service';
@@ -55,6 +57,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     CustomersController,
     OrdersController,
     ProductionPlanController,
+    OrderCostingsController,
     MinStockController,
     WarehouseController,
     PurchaseRequestsController,
@@ -68,6 +71,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     PrismaService,
     EventsService,
     MaterialBatchService,
+    OrderCostingService,
     ArticleCostingService,
     CascadeRecalcService,
     IntegrationService,
