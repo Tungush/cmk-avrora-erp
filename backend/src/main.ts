@@ -1,3 +1,8 @@
+// Первым делом: конфиг (DATABASE_URL, ONEC_*) читается из backend/.env,
+// поэтому загрузка обязана произойти до импорта модулей, которые его читают.
+import * as dotenv from 'dotenv';
+dotenv.config();
+
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';

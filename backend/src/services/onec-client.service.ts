@@ -3,6 +3,10 @@ import { Injectable, Logger, ServiceUnavailableException } from '@nestjs/common'
 export const ONEC_BASE_URL = process.env.ONEC_BASE_URL || '';
 export const ONEC_LOGIN = process.env.ONEC_LOGIN || '';
 export const ONEC_PASSWORD = process.env.ONEC_PASSWORD || '';
+/** Сервисы /TurnOver/ опубликованы под отдельной учёткой (проверено на 10.10.10.81):
+ *  учётка от /fm/ получает на них 401. Не задана — работаем общей. */
+export const ONEC_TURNOVER_LOGIN = process.env.ONEC_TURNOVER_LOGIN || '';
+export const ONEC_TURNOVER_PASSWORD = process.env.ONEC_TURNOVER_PASSWORD || '';
 export const ONEC_TIMEOUT_MS = Number(process.env.ONEC_TIMEOUT_MS || 20_000);
 
 /** Строка номенклатуры заказа клиента (GET A) */
@@ -201,8 +205,13 @@ export class OneCClientService {
     }
 
     const headers: Record<string, string> = { Accept: 'application/json' };
-    if (ONEC_LOGIN) {
-      headers.Authorization = `Basic ${Buffer.from(`${ONEC_LOGIN}:${ONEC_PASSWORD}`).toString('base64')}`;
+    // Логин может быть кириллическим (1С_ERP_709) — Basic кодируем из UTF-8:
+    // cp1251 тот же сервер отвергает с 401.
+    const turnover = path.includes('/TurnOver/') && !!ONEC_TURNOVER_LOGIN;
+    const login = turnover ? ONEC_TURNOVER_LOGIN : ONEC_LOGIN;
+    const password = turnover ? ONEC_TURNOVER_PASSWORD : ONEC_PASSWORD;
+    if (login) {
+      headers.Authorization = `Basic ${Buffer.from(`${login}:${password}`, 'utf8').toString('base64')}`;
     }
 
     const res = await fetch(url, { headers, signal: AbortSignal.timeout(ONEC_TIMEOUT_MS) });
@@ -218,8 +227,11 @@ export class OneCClientService {
       throw new Error(`1С ${path}: ответ не JSON — ${text.slice(0, 200)}`);
     }
     // 1С нередко отвечает 200 с телом-ошибкой: не принимаем это за данные
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      const err = (parsed as Record<string, unknown>).error ?? (parsed as Record<string, unknown>).Error;
+    // …в том числе завёрнутым в массив: get_c на ненайденный документ отвечает
+    // 200 и [{"error": "Заказ поставщику не найден"}]
+    const errCarrier = Array.isArray(parsed) ? parsed[0] : parsed;
+    if (errCarrier && typeof errCarrier === 'object') {
+      const err = (errCarrier as Record<string, unknown>).error ?? (errCarrier as Record<string, unknown>).Error;
       if (err) throw new Error(`1С ${path}: ${String(err).slice(0, 200)}`);
     }
     return parsed as T;
@@ -263,11 +275,20 @@ export class OneCClientService {
 
   /** GET A — заказ клиента со строками и оплатами */
   async getClientOrder(orderNumber: string): Promise<OneCClientOrder[]> {
-    return this.tryLookup<OneCClientOrder>('/erp/hs/fm/orders', orderNumber, (a) =>
-      a.kind === 'onec'
-        ? { clientorder_num: a.num, clientorder_year: a.year }
-        : { clientorder_adem: a.num },
-    );
+    // Реальный /fm/orders отвечает 500 на любой запрос без clientorder_year
+    // (в т.ч. на поиск по адем-номеру), поэтому год передаём всегда:
+    // для «П-121794-24» берём его из двузначного хвоста, для номера без года
+    // перебираем последние годы.
+    return this.tryLookup<OneCClientOrder>('/erp/hs/fm/orders', orderNumber, (a) => {
+      if (a.kind === 'onec') {
+        return { clientorder_num: a.num, clientorder_year: a.year ?? String(new Date().getFullYear()) };
+      }
+      const shortYear = /-(\d{2})$/.exec(a.num);
+      return {
+        clientorder_adem: a.num,
+        clientorder_year: shortYear ? `20${shortYear[1]}` : String(new Date().getFullYear()),
+      };
+    });
   }
 
   /** GET B — счета и акты по документу */
@@ -280,10 +301,12 @@ export class OneCClientService {
   }
 
   /** GET C — заказ поставщику: закуп, оплаты, закрывающие документы */
-  async getSupplierOrder(number: string): Promise<OneCSupplierOrder[]> {
+  async getSupplierOrder(number: string, year?: string): Promise<OneCSupplierOrder[]> {
+    // Год берём из строки get_d (supplier_invoice_year) — без него реальный
+    // get_c документ по одному номеру не находит
     return this.tryLookup<OneCSupplierOrder>('/erp/hs/TurnOver/v1/get_c', number, (a) =>
       a.kind === 'onec'
-        ? { supplier_invoice_num: a.num, supplier_invoice_year: a.year }
+        ? { supplier_invoice_num: a.num, supplier_invoice_year: a.year ?? year }
         : { supplier_invoice_adem: a.num },
     );
   }

@@ -6,10 +6,15 @@ import {
 } from '../../services/onec-client.service';
 
 /** Статусы 1С → наши. Незнакомый статус не двигает заказ, а попадает в отчёт. */
+// Ключи — без пробелов: реальная 1С пишет статусы слитно («КОтгрузке»,
+// «КОбеспечению»), ТЗ — раздельно; сравниваем после удаления пробелов.
 const STATUS_MAP: Record<string, string> = {
-  'на согласовании': 'DRAFT',
-  'к выполнению': 'CONFIRMED',
-  'в работе': 'IN_PRODUCTION',
+  'насогласовании': 'DRAFT',
+  'несогласован': 'DRAFT',
+  'квыполнению': 'CONFIRMED',
+  'кобеспечению': 'CONFIRMED', // снабжение — этап до производства
+  'вработе': 'IN_PRODUCTION',
+  'котгрузке': 'READY_TO_SHIP',
   'закрыт': 'CLOSED',
   'аннулирован': 'CANCELLED',
   'отменен': 'CANCELLED',
@@ -118,13 +123,31 @@ export function emptyReport(): SyncReport {
   };
 }
 
-/** Массив строк номенклатуры: в ТЗ имя поля для GET A не указано — пробуем известные */
-const ITEM_ARRAY_KEYS = ['items', 'item_alldata', 'item_data', 'itemdata', 'lines', 'nomenclature'];
+/** Массив строк номенклатуры. Фактически (10.10.10.81, GET A и GET B) 1С отдаёт
+ *  его в item_details — причём НЕ массивом, а строкой с вложенным JSON. Прочие
+ *  имена оставлены: ТЗ поле не называет, у другой публикации может отличаться. */
+const ITEM_ARRAY_KEYS = ['item_details', 'items', 'item_alldata', 'item_data', 'itemdata', 'lines', 'nomenclature'];
+
+/** Значение поля как массив: принимаем и настоящий массив, и JSON в строке */
+function asRowArray(v: unknown): any[] | null {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') {
+    const t = v.trim();
+    if (!t.startsWith('[')) return null;
+    try {
+      const parsed = JSON.parse(t);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null; // битый JSON внутри строки — уйдёт в linesNotParsed
+    }
+  }
+  return null;
+}
 
 function findItemsArray(data: Record<string, unknown>): { rows: any[] | null; keys: string[] } {
   for (const key of ITEM_ARRAY_KEYS) {
-    const v = data[key];
-    if (Array.isArray(v)) return { rows: v, keys: Object.keys(data) };
+    const rows = asRowArray(data[key]);
+    if (rows) return { rows, keys: Object.keys(data) };
   }
   // Ничего из известных имён — возможно, 1С назвала массив иначе
   const anyArray = Object.entries(data).find(
@@ -248,7 +271,7 @@ export class OneCSyncService {
 
     // Статус: 1С владеет согласованием и закрытием, но не производством —
     // если заказ у нас в цехе, статус 1С «К выполнению» его не откатывает
-    const rawStatus = str(data.clientorder_status).toLowerCase();
+    const rawStatus = str(data.clientorder_status).toLowerCase().replace(/\s+/g, '');
     const mapped = STATUS_MAP[rawStatus];
     if (rawStatus && !mapped && !report.unknownStatuses.includes(rawStatus)) {
       report.unknownStatuses.push(rawStatus);
@@ -259,8 +282,12 @@ export class OneCSyncService {
     const customerId = await this.upsertCustomer(str(data.client), str(data.client_bin));
 
     const totalAmount = itemRows.reduce((s: number, i: any) => s + num(i.amount), 0);
-    const payments = Array.isArray(data.clientorder_pay_data) ? data.clientorder_pay_data : [];
-    const paidAmount = payments.reduce((s, p) => s + num(p.clientorder_paid_amount), 0);
+    // Оплаты: фактически 1С кладёт их в pay — JSON-строкой, как и item_details
+    const payments = asRowArray(data.pay) ?? asRowArray(data.clientorder_pay_data) ?? [];
+    const paidAmount = payments.reduce(
+      (s: number, p: any) => s + num(p.clientorder_paid_amount ?? p.pay_amount ?? p.amount),
+      0,
+    );
 
     const attempt = parseOrderNumber(orderNumber);
     const externalId = str(data.clientorder_num)
@@ -314,10 +341,18 @@ export class OneCSyncService {
       for (const item of itemRows as any[]) {
         const code = str(item.item_code);
         if (!code) continue;
-        const article = await tx.article.findUnique({ where: { articleCode: code } });
+        let article = await tx.article.findUnique({ where: { articleCode: code } });
         if (!article) {
+          // Решение от 2026-08-19: артикулы ведём по кодам 1С — неизвестный код
+          // заводим сразу, чтобы строка заказа не терялась. Имя берём из строки
+          // 1С; цену не трогаем — прайс утверждается у нас.
+          article = await tx.article.create({
+            data: {
+              articleCode: code.slice(0, 20),
+              name: str(item.item) || code,
+            },
+          });
           if (!report.unknownArticles.includes(code)) report.unknownArticles.push(code);
-          continue;
         }
 
         const qty = numOrNull(item.qty);
@@ -426,12 +461,25 @@ export class OneCSyncService {
   async syncProcurementForOrder(orderNumber: string) {
     const turnovers = await this.onec.getTurnover(orderNumber);
     const order = await this.prisma.order.findUnique({ where: { orderNumber } });
-    const supplierNumbers = new Set<string>();
+    // Номер счёта → год документа: get_c без года документ не находит,
+    // а get_d год отдаёт («2 026» — с пробелом-разрядом)
+    const supplierNumbers = new Map<string, string | undefined>();
 
     for (const t of turnovers) {
-      for (const row of t.supplier_invoice_alldata ?? []) {
+      // Реальный get_d отдаёт плоские строки: номер счёта лежит прямо в строке
+      // оборота, вложенного supplier_invoice_alldata (как в ТЗ) там нет
+      const rows = Array.isArray(t.supplier_invoice_alldata) && t.supplier_invoice_alldata.length > 0
+        ? t.supplier_invoice_alldata
+        : [t as unknown as Record<string, unknown>];
+      for (const row of rows as any[]) {
         const n = str(row.supplier_invoice_num) || str(row.supplier_invoice_adem);
-        if (n) supplierNumbers.add(n);
+        if (!n) continue;
+        // Год критичен: один номер счёта существует в РАЗНЫХ годах как разные
+        // документы (проверено: Т7АА-000775 есть и в 2025, и в 2026). Надёжнее
+        // всего год из даты документа; supplier_invoice_year («2 026») — запасной.
+        const fromDate = /\.(\d{4})/.exec(str(row.supplier_invoice_date));
+        const y = fromDate?.[1] ?? (str(row.supplier_invoice_year).replace(/\D/g, '') || undefined);
+        if (!supplierNumbers.has(n) || y) supplierNumbers.set(n, y && y.length === 4 ? y : undefined);
       }
     }
 
@@ -439,9 +487,25 @@ export class OneCSyncService {
     let updated = 0;
     const errors: string[] = [];
 
-    for (const supplierNumber of supplierNumbers) {
+    for (const [supplierNumber, supplierYear] of supplierNumbers) {
       try {
-        const rows = await this.onec.getSupplierOrder(supplierNumber);
+        // «Не найден» приходит исключением (200 + [{error}] → throw), поэтому
+        // первую попытку тоже глушим и уходим в перебор годов
+        let rows: OneCSupplierOrder[] = [];
+        try {
+          rows = await this.onec.getSupplierOrder(supplierNumber, supplierYear);
+        } catch { /* попробуем другие годы */ }
+        if (rows.length === 0 || !rows.some((r) => r && (r.supplier_invoice_num || r.supplier_invoice_adem))) {
+          // Год из get_d не подошёл (или его не было) — перебираем соседние
+          const base = new Date().getFullYear();
+          for (const y of [base, base - 1, base - 2].map(String)) {
+            if (y === supplierYear) continue;
+            try {
+              rows = await this.onec.getSupplierOrder(supplierNumber, y);
+              if (rows.some((r) => r && (r.supplier_invoice_num || r.supplier_invoice_adem))) break;
+            } catch { /* «не найден» за этот год — пробуем следующий */ }
+          }
+        }
         const data: OneCSupplierOrder | undefined = rows.find(
           (r) => r && (r.supplier_invoice_num || r.supplier_invoice_adem),
         );
@@ -450,7 +514,7 @@ export class OneCSyncService {
           continue;
         }
 
-        const items = Array.isArray(data.item_alldata) ? data.item_alldata : null;
+        const items = asRowArray(data.item_alldata);
         if (items === null) {
           // Структуру строк не разобрали — записать «оплачено» было бы враньём
           errors.push(

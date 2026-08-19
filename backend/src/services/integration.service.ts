@@ -41,6 +41,21 @@ export class IntegrationService {
     system?: string;
   }) {
     const system = input.system ?? '1C';
+    // Один документ 1С может оказаться привязан к другому нашему объекту (дубли
+    // из Excel-миграции). Уникальность (system, entityType, externalId) тогда
+    // роняет upsert ниже, поэтому старую привязку снимаем: истина — за 1С.
+    const conflicting = await this.prisma.externalRef.findUnique({
+      where: {
+        system_entityType_externalId: { system, entityType: input.entityType, externalId: input.externalId },
+      },
+    });
+    if (conflicting && conflicting.localId !== input.localId) {
+      this.logger.warn(
+        `${input.entityType} ${input.externalId} (${system}) был привязан к ${conflicting.localId}, ` +
+          `перепривязан к ${input.localId}`,
+      );
+      await this.prisma.externalRef.delete({ where: { id: conflicting.id } });
+    }
     return this.prisma.externalRef.upsert({
       where: { system_entityType_localId: { system, entityType: input.entityType, localId: input.localId } },
       update: { externalId: input.externalId, externalCode: input.externalCode ?? null },
