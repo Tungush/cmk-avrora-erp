@@ -52,7 +52,7 @@ export function Login() {
         color: 'success',
         icon: <IconCheck size={18} />,
       });
-      navigate('/dashboard');
+      navigate('/'); // Моя работа — единственный экран, с которого начинается день
     } catch (err: any) {
       notifications.show({
         title: 'Не удалось войти',
