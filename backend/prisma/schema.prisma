@@ -1087,6 +1087,15 @@ model Deal {
   periodKey     String?   @map("period_key") @db.VarChar(10)
   shipmentDate  DateTime? @map("shipment_date") @db.Date
 
+  /// Прогноз спроса до формального заказа в 1С (лист «Планируемое без
+  /// заявок» — 396 строк, ₸415 млн, вели руками в Excel). managerName —
+  /// текстом, не Employee: именных учёток не заводим (решение 24.08.2026).
+  siteCode             String?  @map("site_code") @db.VarChar(50)
+  region               String?  @db.VarChar(50)
+  managerName          String?  @map("manager_name") @db.VarChar(100)
+  plannedDispatchMonth String?  @map("planned_dispatch_month") @db.VarChar(20)
+  hasFormalRequest     Boolean  @default(false) @map("has_formal_request")
+
   customer Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
   article  Article?  @relation(fields: [articleId], references: [id], onDelete: SetNull)
   manager  Employee? @relation("DealManager", fields: [managerId], references: [id], onDelete: SetNull)

@@ -16,6 +16,7 @@ import { Finance } from './pages/Finance';
 import { Catalog } from './pages/Catalog';
 import { Integration } from './pages/Integration';
 import { Specifications } from './pages/Specifications';
+import { Pipeline } from './pages/Sales/Pipeline';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,6 +46,7 @@ export default function App() {
             <Route path="production" element={<ProductionPlan />} />
             <Route path="production/kanban" element={<ShopFloor />} />
             <Route path="production/contractors" element={<ContractorWork />} />
+            <Route path="sales/pipeline" element={<Pipeline />} />
             <Route path="warehouse" element={<Warehouse />} />
             <Route path="finance" element={<Finance />} />
             <Route path="specs" element={<Specifications />} />

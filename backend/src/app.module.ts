@@ -46,6 +46,7 @@ import { AcceptanceActsController } from './modules/finance/acceptance-acts.cont
 import { AuditLogController } from './modules/platform/audit-log.controller';
 import { SpreadsheetController } from './modules/spreadsheet/spreadsheet.controller';
 import { DashboardsController } from './modules/dashboards/dashboards.controller';
+import { DealsController } from './modules/sales/deals.controller';
 
 @Module({
   controllers: [
@@ -77,6 +78,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     AuditLogController,
     SpreadsheetController,
     DashboardsController,
+    DealsController,
   ],
   providers: [
     PrismaService,
