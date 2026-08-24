@@ -65,7 +65,7 @@ async function ping(token: string) {
  * Снос операционных данных. Дети раньше родителей — порядок важен,
  * он повторяет внешние ключи схемы.
  */
-async function wipe(prisma: PrismaClient) {
+export async function wipeOperationalData(prisma: PrismaClient) {
   const steps: Array<[string, () => Promise<{ count: number }>]> = [
     ['оплаты', () => prisma.payment.deleteMany()],
     ['акты приёмки', () => prisma.acceptanceAct.deleteMany()],
@@ -195,7 +195,7 @@ async function main() {
     const prisma = new PrismaClient();
     try {
       console.log('\n===== СНОС ОПЕРАЦИОННЫХ ДАННЫХ =====');
-      await wipe(prisma);
+      await wipeOperationalData(prisma);
     } finally {
       await prisma.$disconnect();
     }
@@ -209,4 +209,6 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(e.message ?? e); process.exit(1); });
+if (require.main === module) {
+  main().catch((e) => { console.error(e.message ?? e); process.exit(1); });
+}

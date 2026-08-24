@@ -21,7 +21,8 @@
     "migrate:bom": "ts-node prisma/import-bom.ts",
     "migrate:receipts": "ts-node prisma/import-material-receipts.ts",
     "mock:1c": "node tools/mock-1c-server.js",
-    "go-live": "ts-node prisma/go-live.ts"
+    "go-live": "ts-node prisma/go-live.ts",
+    "import:1c-csv": "ts-node prisma/import-1c-csv.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
