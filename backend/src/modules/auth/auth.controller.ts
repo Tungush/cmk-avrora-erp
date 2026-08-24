@@ -1,6 +1,7 @@
 import { Controller, Post, Get, Body, UnauthorizedException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import * as jwt from 'jsonwebtoken';
+import * as bcrypt from 'bcrypt';
 import { Public } from '../../common/decorators/public.decorator';
 import { JWT_SECRET } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser, UserPayload } from '../../common/decorators/current-user.decorator';
@@ -46,6 +47,13 @@ export class AuthController {
     let roles: string[];
 
     if (dbUser) {
+      // Известный email обязан пройти пароль ВСЕГДА, демо-режим тут ни при
+      // чём — тот управляет только доступом НЕИЗВЕСТНОГО email ниже. До этой
+      // правки любой известный адрес пускал внутрь без проверки вовсе.
+      const passwordOk = await bcrypt.compare(body.password ?? '', dbUser.passwordHash);
+      if (!passwordOk) {
+        throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS', message: 'Неверный email или пароль' });
+      }
       userId = dbUser.id;
       email = dbUser.email;
       roles = dbUser.userRoles.map(ur => ur.role.code);

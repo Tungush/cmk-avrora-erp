@@ -4,7 +4,7 @@ import {
   Container,
   Paper,
   TextInput,
-  Select,
+  PasswordInput,
   Button,
   Title,
   Text,
@@ -12,7 +12,6 @@ import {
   Group,
   Box,
   Flex,
-  Badge,
   SimpleGrid,
 } from '@mantine/core';
 import { IconArrowRight, IconCheck } from '@tabler/icons-react';
@@ -22,24 +21,23 @@ import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
 
 export function Login() {
-  const [email, setEmail] = useState('sales@test.com');
-  const [roles, setRoles] = useState<string | null>('sales_manager');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
 
+  // Роль больше не выбирают на глаз — её решает пароль конкретного логина.
+  // Ошибка входа — это ошибка, а не повод пускать под тестовыми данными:
+  // тот же принцип честности, что и в runWithFallback (fallback.ts).
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const selectedRoles = (roles || 'sales_manager').split(',').map((r) => r.trim());
-
     try {
-      const { data } = await authApi.login(email, selectedRoles);
-      const token = data.token || data.accessToken || 'demo-jwt-token-123';
-      const user = data.user || { userId: 'user-1', email, roles: selectedRoles };
-      setAuth(token, user, data.permissions);
+      const { data } = await authApi.login(email, password);
+      setAuth(data.accessToken, data.user, data.permissions);
       notifications.show({
         title: 'Добро пожаловать',
         message: `Вход выполнен: ${email}`,
@@ -47,20 +45,16 @@ export function Login() {
         icon: <IconCheck size={18} />,
       });
       navigate('/dashboard');
-    } catch {
-      const mockUser = { userId: 'demo-user-1', email, roles: selectedRoles };
-      setAuth('demo-jwt-token-123', mockUser);
+    } catch (err: any) {
       notifications.show({
-        title: 'Демо-режим',
-        message: 'Вход выполнен с тестовыми данными',
-        color: 'brand',
-        icon: <IconCheck size={18} />,
+        title: 'Не удалось войти',
+        message: err?.response?.data?.error?.message ?? 'Неверный email или пароль',
+        color: 'danger',
       });
-      navigate('/dashboard');
     } finally {
       setLoading(false);
     }
-  }, [email, roles, setAuth, navigate]);
+  }, [email, password, setAuth, navigate]);
 
   // Настоящие числа завода, а не витринные «1200+» и «24/7»:
   // конкретика — единственная статистика, которой верят
@@ -129,46 +123,27 @@ export function Login() {
                   </Text>
                 </Stack>
 
-                <Group gap="xs" grow>
-                  <Badge variant="light" color="brand" size="lg" radius="xl">
-                    Демо-режим
-                  </Badge>
-                  <Badge variant="light" color="success" size="lg" radius="xl">
-                    Excel-миграция
-                  </Badge>
-                </Group>
-
                 <form onSubmit={handleLogin}>
                   <Stack gap="md">
                     <TextInput
                       label="Email"
-                      placeholder="user@example.com"
+                      placeholder="master@avh.kz"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       size="md"
                       required
                       withAsterisk
+                      autoComplete="username"
                     />
-                    <Select
-                      label="Роль (демо)"
-                      placeholder="Выберите роль"
-                      value={roles}
-                      onChange={setRoles}
+                    <PasswordInput
+                      label="Пароль"
+                      placeholder="Пароль вашего логина"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
                       size="md"
                       required
                       withAsterisk
-                      data={[
-                        { value: 'sales_manager', label: 'Менеджер по продажам' },
-                        { value: 'planner', label: 'Плановик' },
-                        { value: 'engineer', label: 'Конструктор' },
-                        { value: 'procurement', label: 'Закупщик' },
-                        { value: 'warehouse_material', label: 'Кладовщик (сырьё)' },
-                        { value: 'warehouse_fg', label: 'Кладовщик (ГП)' },
-                        { value: 'shop_foreman', label: 'Мастер цеха' },
-                        { value: 'accountant', label: 'Бухгалтер' },
-                        { value: 'director', label: 'Директор' },
-                        { value: 'admin', label: 'Администратор' },
-                      ]}
+                      autoComplete="current-password"
                     />
                     <Button
                       type="submit"
@@ -185,7 +160,7 @@ export function Login() {
                 </form>
 
                 <Text ta="center" c="dimmed" size="xs" mt="md">
-                  Демо-режим · данные из миграции Excel
+                  Логин и пароль выдаёт администратор
                 </Text>
               </Stack>
             </Paper>

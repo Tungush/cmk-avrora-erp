@@ -22,7 +22,8 @@
     "migrate:receipts": "ts-node prisma/import-material-receipts.ts",
     "mock:1c": "node tools/mock-1c-server.js",
     "go-live": "ts-node prisma/go-live.ts",
-    "import:1c-csv": "ts-node prisma/import-1c-csv.ts"
+    "import:1c-csv": "ts-node prisma/import-1c-csv.ts",
+    "rotate-passwords": "ts-node prisma/rotate-passwords.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
