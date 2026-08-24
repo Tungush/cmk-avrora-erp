@@ -31,7 +31,26 @@ export interface DirectorDashboard {
   overdue: Array<{ id: string; orderNumber: string; overdueDays: number; customer: { name: string } }>;
 }
 
+export interface WorkloadForecast {
+  requiredHours: number;
+  weeklyCapacityHours: number;
+  weeksOfBacklog: number | null;
+  byStage: Array<{ stage: string; requiredHours: number }>;
+  activeOrders: number;
+  ordersWithoutPlannedDate: number;
+  linesWithoutNorm: number;
+  linesTotal: number;
+}
+
+export interface CashForecast {
+  receivables: { contracted: number; paid: number; owed: number; activeOrders: number; ordersWithoutPaymentData: number };
+  payables: { owed: number };
+}
+
 export const dashboardApi = {
+  getWorkloadForecast: () => api.get<WorkloadForecast>('/dashboards/workload-forecast'),
+  getCashForecast: () => api.get<CashForecast>('/dashboards/cash-forecast'),
+
   getProductionSummary: () =>
     withClientFallback(
       () => api.get<DashboardSummary>('/dashboards/production-summary'),

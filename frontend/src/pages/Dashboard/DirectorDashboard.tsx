@@ -8,6 +8,7 @@ import {
 import {
   IconCoin, IconScale, IconAlertTriangle, IconInbox,
   IconGavel, IconClockExclamation, IconFlask, IconReceipt,
+  IconCpu, IconBuildingBank, IconInfoCircle,
 } from '@tabler/icons-react';
 import { dashboardApi } from '../../api/dashboard';
 import { KpiCard } from '../../components/KpiCard';
@@ -32,6 +33,16 @@ export function DirectorDashboard() {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard', 'director'],
     queryFn: () => dashboardApi.getDirector().then((r) => r.data),
+    refetchInterval: 60_000,
+  });
+  const { data: workload } = useQuery({
+    queryKey: ['dashboard', 'workload-forecast'],
+    queryFn: () => dashboardApi.getWorkloadForecast().then((r) => r.data),
+    refetchInterval: 60_000,
+  });
+  const { data: cash } = useQuery({
+    queryKey: ['dashboard', 'cash-forecast'],
+    queryFn: () => dashboardApi.getCashForecast().then((r) => r.data),
     refetchInterval: 60_000,
   });
 
@@ -90,9 +101,9 @@ export function DirectorDashboard() {
           icon={<IconCoin size={20} />}
         />
         <KpiCard
-          title="Не оплачено по ДО"
+          title="Мы должны поставщикам"
           value={formatCurrency(money.totalUnpaid)}
-          subtitle={`из ${formatCurrency(money.totalContracted)} законтрактовано`}
+          subtitle={`из ${formatCurrency(money.totalContracted)} по ДО закупа`}
           icon={<IconReceipt size={20} />}
         />
         <KpiCard
@@ -127,9 +138,9 @@ export function DirectorDashboard() {
           )}
         </Card>
 
-        {/* Деньги по ДО */}
+        {/* Деньги по ДО закупа — то, что МЫ должны поставщикам */}
         <Card withBorder padding="lg" radius="lg">
-          <Text fw={800} size="lg" mb="md">Деньги по договорам-основаниям</Text>
+          <Text fw={800} size="lg" mb="md">Поставщикам (закуп по ДО)</Text>
           <Stack gap="md">
             <Box>
               <Group justify="space-between" mb={6}>
@@ -158,6 +169,75 @@ export function DirectorDashboard() {
               </Box>
             )}
           </Stack>
+        </Card>
+      </SimpleGrid>
+
+      {/* Заказчики нам должны + загрузка цеха вперёд (запрос «сам прогнозировал», 24.08.2026) */}
+      <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
+        <Card withBorder padding="lg" radius="lg">
+          <Group gap="xs" mb="md">
+            <ThemeIcon variant="light" color="blue" radius="md"><IconBuildingBank size={18} /></ThemeIcon>
+            <Text fw={800} size="lg">Заказчики (нам должны)</Text>
+          </Group>
+          {!cash ? (
+            <Text size="sm" c="dimmed">Считается…</Text>
+          ) : (
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Законтрактовано (активные заказы)</Text>
+                <Text fw={700}>{formatCurrency(cash.receivables.contracted)}</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Оплачено по данным 1С</Text>
+                <Text fw={700}>{formatCurrency(cash.receivables.paid)}</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Должны нам</Text>
+                <Text fw={700} c="blue.7">{formatCurrency(cash.receivables.owed)}</Text>
+              </Group>
+              {cash.receivables.ordersWithoutPaymentData > 0 && (
+                <Group gap={6} wrap="nowrap" align="flex-start">
+                  <IconInfoCircle size={14} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} />
+                  <Text size="xs" c="dimmed">
+                    По {cash.receivables.ordersWithoutPaymentData} из {cash.receivables.activeOrders} активных заказов 1С не прислала данных об оплате — «должны нам» может быть занижено.
+                  </Text>
+                </Group>
+              )}
+            </Stack>
+          )}
+        </Card>
+
+        <Card withBorder padding="lg" radius="lg">
+          <Group gap="xs" mb="md">
+            <ThemeIcon variant="light" color="orange" radius="md"><IconCpu size={18} /></ThemeIcon>
+            <Text fw={800} size="lg">Загрузка цеха вперёд</Text>
+          </Group>
+          {!workload ? (
+            <Text size="sm" c="dimmed">Считается…</Text>
+          ) : (
+            <Stack gap="md">
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Осталось нормо-часов по активным заказам</Text>
+                <Text fw={700}>{workload.requiredHours.toLocaleString('ru-RU')} ч</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Мощность цеха в неделю</Text>
+                <Text fw={700}>{workload.weeklyCapacityHours.toLocaleString('ru-RU')} ч</Text>
+              </Group>
+              <Group justify="space-between">
+                <Text size="sm" c="dimmed">Цех загружен вперёд на</Text>
+                <Text fw={700} c={workload.weeksOfBacklog && workload.weeksOfBacklog > 8 ? 'red.7' : 'orange.7'}>
+                  {workload.weeksOfBacklog != null ? `≈ ${workload.weeksOfBacklog} нед.` : 'нет данных'}
+                </Text>
+              </Group>
+              <Group gap={6} wrap="nowrap" align="flex-start">
+                <IconInfoCircle size={14} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} />
+                <Text size="xs" c="dimmed">
+                  Оценка неполная: у {workload.ordersWithoutPlannedDate} из {workload.activeOrders} заказов нет плановой даты вывоза (недельной раскладки поэтому нет), а у {workload.linesWithoutNorm} из {workload.linesTotal} позиций нет нормы труда — цифра скорее занижена, чем завышена.
+                </Text>
+              </Group>
+            </Stack>
+          )}
         </Card>
       </SimpleGrid>
 

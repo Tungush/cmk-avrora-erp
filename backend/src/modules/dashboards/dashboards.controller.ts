@@ -6,6 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { PrismaService } from '../../services/prisma.service';
 import { runWithFallback } from '../../common/fallback';
 import { getMockDashboardSummary } from '../../common/mock-data';
+import { ROUTING_STAGES } from '../../common/production-stages';
 
 @ApiTags('Dashboards')
 @ApiBearerAuth()
@@ -317,33 +318,177 @@ export class DashboardsController {
     );
   }
 
+  /**
+   * Загрузка цеха вперёд (24.08.2026, запрос «сам прогнозировал»): сколько
+   * нормо-часов остаётся по незакрытым переделам активных заказов против
+   * недельной мощности участков — реальный расчёт по нормам (тот же, что
+   * в production-plan.controller.ts shopFloor), а не выдуманная формула
+   * «заказов × 12», которая тут стояла раньше.
+   *
+   * Раскладки по неделям НЕТ: ни у одного активного заказа сейчас не
+   * заполнена плановая дата отгрузки (свежая заливка из 1С её не несёт) —
+   * рисовать календарь по пустому полю значило бы врать датами. Честная
+   * цифра — на сколько недель вперёд цех уже загружен по факту нормо-часов.
+   */
+  @Get('workload-forecast')
+  @ApiOperation({ summary: 'Загрузка цеха: нормо-часы остатка против мощности участков' })
+  async workloadForecast() {
+    return runWithFallback(
+      this.prisma,
+      async () => {
+        const [orders, workCenters] = await Promise.all([
+          this.prisma.order.findMany({
+            where: { status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] } },
+            select: {
+              id: true,
+              plannedShipmentDate: true,
+              orderLines: { select: { qty: true, articleId: true } },
+              productionStages: { select: { stageCode: true, routingStage: true, status: true } },
+            },
+          }),
+          this.prisma.workCenter.findMany({ select: { capacityPerDay: true } }),
+        ]);
+
+        const articleIds = [...new Set(
+          orders.flatMap((o) => o.orderLines.map((l) => l.articleId).filter(Boolean)),
+        )] as string[];
+        const norms = articleIds.length
+          ? await this.prisma.routingOperation.findMany({
+              where: { articleId: { in: articleIds } },
+              select: { articleId: true, stage: true, workers: true, hoursPerUnit: true },
+            })
+          : [];
+        const normByArticleStage = new Map<string, number>();
+        for (const n of norms) {
+          normByArticleStage.set(`${n.articleId}:${n.stage}`, Number(n.workers) * Number(n.hoursPerUnit));
+        }
+        const articlesWithNorms = new Set(norms.map((n) => n.articleId));
+
+        const byStage: Record<string, number> = {};
+        for (const stage of ROUTING_STAGES) byStage[stage] = 0;
+        let requiredHours = 0;
+        let linesWithoutNorm = 0;
+        let linesTotal = 0;
+
+        for (const o of orders) {
+          const doneStages = new Set(
+            o.productionStages.filter((s) => s.status === 'DONE').map((s) => s.routingStage),
+          );
+          for (const stage of ROUTING_STAGES) {
+            if (doneStages.has(stage)) continue; // передел уже закрыт — часов больше не требует
+            for (const line of o.orderLines) {
+              linesTotal += 1;
+              if (!line.articleId) continue;
+              const perUnit = normByArticleStage.get(`${line.articleId}:${stage}`);
+              if (perUnit == null) { linesWithoutNorm += 1; continue; }
+              const hours = perUnit * Number(line.qty);
+              requiredHours += hours;
+              byStage[stage] += hours;
+            }
+          }
+        }
+
+        const weeklyCapacityHours = workCenters.reduce((s, w) => s + Number(w.capacityPerDay), 0) * 5;
+        const round1 = (n: number) => Math.round(n * 10) / 10;
+
+        return {
+          requiredHours: round1(requiredHours),
+          weeklyCapacityHours: round1(weeklyCapacityHours),
+          weeksOfBacklog: weeklyCapacityHours > 0 ? round1(requiredHours / weeklyCapacityHours) : null,
+          byStage: ROUTING_STAGES.map((stage) => ({ stage, requiredHours: round1(byStage[stage]) })),
+          activeOrders: orders.length,
+          ordersWithoutPlannedDate: orders.filter((o) => !o.plannedShipmentDate).length,
+          linesWithoutNorm,
+          linesTotal,
+        };
+      },
+      () => null,
+    );
+  }
+
+  /**
+   * Деньги вперёд: сколько заказчики нам должны (законтрактовано минус
+   * то, что 1С отдал как оплаченное) и сколько мы должны поставщикам —
+   * раздельно, потому что раньше на экране директора было только одно
+   * число из payment_documents (закуп) под подписью «Деньги», которое
+   * легко прочитать как «нам должны», хотя это «мы должны» (найдено
+   * при разборе 24.08.2026). Оплаты по заказам клиента 1С в сегодняшней
+   * выгрузке не было вовсе — receivables.paid будет честным нулём.
+   */
+  @Get('cash-forecast')
+  @ApiOperation({ summary: 'Дебиторка (нам должны) и кредиторка (мы должны) — раздельно' })
+  async cashForecast() {
+    return runWithFallback(
+      this.prisma,
+      async () => {
+        const [receivableAgg, payableAgg, ordersWithoutPayment] = await Promise.all([
+          this.prisma.order.aggregate({
+            where: { status: { notIn: ['CLOSED', 'CANCELLED'] } },
+            _sum: { onecTotalAmount: true, onecPaidAmount: true },
+            _count: true,
+          }),
+          this.prisma.paymentDocument.aggregate({ _sum: { unpaidAmount: true } }),
+          this.prisma.order.count({
+            where: { status: { notIn: ['CLOSED', 'CANCELLED'] }, onecPaidAmount: null },
+          }),
+        ]);
+
+        const contracted = Number(receivableAgg._sum.onecTotalAmount ?? 0);
+        const paid = Number(receivableAgg._sum.onecPaidAmount ?? 0);
+
+        return {
+          receivables: {
+            contracted,
+            paid,
+            owed: contracted - paid,
+            activeOrders: receivableAgg._count,
+            ordersWithoutPaymentData: ordersWithoutPayment,
+          },
+          payables: {
+            owed: Number(payableAgg._sum.unpaidAmount ?? 0),
+          },
+        };
+      },
+      () => null,
+    );
+  }
+
+  /**
+   * Раньше здесь стояла выдуманная формула «заказов × 12/10/120/140» —
+   * ровный красивый прогресс-бар, которого не существовало (найдено
+   * 24.08.2026 при разборе опросника). Теперь те же поля несут реальные
+   * числа: «план/факт» — сколько активных заказов дошло до готовности
+   * к отгрузке; загрузка цеха — нормо-часы остатка против мощности
+   * (workload-forecast); дебиторка — законтрактовано минус оплачено
+   * по данным 1С (cash-forecast), а не устаревшее Excel-поле balanceDue.
+   */
   @Get('production-summary')
   @ApiOperation({ summary: 'Get production dashboard summary' })
   async getProductionSummary() {
     return runWithFallback(
       this.prisma,
       async () => {
-        const [ordersInProduction, receivablesAgg, minStock] = await Promise.all([
-          this.prisma.order.count({ where: { status: 'IN_PRODUCTION' } }),
-          // Дебиторка — остаток к оплате по заказам; ДО (payment_documents) — это закуп
-          this.prisma.orderLine.aggregate({ _sum: { balanceDue: true } }),
+        const [activeOrders, readyToShip, workload, cash, minStock] = await Promise.all([
+          this.prisma.order.count({ where: { status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] } } }),
+          this.prisma.order.count({ where: { status: 'READY_TO_SHIP' } }),
+          this.workloadForecast(),
+          this.cashForecast(),
           this.prisma.minStockLevel.findMany({ take: 100 }),
         ]);
 
-        const receivablesTotal = Number(receivablesAgg._sum.balanceDue ?? 0);
         const norm = minStock.reduce((sum, item) => sum + Number(item.targetQty), 0);
         const inStock = minStock.reduce((sum, item) => sum + Number(item.actualQty), 0);
 
         return {
           productionPlanFact: {
-            planned: Math.max(ordersInProduction * 12, 1),
-            actual: Math.max(ordersInProduction * 10, 1),
+            planned: Math.max(activeOrders, 1),
+            actual: readyToShip,
           },
           workshopLoadHours: {
-            used: Math.max(ordersInProduction * 120, 0),
-            total: Math.max(ordersInProduction * 140, 1600),
+            used: workload?.requiredHours ?? 0,
+            total: Math.max(workload?.weeklyCapacityHours ?? 0, 1),
           },
-          receivablesTotal,
+          receivablesTotal: cash?.receivables.owed ?? 0,
           fgStockVsNorm: {
             inStock,
             norm: norm || 100,
