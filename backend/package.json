@@ -20,7 +20,8 @@
     "seed:demo": "ts-node prisma/seed-demo-scenarios.ts",
     "migrate:bom": "ts-node prisma/import-bom.ts",
     "migrate:receipts": "ts-node prisma/import-material-receipts.ts",
-    "mock:1c": "node tools/mock-1c-server.js"
+    "mock:1c": "node tools/mock-1c-server.js",
+    "go-live": "ts-node prisma/go-live.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
