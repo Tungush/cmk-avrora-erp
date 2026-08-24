@@ -53,6 +53,25 @@ export interface LaborAssignment {
   plannedHours?: number | null;
   contractorId?: string | null;
   workCenterId?: string | null;
+  /**
+   * Измеренный факт подряда в единицах СВОЕЙ ставки (часы для PER_HOUR,
+   * штуки для PER_UNIT, кг для PER_KG, тонны для PER_TON). Пока NULL —
+   * объём считается плановым: qty × share.
+   */
+  actualQty?: number | null;
+  /** Сумма, замороженная при приёмке работы: ставка потом может смениться */
+  actualAmount?: number | null;
+  /**
+   * Доля работы, приходящаяся на ЭТУ позицию заказа, когда подряд заведён
+   * на заказ целиком (0…1). Калькуляция считается по позициям, а «фикс
+   * 500 000 ₸ за передел» и принятая сумма — величины абсолютные: без
+   * разнесения они списались бы полностью в каждую позицию и заказ из двух
+   * позиций стоил бы вдвое дороже.
+   *
+   * К сдельным плановым ставкам НЕ применяется: там объём и так берётся
+   * из qty позиции, и сумма по позициям сходится сама.
+   */
+  allocationFactor?: number;
 }
 
 export interface LaborContext {
@@ -93,7 +112,15 @@ export function calcAssignmentCost(a: LaborAssignment, ctx: LaborContext): { cos
   const share = Math.max(0, a.share);
   const weightKg = ctx.weightKg ?? 0;
 
-  if (WEIGHT_BASED_RATES.includes(a.rateType) && weightKg <= 0) {
+  // Доля заказ-уровневой работы, приходящаяся на эту позицию (см. поле)
+  const alloc = a.allocationFactor != null && a.allocationFactor >= 0 ? a.allocationFactor : 1;
+
+  // Измеренный объём уже выражен в единицах своей ставки — вес изделия
+  // тогда не нужен: подрядчик сдал 3,2 тонны, а не «10 штук по 320 кг»
+  const measuredRaw = a.actualQty != null && a.actualQty >= 0 ? a.actualQty : null;
+  const measured = measuredRaw != null ? measuredRaw * alloc : null;
+
+  if (WEIGHT_BASED_RATES.includes(a.rateType) && weightKg <= 0 && measuredRaw === null) {
     throw new LaborConfigError(
       'RATE_REQUIRES_WEIGHT',
       `Ставка ${RATE_TYPE_LABELS[a.rateType]} требует заполненного веса изделия`,
@@ -107,26 +134,33 @@ export function calcAssignmentCost(a: LaborAssignment, ctx: LaborContext): { cos
 
   switch (a.rateType) {
     case 'PER_HOUR':
-      manHours = normManHours;
+      manHours = measured ?? normManHours;
       cost = round2(manHours * a.rate);
       break;
     case 'PER_UNIT':
-      cost = round2(qty * share * a.rate);
-      manHours = round3(a.plannedHours ?? 0);
+      cost = round2((measured ?? qty * share) * a.rate);
+      manHours = round3((a.plannedHours ?? 0) * alloc);
       break;
     case 'PER_KG':
-      cost = round2(qty * share * weightKg * a.rate);
-      manHours = round3(a.plannedHours ?? 0);
+      cost = round2((measured ?? qty * share * weightKg) * a.rate);
+      manHours = round3((a.plannedHours ?? 0) * alloc);
       break;
     case 'PER_TON':
-      cost = round2(((qty * share * weightKg) / 1000) * a.rate);
-      manHours = round3(a.plannedHours ?? 0);
+      cost = round2((measured ?? (qty * share * weightKg) / 1000) * a.rate);
+      manHours = round3((a.plannedHours ?? 0) * alloc);
       break;
     case 'FIXED':
     default:
-      cost = round2(a.rate);
-      manHours = round3(a.plannedHours ?? 0);
+      // Фикс — сумма за весь передел: на позицию приходится своя доля
+      cost = round2(a.rate * alloc);
+      manHours = round3((a.plannedHours ?? 0) * alloc);
       break;
+  }
+
+  // Сумма, замороженная при приёмке, важнее пересчёта: платим то, что приняли,
+  // даже если ставка в справочнике подрядчика с тех пор изменилась
+  if (a.actualAmount != null && a.actualAmount >= 0) {
+    cost = round2(a.actualAmount * alloc);
   }
 
   // Сдельная ставка не содержит часов. Если такие работы идут в нашем цеху,
@@ -142,8 +176,12 @@ export function calcAssignmentCost(a: LaborAssignment, ctx: LaborContext): { cos
 }
 
 /**
- * Сумма долей по переделу должна быть ровно единицей: иначе объём либо
- * посчитан дважды, либо часть его не оплачена никем.
+ * Проверять «сумма ровно 1» больше нельзя: штат не хранится строкой, он —
+ * остаток от нормы (решение 23.08.2026). Осталась одна возможная ошибка:
+ * подряд забрал больше целого передела, и тогда объём оплачен дважды.
+ *
+ * Недобор до единицы ошибкой НЕ является: это либо штатный остаток, либо
+ * передел без нормы, где штату взяться неоткуда.
  */
 export function validateShares(assignments: LaborAssignment[]): string | null {
   const byStage = new Map<StageValue, number>();
@@ -152,8 +190,8 @@ export function validateShares(assignments: LaborAssignment[]): string | null {
     byStage.set(a.stage, (byStage.get(a.stage) ?? 0) + a.share);
   }
   for (const [stage, sum] of byStage) {
-    if (Math.abs(sum - 1) > SHARE_TOLERANCE) {
-      return `Доли на переделе ${stage} дают ${round2(sum * 100)} % вместо 100 %`;
+    if (sum - 1 > SHARE_TOLERANCE) {
+      return `Доли на переделе ${stage} дают ${round2(sum * 100)} % — объём посчитан дважды`;
     }
   }
   return null;

@@ -7,7 +7,9 @@ import { assertFieldWriteAllowed, permissionsForRoles, rowScopeForRoles } from '
 import { PrismaService } from '../../services/prisma.service';
 import { runWithFallback } from '../../common/fallback';
 import { getMockOrders } from '../../common/mock-data';
-import { OrderStateMachine, OrderStateContext } from '../../services/order-state-machine.service';
+import {
+  OrderStateMachine, OrderStateContext, deriveStatusFromStages,
+} from '../../services/order-state-machine.service';
 import { IntegrationService } from '../../services/integration.service';
 import {
   stageShapeError, allocateActualHours, resolveTrackingMode, DEFAULT_STAGE_TRACKING_THRESHOLD,
@@ -15,7 +17,10 @@ import {
 
 /** Кто может перевести заказ В этот статус (серверная копия матрицы из 04_ROLES_PERMISSIONS.md) */
 const STATUS_TRANSITION_ROLES: Record<string, string[]> = {
-  CONFIRMED: ['sales_manager', 'admin'],
+  // Приём из инбокса (NEW → CONFIRMED) — руками производства/планирования;
+  // директор может всё, что может согласовать
+  CONFIRMED: ['sales_manager', 'planner', 'director', 'admin'],
+  DRAFT: ['sales_manager', 'planner', 'director', 'admin'],
   IN_PRODUCTION: ['planner', 'admin'],
   READY_TO_SHIP: ['warehouse_fg', 'admin'],
   SHIPPED: ['warehouse_fg', 'admin'],
@@ -80,6 +85,8 @@ export class OrdersController {
     if (query.status) where.status = query.status;
     if (query.customerId) where.customerId = query.customerId;
     if (query.overdueOnly === 'true') where.overdueDays = { gt: 0 };
+    // Сырые заказы Excel-миграции скрыты по умолчанию — не удалены
+    if ((query as any).archived !== 'true') where.isArchived = false;
     if (query.search) {
       where.OR = [
         { orderNumber: { contains: query.search, mode: 'insensitive' } },
@@ -105,10 +112,98 @@ export class OrdersController {
           this.prisma.order.count({ where }),
         ]);
 
-        return { data, meta: { page, pageSize, total } };
+        // rawColumns — сырые ячейки Excel с ценами; фронт их не читает,
+        // а роли без прав на финансы читать их и не должны
+        const clean = data.map(({ rawColumns, ...o }: any) => ({
+          ...o,
+          orderLines: o.orderLines?.map(({ rawColumns: _r, ...l }: any) => l),
+        }));
+        return { data: clean, meta: { page, pageSize, total } };
       },
       () => getMockOrders(page, pageSize),
     );
+  }
+
+  /**
+   * Инбокс «Новые заказы»: пришли из 1С (рождены сделкой Б24), производством
+   * не приняты. У каждого — список блокеров: пока они есть, кнопка «Принять»
+   * недоступна, и заказ не попадает в планирование.
+   */
+  @Get('inbox')
+  @Roles('planner', 'sales_manager', 'director', 'admin')
+  @ApiOperation({ summary: 'Инбокс новых заказов из 1С, ждущих приёма в производство' })
+  async inbox() {
+    const orders = await this.prisma.order.findMany({
+      where: { status: 'NEW' as any, isArchived: false },
+      orderBy: { createdAt: 'asc' },
+      include: {
+        customer: true,
+        orderLines: { include: { article: { select: { id: true, articleCode: true, name: true } } } },
+      },
+    });
+
+    const withBlockers = await Promise.all(orders.map(async (o) => {
+      const blockers: Array<{ code: string; message: string }> = [];
+      if (o.orderLines.length === 0) {
+        blockers.push({ code: 'EMPTY_ORDER_LINES', message: 'Нет позиций — дождитесь синхронизации строк из 1С' });
+      }
+      const unresolved = o.orderLines.filter((l) => !l.articleId);
+      if (unresolved.length > 0) {
+        blockers.push({
+          code: 'UNRESOLVED_ORDER_LINES',
+          message: `${unresolved.length} позиций без сопоставленного артикула: ${unresolved.map((l) => l.productNameRaw || l.articleCodeRaw || '—').slice(0, 3).join(', ')}${unresolved.length > 3 ? '…' : ''}`,
+        });
+      }
+      if (!o.customer?.binIin?.trim()) {
+        blockers.push({ code: 'MISSING_CUSTOMER_BIN', message: 'У заказчика нет БИН/ИИН' });
+      }
+      const withArticle = o.orderLines.filter((l) => l.articleId);
+      if (withArticle.length > 0) {
+        const bomCounts = await this.prisma.bomItem.groupBy({
+          by: ['articleId'],
+          where: { articleId: { in: withArticle.map((l) => l.articleId as string) } },
+          _count: true,
+        });
+        const withBom = new Set(bomCounts.map((b) => b.articleId));
+        const noBom = withArticle.filter((l) => !withBom.has(l.articleId as string));
+        if (noBom.length > 0) {
+          blockers.push({
+            code: 'NO_BOM',
+            message: `${noBom.length} позиций без состава изделия — калькуляция будет пустой`,
+          });
+        }
+      }
+      return { ...o, blockers, canAccept: blockers.filter((b) => b.code !== 'NO_BOM').length === 0 };
+    }));
+
+    return { data: withBlockers, meta: { total: withBlockers.length } };
+  }
+
+  /**
+   * Явный приём в производство: NEW → CONFIRMED с записью, кто и когда принял.
+   * Блокеры проверяет state machine — здесь только след приёма.
+   */
+  @Post(':id/accept')
+  @Roles('planner', 'sales_manager', 'director', 'admin')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Принять заказ из инбокса в производство' })
+  async acceptOrder(
+    @Param('id') id: string,
+    @Body() body: { comment?: string },
+    @CurrentUser() user: UserPayload,
+  ) {
+    const result = await this.transitionOrder(id, 'CONFIRMED', body?.comment ?? 'Принят в производство из инбокса', user);
+    const dbUser = user.userId.startsWith('usr-') ? null : user.userId;
+    let employeeId: string | null = null;
+    if (dbUser) {
+      const u = await this.prisma.user.findUnique({ where: { id: dbUser }, select: { employeeId: true } });
+      employeeId = u?.employeeId ?? null;
+    }
+    const order = await this.prisma.order.update({
+      where: { id },
+      data: { acceptedAt: new Date(), acceptedById: employeeId },
+    });
+    return { ...result, order };
   }
 
   @Get(':id')
@@ -138,65 +233,11 @@ export class OrdersController {
     return order;
   }
 
-  @Post()
-  @Roles('sales_manager', 'admin')
-  @ApiOperation({ summary: 'Create order' })
-  async create(@Body() body: any) {
-    const { lines, ...orderData } = body;
-    // API принимает человекочитаемые «ФЗ»/«ВЗ» (как в исходной таблице); Prisma ждёт имена enum
-    if (orderData.orderType === 'ФЗ') orderData.orderType = 'FZ';
-    if (orderData.orderType === 'ВЗ') orderData.orderType = 'VZ';
-    if (orderData.orderNumber) {
-      const existing = await this.prisma.order.findUnique({ where: { orderNumber: orderData.orderNumber } });
-      if (existing) throw new ConflictException({ code: 'DUPLICATE_ENTITY', message: `Order number ${orderData.orderNumber} already exists` });
-    } else {
-      // Номер в формате исходной таблицы: П-NNNNN-YY (П-88192-21)
-      const yy = String(new Date().getFullYear()).slice(-2);
-      do {
-        orderData.orderNumber = `П-${String(Math.floor(10000 + Math.random() * 90000))}-${yy}`;
-      } while (await this.prisma.order.findUnique({ where: { orderNumber: orderData.orderNumber } }));
-    }
-
-    // Режим отметки цехом подставляется по числу позиций (09 §2.2); явное
-    // значение в теле запроса уважается — правило только для умолчания
-    if (orderData.stageTrackingMode == null) {
-      const threshold = await this.stageTrackingThreshold();
-      orderData.stageTrackingMode = resolveTrackingMode(lines?.length ?? 0, threshold);
-    }
-
-    // Заказ создаётся у нас, 1С оформляет документ (§4.2) — событие в той же транзакции
-    return this.prisma.$transaction(async (tx) => {
-      const order = await tx.order.create({
-        data: {
-          ...orderData,
-          orderLines: lines
-            ? { create: lines.map((l: any) => ({ unit: 'шт', ...l })) }
-            : undefined,
-        },
-        include: { customer: true, orderLines: { include: { article: true } } },
-      });
-      await this.integration.enqueue(tx, {
-        type: 'order.created',
-        entityType: 'Order',
-        entityId: order.id,
-        payload: {
-          orderId: order.id,
-          orderNumber: order.orderNumber,
-          customer: { name: order.customer?.name, binIin: order.customer?.binIin },
-          orderType: order.orderType,
-          plannedShipmentDate: order.plannedShipmentDate,
-          lines: order.orderLines.map((l) => ({
-            articleCode: l.article?.articleCode,
-            name: l.article?.name,
-            qty: Number(l.qty),
-            unit: l.unit,
-            unitPrice: Number(l.unitPrice),
-          })),
-        },
-      });
-      return order;
-    });
-  }
+  // Создания заказа руками здесь нет намеренно (решение 23.08.2026).
+  // Заказ рождается сделкой в воронке Б24, оттуда документом «Заказ клиента»
+  // в 1С, и приходит к нам синхронизацией в инбокс (GET /orders/inbox).
+  // Второй способ завести тот же заказ мимо 1С — это гарантированные
+  // расхождения, которые потом никто не может объяснить.
 
   /**
    * Переход статуса через state machine (02_BUSINESS_LOGIC.md §3):
@@ -249,10 +290,14 @@ export class OrdersController {
       lines: order.orderLines.map((l) => ({
         qty: Number(l.qty),
         reservedQty: Number(l.reservedQty),
+        articleCode: l.articleId ?? undefined,
       })),
       customerBinIin: order.customer?.binIin,
       productionStages: order.productionStages.map((s) => ({
         stageCode: s.stageCode,
+        // Без передела три шага производства сливаются в один, и проверка
+        // «все этапы готовы» считается по неполному списку
+        routingStage: s.routingStage,
         status: s.status.toLowerCase(),
       })),
       finishedGoodsShipped: orderedQty > 0 && shippedQty >= orderedQty,
@@ -268,9 +313,23 @@ export class OrdersController {
       comment,
     });
 
-    const [updated] = await this.prisma.$transaction([
-      this.prisma.order.update({ where: { id }, data: { status: toStatus as any } }),
-      this.prisma.auditLogEntry.create({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const upd = await tx.order.update({ where: { id }, data: { status: toStatus as any } });
+      // Статус производства уходит в 1С: там по нему оформляют отгрузку
+      // и документы — пользователь в саму 1С не заходит
+      await this.integration.enqueue(tx, {
+        type: 'production-status',
+        entityType: 'Order',
+        entityId: order.id,
+        payload: {
+          orderNumber: order.orderNumber,
+          onecNum: order.onecNum,
+          status: toStatus,
+          changedAt: new Date().toISOString(),
+          comment: comment ?? null,
+        },
+      });
+      await tx.auditLogEntry.create({
         data: {
           entityType: audit.entityType,
           entityId: audit.entityId,
@@ -281,8 +340,9 @@ export class OrdersController {
           userRole: audit.userRole,
           comment: audit.comment,
         },
-      }),
-    ]);
+      });
+      return upd;
+    });
 
     return { order: updated, audit };
   }
@@ -441,11 +501,79 @@ export class OrdersController {
       where: { orderId: id, orderLineId, stageCode: code as any, routingStage },
     });
 
-    return existing
-      ? this.prisma.productionStage.update({ where: { id: existing.id }, data })
-      : this.prisma.productionStage.create({
-          data: { orderId: id, orderLineId, stageCode: code as any, routingStage, ...data },
+    return this.prisma.$transaction(async (tx) => {
+      const stage = existing
+        ? await tx.productionStage.update({ where: { id: existing.id }, data })
+        : await tx.productionStage.create({
+            data: { orderId: id, orderLineId, stageCode: code as any, routingStage, ...data },
+          });
+      // Ход производства виден 1С: по «производство завершено» там начинают
+      // готовить отгрузку, не заглядывая к нам
+      await this.integration.enqueue(tx, {
+        type: 'production-stage',
+        entityType: 'Order',
+        entityId: id,
+        payload: {
+          orderNumber: order.orderNumber,
+          onecNum: order.onecNum,
+          stageCode: code,
+          routingStage,
+          status,
+          changedAt: new Date().toISOString(),
+        },
+      });
+
+      // Статус заказа выводится из этапов, а не двигается отдельно
+      // (решение 23.08.2026). Мастер отметил — заказ сам встал куда надо,
+      // и никто больше не делает ту же работу второй раз вручную.
+      const allStages = await tx.productionStage.findMany({
+        where: { orderId: id },
+        select: { stageCode: true, routingStage: true, orderLineId: true, status: true },
+      });
+      // В режиме LINE шаг закрыт, только когда отмечены все позиции
+      const expectedLines = order.stageTrackingMode === 'LINE'
+        ? Math.max(1, order.orderLines.length)
+        : 1;
+      const derived = deriveStatusFromStages(order.status, allStages as any, expectedLines);
+      if (derived) {
+        // Условие в WHERE: если статус успели сдвинуть между чтением заказа
+        // и этой записью (параллельная отметка, ручной переход), обновление
+        // не применится и чужое решение не будет затёрто
+        const applied = await tx.order.updateMany({
+          where: { id, status: order.status },
+          data: { status: derived },
         });
+        if (applied.count === 0) {
+          return { ...stage, orderStatus: order.status, orderStatusChanged: false };
+        }
+        await tx.auditLogEntry.create({
+          data: {
+            entityType: 'Order',
+            entityId: id,
+            action: 'status_change',
+            before: { status: order.status } as any,
+            after: { status: derived } as any,
+            userId: user.userId.startsWith('usr-') ? null : user.userId,
+            userRole: user.roles[0],
+            comment: `Автоматически по этапам: ${stage.stageCode}${routingStage ? ` / ${routingStage}` : ''} → ${status}`,
+          },
+        });
+        await this.integration.enqueue(tx, {
+          type: 'production-status',
+          entityType: 'Order',
+          entityId: id,
+          payload: {
+            orderNumber: order.orderNumber,
+            onecNum: order.onecNum,
+            status: derived,
+            changedAt: new Date().toISOString(),
+            comment: 'автоматически по отметкам этапов',
+          },
+        });
+      }
+
+      return { ...stage, orderStatus: derived ?? order.status, orderStatusChanged: Boolean(derived) };
+    });
   }
 
   /**

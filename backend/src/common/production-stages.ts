@@ -63,6 +63,57 @@ export function stageShapeError(code: string, routingStage?: string | null): str
  * «резка по заказу целиком» ничего не значит.
  */
 /** Значение по умолчанию, если CostingConfig недоступен */
+/**
+ * Готовность заказа по этапам (решение 23.08.2026: статус выводится из
+ * отметок, а не двигается отдельно).
+ *
+ * Считать по существующим строкам нельзя: они создаются лениво, только
+ * когда мастер отметил шаг. Заказ с одной отметкой «резка готова» дал бы
+ * `every(done) === true` — и уехал бы в «готов к отгрузке», хотя сборка
+ * и покраска даже не начинались. Поэтому мерой служит полный список
+ * из пяти шагов, а не то, что успело попасть в базу.
+ */
+export function stageProgress(
+  rows: Array<{ stageCode: string; routingStage?: string | null; orderLineId?: string | null; status: string }>,
+  /**
+   * Сколько позиций должно быть отмечено, чтобы шаг считался закрытым.
+   * В режиме ORDER это всегда 1 (одна запись на заказ), в режиме LINE —
+   * число позиций заказа. Без этого числа «все позиции готовы» неотличимо
+   * от «готова та единственная, которую успели отметить».
+   */
+  expectedLines = 1,
+): { allDone: boolean; anyStarted: boolean; doneCount: number; totalSteps: number } {
+  const byKey = new Map<string, Array<{ status: string; lineId: string | null }>>();
+  for (const r of rows) {
+    const key = stepKey(r.stageCode, r.routingStage);
+    byKey.set(key, [
+      ...(byKey.get(key) ?? []),
+      { status: r.status.toLowerCase(), lineId: r.orderLineId ?? null },
+    ]);
+  }
+
+  const needed = Math.max(1, expectedLines);
+  let doneCount = 0;
+  let anyStarted = false;
+  for (const step of STAGE_STEPS) {
+    const entries = byKey.get(step.key) ?? [];
+    // Считаем РАЗНЫЕ позиции: пять отметок по одной позиции — это одна
+    // закрытая позиция, а не пять
+    const doneLines = new Set(
+      entries.filter((e) => e.status === 'done').map((e) => e.lineId ?? '∅'),
+    );
+    if (doneLines.size >= needed && entries.every((e) => e.status === 'done')) doneCount++;
+    if (entries.some((e) => e.status === 'done' || e.status === 'in_progress')) anyStarted = true;
+  }
+
+  return {
+    allDone: doneCount === STAGE_STEPS.length,
+    anyStarted,
+    doneCount,
+    totalSteps: STAGE_STEPS.length,
+  };
+}
+
 export const DEFAULT_STAGE_TRACKING_THRESHOLD = 5;
 
 export function resolveTrackingMode(lineCount: number, threshold: number): 'ORDER' | 'LINE' {

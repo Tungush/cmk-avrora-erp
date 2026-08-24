@@ -102,25 +102,23 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
 
     const customerId = custRes.body.id;
 
-    // 3. Sales Manager creates Order (Status: DRAFT)
-    const orderRes = await request(app.getHttpServer())
-      .post('/api/v1/orders')
-      .set('Authorization', `Bearer ${tokens.sales}`)
-      .send({
+    // 3. Заказ появляется в базе. Эндпоинта создания больше нет намеренно
+    //    (решение 23.08.2026): заказ рождается сделкой Б24 → документом 1С →
+    //    синхронизацией к нам. Тест про жизненный цикл, а не про заведение,
+    //    поэтому кладём заказ напрямую — так же, как это сделает синхронизация.
+    const prismaDirect = app.get(PrismaService);
+    const createdOrder = await prismaDirect.order.create({
+      data: {
+        orderNumber: `П-E2E-${runId}`,
         customerId,
-        orderType: 'ФЗ',
-        lines: [
-          {
-            articleId,
-            qty: 5,
-            reservedQty: 5,
-          },
-        ],
-      })
-      .expect(201);
+        orderType: 'FZ',
+        status: 'DRAFT',
+        orderLines: { create: [{ articleId, qty: 5, reservedQty: 5, unit: 'шт' }] },
+      },
+    });
 
-    const orderId = orderRes.body.id;
-    expect(orderRes.body.status).toBe('DRAFT');
+    const orderId = createdOrder.id;
+    expect(createdOrder.status).toBe('DRAFT');
 
     // RBAC Check 1: Shop Foreman tries to transition status -> MUST BE REJECTED 403
     await request(app.getHttpServer())
@@ -136,19 +134,22 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .send({ toStatus: 'CONFIRMED' })
       .expect(200);
 
-    // 5. Shop Foreman updates a production stage to in_progress
+    // 5. Мастер начинает работу. CUTTING — это передел внутри PRODUCTION,
+    // а не код этапа: кодов после миграции 8 → 3 всего три (09 §2.1)
     await request(app.getHttpServer())
-      .patch(`/api/v1/orders/${orderId}/production-stages/CUTTING`)
+      .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
       .set('Authorization', `Bearer ${tokens.foreman}`)
-      .send({ status: 'in_progress' })
+      .send({ status: 'in_progress', routingStage: 'CUTTING' })
       .expect(200);
 
-    // 6. Planner transitions order to IN_PRODUCTION
-    await request(app.getHttpServer())
-      .post(`/api/v1/orders/${orderId}/status`)
+    // 6. Статус в «в производстве» никто не двигает: заказ занял его сам,
+    //    когда мастер отметил «начал» (решение 23.08.2026). Повторный ручной
+    //    перевод отклоняется — статус уже тот же.
+    const afterStart = await request(app.getHttpServer())
+      .get(`/api/v1/orders/${orderId}`)
       .set('Authorization', `Bearer ${tokens.planner}`)
-      .send({ toStatus: 'IN_PRODUCTION' })
       .expect(200);
+    expect(afterStart.body.status).toBe('IN_PRODUCTION');
 
     // 7. Мастер закрывает все этапы: две вехи + три передела (09 §2.1)
     const steps: Array<{ code: string; routingStage: string | null }> = [
@@ -178,12 +179,13 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .send({ status: 'done', routingStage: 'CUTTING' })
       .expect(400);
 
-    // 8. Warehouse FG transitions order to READY_TO_SHIP (per 04_ROLES_PERMISSIONS.md)
-    await request(app.getHttpServer())
-      .post(`/api/v1/orders/${orderId}/status`)
+    // 8. «Готов к отгрузке» тоже проставился сам — все пять этапов закрыты.
+    //    Складу больше не нужно повторять работу мастера вручную.
+    const afterStages = await request(app.getHttpServer())
+      .get(`/api/v1/orders/${orderId}`)
       .set('Authorization', `Bearer ${tokens.warehouseFg}`)
-      .send({ toStatus: 'READY_TO_SHIP' })
       .expect(200);
+    expect(afterStages.body.status).toBe('READY_TO_SHIP');
 
     // 9. Warehouse FG posts finished goods movement and transitions order to SHIPPED
     await request(app.getHttpServer())

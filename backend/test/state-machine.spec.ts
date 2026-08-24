@@ -1,5 +1,7 @@
 import { OrderStatus } from '@prisma/client';
-import { OrderStateMachine, OrderStateContext } from '../src/services/order-state-machine.service';
+import {
+  OrderStateMachine, OrderStateContext, deriveStatusFromStages,
+} from '../src/services/order-state-machine.service';
 import { BusinessGuardError } from '../src/services/guards.service';
 
 describe('Order State Machine Unit Tests', () => {
@@ -9,8 +11,8 @@ describe('Order State Machine Unit Tests', () => {
     lines: [{ qty: 10, reservedQty: 10, articleCode: 'ART-001' }],
     customerBinIin: '123456789012',
     productionStages: [
-      { stageCode: 'CUTTING', status: 'in_progress' },
-      { stageCode: 'PAINTING', status: 'not_started' },
+      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'in_progress' },
+      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'not_started' },
     ],
     finishedGoodsShipped: true,
     balanceDue: 0,
@@ -52,8 +54,11 @@ describe('Order State Machine Unit Tests', () => {
 
   it('Happy Path: IN_PRODUCTION -> READY_TO_SHIP when all stages are done', () => {
     const doneStages = [
-      { stageCode: 'CUTTING', status: 'done' },
-      { stageCode: 'PAINTING', status: 'done' },
+      { stageCode: 'DESIGN', routingStage: null, status: 'done' },
+      { stageCode: 'SUPPLY', routingStage: null, status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'done' },
     ];
     const ctx = { ...baseContext, currentStatus: OrderStatus.IN_PRODUCTION, productionStages: doneStages };
     const audit = OrderStateMachine.transition(ctx, {
@@ -72,7 +77,54 @@ describe('Order State Machine Unit Tests', () => {
         userId: 'usr-3',
         userRole: 'shop_foreman',
       })
-    ).toThrow('all production stages must be completed');
+    ).toThrow(/закрыто \d+ из 5 этапов/);
+  });
+
+  // Режим LINE: шаг закрыт, только когда отмечены ВСЕ позиции заказа.
+  // Иначе одна отмеченная позиция из трёх закрывала шаг целиком.
+  it('в режиме LINE одна отмеченная позиция не закрывает шаг', () => {
+    const allFiveButOneLine = [
+      { stageCode: 'DESIGN', routingStage: null, orderLineId: 'l1', status: 'done' },
+      { stageCode: 'SUPPLY', routingStage: null, orderLineId: 'l1', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', orderLineId: 'l1', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', orderLineId: 'l1', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', orderLineId: 'l1', status: 'done' },
+    ];
+    // Одна позиция из трёх — заказ не готов
+    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, allFiveButOneLine, 3)).toBeNull();
+    // Тот же набор при единственной позиции — готов
+    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, allFiveButOneLine, 1))
+      .toBe(OrderStatus.READY_TO_SHIP);
+  });
+
+  it('вывод статуса не трогает отгруженный и закрытый заказ', () => {
+    const done = [
+      { stageCode: 'DESIGN', routingStage: null, status: 'done' },
+      { stageCode: 'SUPPLY', routingStage: null, status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', status: 'done' },
+      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'done' },
+    ];
+    expect(deriveStatusFromStages(OrderStatus.SHIPPED, done)).toBeNull();
+    expect(deriveStatusFromStages(OrderStatus.CLOSED, done)).toBeNull();
+    expect(deriveStatusFromStages(OrderStatus.NEW, done)).toBeNull();
+  });
+
+  // Строки этапов создаются лениво: раньше `every(done)` по одной отметке
+  // «резка готова» пропускал заказ вперёд, минуя сборку и покраску
+  it('одна отметка «готово» не считается «все этапы закрыты»', () => {
+    const ctx = {
+      ...baseContext,
+      currentStatus: OrderStatus.IN_PRODUCTION,
+      productionStages: [{ stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'done' }],
+    };
+    expect(() =>
+      OrderStateMachine.transition(ctx, {
+        targetStatus: OrderStatus.READY_TO_SHIP,
+        userId: 'usr-3',
+        userRole: 'shop_foreman',
+      })
+    ).toThrow(/закрыто 1 из 5 этапов/);
   });
 
   it('Happy Path: READY_TO_SHIP -> SHIPPED', () => {

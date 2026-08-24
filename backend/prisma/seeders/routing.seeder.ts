@@ -18,7 +18,13 @@ export async function seedRouting(prisma: PrismaClient) {
         logisticsPct: 0.03,   // Спецификации 2022!AJ1
         utilitiesPct: 0.01,   // AK1
         vatPct: 0.12,         // Прайс!M1
-        marginPct: 0.1,       // AN1
+        // Решение 19.08.2026: маржинальность 35 % ОТ ЦЕНЫ (marginMode MARGIN,
+        // цена = себестоимость / (1 − 0.35)). Прежние 0.1 — это ячейка AN1
+        // из таблицы 2022 года, а не действующее правило: на себестоимости
+        // 5 252 742 ₸ она давала цену 5 836 380 ₸ вместо 8 081 141 ₸.
+        // Значение живёт в сиде, поэтому после сноса данных возвращалось бы.
+        marginPct: 0.35,
+        marginMode: 'MARGIN',
         paymentTermDays: 30,  // Telecom!AH: (AG+30)-TODAY()
         weldingFactor: 0.02,  // «коэф. сварки» Q1
       },

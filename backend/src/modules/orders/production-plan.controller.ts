@@ -7,6 +7,8 @@ import { getMockProductionPlan } from '../../common/mock-data';
 
 import { STAGE_STEPS, stepKey, stageShapeError } from '../../common/production-stages';
 
+const round3 = (n: number) => Math.round(n * 1000) / 1000;
+
 @ApiTags('Production Plan')
 @ApiBearerAuth()
 @Controller('production-plan')
@@ -67,9 +69,37 @@ export class ProductionPlanController {
           include: {
             customer: { select: { name: true } },
             productionStages: true,
-            orderLines: { select: { qty: true, article: { select: { articleCode: true, name: true } } } },
+            orderLines: {
+              select: {
+                qty: true,
+                articleId: true,
+                article: { select: { articleCode: true, name: true } },
+              },
+            },
+            contractorWorks: {
+              include: { contractor: { select: { id: true, name: true } } },
+            },
           },
         });
+
+        // Норма часов на передел — её мастер увидит подставленной в поле
+        // «часов по факту», и в типичном случае не будет вводить ничего
+        const articleIds = [...new Set(
+          orders.flatMap((o) => o.orderLines.map((l) => l.articleId).filter(Boolean)),
+        )] as string[];
+        const norms = articleIds.length
+          ? await this.prisma.routingOperation.findMany({
+              where: { articleId: { in: articleIds } },
+              select: { articleId: true, stage: true, workers: true, hoursPerUnit: true },
+            })
+          : [];
+        const normByArticleStage = new Map<string, number>();
+        for (const n of norms) {
+          normByArticleStage.set(
+            `${n.articleId}:${n.stage}`,
+            Number(n.workers) * Number(n.hoursPerUnit),
+          );
+        }
 
         const rows = orders.map((o) => {
           // В режиме LINE у шага несколько записей (по позициям): шаг считается
@@ -88,6 +118,41 @@ export class ProductionPlanController {
                 : statuses.some((x) => x === 'DONE' || x === 'IN_PROGRESS')
                   ? 'IN_PROGRESS'
                   : 'NOT_STARTED';
+
+            // Нормативные часы передела по всем позициям заказа
+            const normHours = step.routingStage
+              ? round3(o.orderLines.reduce((sum, l) => {
+                  const perUnit = l.articleId
+                    ? normByArticleStage.get(`${l.articleId}:${step.routingStage}`) ?? 0
+                    : 0;
+                  return sum + perUnit * Number(l.qty);
+                }, 0))
+              : null;
+
+            // Уже введённый факт: если его нет, часы считаются «по норме»
+            const rows = o.productionStages.filter(
+              (s) => stepKey(s.stageCode, s.routingStage) === step.key,
+            );
+            const actualHours = rows.some((r) => r.actualHours != null)
+              ? round3(rows.reduce((s, r) => s + Number(r.actualHours ?? 0), 0))
+              : null;
+
+            // Подряд на этом переделе — мастер видит, что работа уже отдана
+            const works = step.routingStage
+              ? o.contractorWorks
+                  .filter((w) => w.routingStage === step.routingStage)
+                  .map((w) => ({
+                    id: w.id,
+                    contractorId: w.contractorId,
+                    contractorName: w.contractor.name,
+                    share: Number(w.share),
+                    rateType: w.rateType,
+                    rate: Number(w.rate),
+                    isAccepted: w.acceptedAt != null,
+                    actualQty: w.actualQty != null ? Number(w.actualQty) : null,
+                  }))
+              : [];
+
             return {
               code: step.code,
               routingStage: step.routingStage,
@@ -95,6 +160,13 @@ export class ProductionPlanController {
               label: step.label,
               status,
               lineCount: statuses.length,
+              normHours,
+              actualHours,
+              contractorWorks: works,
+              // Сколько объёма осталось штату после подряда
+              staffShare: works.length
+                ? Math.max(0, 1 - works.reduce((s, w) => s + w.share, 0))
+                : 1,
             };
           });
           const done = stages.filter((s) => s.status === 'DONE').length;

@@ -44,6 +44,9 @@ enum OrderType {
 }
 
 enum OrderStatus {
+  /// Пришёл из 1С (рождён сделкой Б24), производством ещё не принят —
+  /// лежит в инбоксе «Новые заказы» до явного «Принять в производство»
+  NEW
   DRAFT
   CONFIRMED
   IN_PRODUCTION
@@ -119,6 +122,25 @@ enum LogisticsMode {
 enum BatchOrigin {
   LOCAL
   ONEC
+}
+
+/// Чьё сырьё лежит в партии. TOLLING — давальческое: металл заказчика,
+/// цена 0, в себестоимость не входит, чужим заказам не резервируется.
+/// Признак ставится на партию, а не на заказ: смешанный заказ
+/// (металл давальца + наши метизы) — базовый случай.
+enum BatchType {
+  OWN
+  TOLLING
+}
+
+/// Стадия уточнения закупочной цены в строке калькуляции:
+/// оценка (последний закуп) → заказано (цена из «Заказа поставщику» 1С)
+/// → факт (цена партии прихода). Снимки консервируются — по ним аналитика
+/// «как дорожало сырьё и как менялись сделки».
+enum PriceState {
+  ESTIMATE
+  ORDERED
+  ACTUAL
 }
 
 /// По какой цене посчитана строка материала (09 §4.2)
@@ -324,7 +346,6 @@ model WorkCenter {
   isActive       Boolean      @default(true) @map("is_active")
 
   operations       RoutingOperation[]
-  laborAssignments OrderLaborAssignment[]
 
   @@map("work_centers")
 }
@@ -456,6 +477,11 @@ model NomenclatureRequest {
   /// Срок, после которого заявка подсвечивается как зависшая
   slaDueAt         DateTime? @map("sla_due_at")
 
+  /// Задача оператору в Б24, созданная автоматически при подаче заявки.
+  /// Истина по статусу — у нас; Б24 лишь доносит работу до оператора 1С.
+  bitrixTaskId        String?   @map("bitrix_task_id") @db.VarChar(30)
+  bitrixTaskCreatedAt DateTime? @map("bitrix_task_created_at")
+
   article Article? @relation(fields: [articleId], references: [id])
 
   @@index([status, createdAt])
@@ -504,6 +530,11 @@ model MaterialBatch {
   origin     BatchOrigin @default(LOCAL)
   externalId String?     @map("external_id") @db.VarChar(64)
 
+  /// Давальческое сырьё: партия принадлежит конкретному заказу,
+  /// unitPrice = 0, из FIFO-подбора и резервов чужих заказов исключается
+  batchType    BatchType @default(OWN) @map("batch_type")
+  ownerOrderId String?   @map("owner_order_id") @db.Uuid
+
   /// Карантин (09 §4.5): цена отклоняется от медианы по материалу больше
   /// порога — партия не участвует в автоподборе, пока снабжение не подтвердит
   priceAnomaly       Boolean   @default(false) @map("price_anomaly")
@@ -514,10 +545,12 @@ model MaterialBatch {
   createdAt DateTime @default(now()) @map("created_at")
 
   material     Material           @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  ownerOrder   Order?             @relation("TollingBatches", fields: [ownerOrderId], references: [id])
   reservations BatchReservation[]
 
   @@index([materialId, receiptDate])
   @@index([materialId, priceAnomaly])
+  @@index([ownerOrderId])
   @@map("material_batches")
 }
 
@@ -534,48 +567,63 @@ model Contractor {
   notes               String?      @db.Text
   createdAt           DateTime     @default(now()) @map("created_at")
 
-  assignments   OrderLaborAssignment[]
   costingLabors OrderCostingLabor[]
+  works         ContractorWork[]
+  supplierActs  SupplierDocument[]
 
   @@map("contractors")
 }
 
-/// Кто фактически делает передел в этом заказе (09 §5.1).
-/// Норма живёт в RoutingOperation — это эталон изделия; здесь исполнение.
-model OrderLaborAssignment {
-  id          String       @id @default(uuid()) @db.Uuid
-  orderId     String       @map("order_id") @db.Uuid
-  orderLineId String?      @map("order_line_id") @db.Uuid
-  articleId   String?      @map("article_id") @db.Uuid
-  stage       RoutingStage
-  laborKind   LaborKind
+/// Работа подрядчика на переделе (решение 23.08.2026, замена
+/// OrderLaborAssignment + ContractorWorkLog).
+///
+/// Штатных строк здесь не бывает вовсе: норма изделия (RoutingOperation) —
+/// это и есть план штата, и пока никто ничего не сказал, весь объём передела
+/// делает штат. Строка подряда вырезает свою долю, остаток (1 − Σ share)
+/// достаётся штату автоматически — «штат 40 %» не вводит никто и никогда.
+model ContractorWork {
+  id           String       @id @default(uuid()) @db.Uuid
+  orderId      String       @map("order_id") @db.Uuid
+  /// NULL — передел заказа целиком (режим ORDER)
+  orderLineId  String?      @map("order_line_id") @db.Uuid
+  routingStage RoutingStage @map("routing_stage")
+  contractorId String       @map("contractor_id") @db.Uuid
 
-  workCenterId String? @map("work_center_id") @db.Uuid
-  contractorId String? @map("contractor_id") @db.Uuid
+  /// Доля объёма передела: 1 — весь передел, 0.6 — вместе со штатом
+  share    Decimal  @default(1) @db.Decimal(6, 4)
+  rateType RateType @map("rate_type")
+  rate     Decimal  @db.Decimal(14, 2)
 
-  /// Доля объёма передела; сумма по переделу должна давать ровно 1
-  share            Decimal  @default(1) @db.Decimal(6, 4)
-  rateType         RateType @default(PER_UNIT) @map("rate_type")
-  rate             Decimal  @default(0) @db.Decimal(14, 2)
-  /// Работы в нашем цеху — часы идут в загрузку участка
-  countInShopHours Boolean  @default(true) @map("count_in_shop_hours")
+  /// Факт: объём в единицах ставки. NULL — работа ещё не принята,
+  /// сумма считается плановой (qty × share)
+  actualQty     Decimal? @map("actual_qty") @db.Decimal(12, 3)
+  actualWorkers Int?     @map("actual_workers")
+  /// Заморожена в момент приёмки: ставка потом может смениться
+  actualAmount  Decimal? @map("actual_amount") @db.Decimal(14, 2)
 
-  plannedHours Decimal? @map("planned_hours") @db.Decimal(10, 3)
-  actualHours  Decimal? @map("actual_hours") @db.Decimal(10, 3)
+  /// Где работают: у нас часы занимают мощность участка, на стороне — нет
+  workLocation WorkLocation @default(CONTRACTOR_SITE) @map("work_location")
+  /// Оценка часов для сдельного подряда, работающего в нашем цеху
+  plannedHours Decimal?     @map("planned_hours") @db.Decimal(10, 3)
 
-  contractDocId String?  @map("contract_doc_id") @db.Uuid
-  note          String?  @db.Text
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  /// Решение отдать работу на сторону — управленческое, у него есть автор
+  decidedById String?   @map("decided_by_id") @db.Uuid
+  decidedAt   DateTime  @default(now()) @map("decided_at")
+  reason      String?   @db.Text
+  /// Кто закрыл работу в цеху
+  acceptedById String?  @map("accepted_by_id") @db.Uuid
+  acceptedAt   DateTime? @map("accepted_at")
 
-  order      Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderLine  OrderLine?  @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
-  workCenter WorkCenter? @relation(fields: [workCenterId], references: [id])
-  contractor Contractor? @relation(fields: [contractorId], references: [id])
+  contractDocId String? @map("contract_doc_id") @db.Uuid
+  note          String? @db.Text
 
-  @@index([orderId, stage])
-  @@index([orderLineId])
-  @@map("order_labor_assignments")
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLine  OrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  contractor Contractor @relation(fields: [contractorId], references: [id])
+
+  @@index([orderId, routingStage])
+  @@index([contractorId, decidedAt])
+  @@map("contractor_works")
 }
 
 /// Калькуляция позиции заказа как версионируемый документ (09 §3.1).
@@ -624,6 +672,10 @@ model OrderCosting {
   totalManHours  Decimal @default(0) @map("total_man_hours") @db.Decimal(10, 3)
   /// Часть материалов посчитана по цене, которой на складе нет (09 §4.3)
   hasShortage    Boolean @default(false) @map("has_shortage")
+  /// У изделия не заведены нормы труда: штатная часть посчиталась в ноль.
+  /// Без этого флага заказ выглядит бесплатным по труду и честным на вид
+  /// (485 артикулов из 2 160 норм не имеют)
+  hasMissingNorm Boolean @default(false) @map("has_missing_norm")
 
   note String? @db.Text
 
@@ -659,6 +711,12 @@ model OrderCostingMaterial {
   priceDate        DateTime?   @map("price_date") @db.Date
   /// Раскладка по партиям: [{batchId, qty, unitPrice, lineCost}]
   allocations      Json?
+
+  /// Стадия уточнения цены: оценка → заказано (цена из «Заказа поставщику» 1С)
+  /// → факт (цена партии прихода). Номер заказа поставщику — след для аналитики.
+  priceState          PriceState @default(ESTIMATE) @map("price_state")
+  supplierOrderNumber String?    @map("supplier_order_number") @db.VarChar(30)
+  priceStateChangedAt DateTime?  @map("price_state_changed_at")
 
   isShortage        Boolean @default(false) @map("is_shortage")
   shortageQty       Decimal @default(0) @map("shortage_qty") @db.Decimal(14, 3)
@@ -829,6 +887,14 @@ model Order {
   /// 09 §2.2: подставляется по числу позиций (порог в CostingConfig), меняется вручную
   stageTrackingMode StageTrackingMode @default(ORDER) @map("stage_tracking_mode")
 
+  /// Явный приём в производство из инбокса «Новые заказы»: кто и когда нажал
+  /// «Принять». Пока не принят — заказ в статусе NEW и в планирование не попадает.
+  acceptedAt   DateTime? @map("accepted_at")
+  acceptedById String?   @map("accepted_by_id") @db.Uuid
+
+  /// Сырые заказы Excel-миграции: скрыты фильтром по умолчанию, не удалены
+  isArchived Boolean @default(false) @map("is_archived")
+
   requestDate DateTime? @map("request_date") @db.Date
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
@@ -850,6 +916,12 @@ model Order {
   /// Суммы по данным 1С — не смешиваются с нашими расчётными полями
   onecTotalAmount    Decimal?  @map("onec_total_amount") @db.Decimal(14, 2)
   onecPaidAmount     Decimal?  @map("onec_paid_amount") @db.Decimal(14, 2)
+  /// Конечный заказчик (ORIGINAL_CUSTOMER в пакете Б24 → [ДП] Конечный
+  /// заказчик в 1С). Завод работает через генподрядчиков, и «кому это
+  /// в итоге» — не то же самое, что «кто платит»
+  finalCustomer      String?   @map("final_customer") @db.VarChar(200)
+  /// Номер заказа генподрядчика с его конечным заказчиком
+  customerOrderNum   String?   @map("customer_order_num") @db.VarChar(60)
   projectGroup       String?   @map("project_group") @db.VarChar(100)
   projectSite        String?   @map("project_site") @db.VarChar(150)
   divisionCode       String?   @map("division_code") @db.VarChar(20)
@@ -860,11 +932,13 @@ model Order {
   sourceSheet          String?                @map("source_sheet") @db.VarChar(100)
   sourceRowNumber      Int?                   @map("source_row_number")
   rawColumns           Json?                  @map("raw_columns")
-  OrderLaborAssignment OrderLaborAssignment[]
   OrderCosting         OrderCosting[]
   BatchReservation     BatchReservation[]
+  tollingBatches       MaterialBatch[]        @relation("TollingBatches")
+  contractorWorks      ContractorWork[]
 
   @@index([sourceSheet])
+  @@index([status, isArchived])
   @@map("orders")
 }
 
@@ -899,7 +973,7 @@ model OrderLine {
   order            Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
   article          Article?               @relation(fields: [articleId], references: [id])
   productionStages ProductionStage[]
-  laborAssignments OrderLaborAssignment[]
+  contractorWorks  ContractorWork[]
   costings         OrderCosting[]
 
   @@index([sourceSheet, sourceRowNumber])
@@ -1036,10 +1110,18 @@ model SupplierDocument {
   currency     String  @default("KZT") @db.VarChar(5)
   category     String? @db.VarChar(30)
 
-  buyer Employee? @relation("SupplierDocumentBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
+  /// Историческая таблица закупа. Сверка подряда идёт НЕ отсюда, а против
+  /// PaymentDocument: туда пишет синхронизация «Заказа поставщику» 1С.
+  contractorId String?   @map("contractor_id") @db.Uuid
+  orderNumber  String?   @map("order_number") @db.VarChar(30)
+  docDate      DateTime? @map("doc_date") @db.Date
+
+  buyer      Employee?   @relation("SupplierDocumentBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
+  contractor Contractor? @relation(fields: [contractorId], references: [id])
 
   @@index([buyerId])
   @@index([category])
+  @@index([contractorId])
   @@map("supplier_documents")
 }
 

@@ -90,6 +90,100 @@ describe('Защита от молчаливых нулей (09 §5.2—5.3)', (
   });
 });
 
+// Измеренный факт подряда (решение 23.08.2026): actualQty выражен в единицах
+// СВОЕЙ ставки, поэтому плановый объём qty × share им замещается целиком
+describe('Факт подряда важнее плана', () => {
+  const ctx = { qty: 4, weightKg: 320 };
+
+  it('PER_HOUR: отработанные часы вытесняют норму', () => {
+    const r = calcAssignmentCost(
+      { ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR', actualQty: 112 },
+      ctx,
+    );
+    expect(r.manHours).toBe(112);
+    expect(r.cost).toBe(112 * 2040);
+  });
+
+  it('PER_TON: сданные тонны считаются напрямую, вес изделия не нужен', () => {
+    const r = calcAssignmentCost({
+      ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR', rateType: 'PER_TON', rate: 45000,
+      countInShopHours: false, actualQty: 3.2,
+    }, { qty: 4 });
+    expect(r.cost).toBe(144000);
+  });
+
+  it('замороженная при приёмке сумма важнее пересчёта по ставке', () => {
+    const r = calcAssignmentCost(
+      { ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR', actualQty: 112, actualAmount: 260000 },
+      ctx,
+    );
+    expect(r.cost).toBe(260000);
+    // Часы при этом остаются измеренными — они про мощность, а не про деньги
+    expect(r.manHours).toBe(112);
+  });
+
+  it('без факта объём остаётся плановым', () => {
+    const r = calcAssignmentCost({ ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR' }, ctx);
+    expect(r.manHours).toBe(0.6);
+  });
+});
+
+// Подряд, заведённый на заказ целиком, попадает в калькуляцию КАЖДОЙ позиции.
+// Абсолютные величины (фикс и принятая сумма) без разнесения списывались бы
+// полностью в каждую — заказ из двух позиций стоил бы вдвое дороже.
+describe('Разнесение заказ-уровневого подряда по позициям', () => {
+  const CONTRACTOR = {
+    ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR' as const, countInShopHours: false,
+  };
+
+  it('фикс делится между позициями, а не списывается в каждую целиком', () => {
+    const half = calcAssignmentCost(
+      { ...CONTRACTOR, rateType: 'FIXED', rate: 500000, allocationFactor: 0.5 },
+      { qty: 4 },
+    );
+    expect(half.cost).toBe(250000);
+    // Сумма по двум позициям возвращает исходные 500 000, а не 1 000 000
+    const other = calcAssignmentCost(
+      { ...CONTRACTOR, rateType: 'FIXED', rate: 500000, allocationFactor: 0.5 },
+      { qty: 6 },
+    );
+    expect(half.cost + other.cost).toBe(500000);
+  });
+
+  it('принятая сумма делится так же', () => {
+    const r = calcAssignmentCost(
+      { ...CONTRACTOR, actualQty: 112, actualAmount: 280000, allocationFactor: 0.25 },
+      { qty: 4 },
+    );
+    expect(r.cost).toBe(70000);
+  });
+
+  it('измеренный объём тоже делится: 3,2 т на две позиции — не 6,4 т', () => {
+    const r = calcAssignmentCost(
+      { ...CONTRACTOR, rateType: 'PER_TON', rate: 90000, actualQty: 3.2, allocationFactor: 0.5 },
+      { qty: 4 },
+    );
+    expect(r.cost).toBe(144000);
+  });
+
+  it('строка, заведённая на саму позицию, не делится', () => {
+    const r = calcAssignmentCost(
+      { ...CONTRACTOR, rateType: 'FIXED', rate: 500000 },
+      { qty: 4 },
+    );
+    expect(r.cost).toBe(500000);
+  });
+
+  it('сдельная плановая ставка не делится — объём и так берётся из позиции', () => {
+    const r = calcAssignmentCost(
+      { ...CONTRACTOR, rateType: 'PER_UNIT', rate: 18000, allocationFactor: 0.5 },
+      { qty: 4 },
+    );
+    // 4 шт × 18 000, а не половина: количество уже принадлежит этой позиции
+    expect(r.cost).toBe(72000);
+  });
+});
+
 describe('Доли на переделе', () => {
   it('одна строка на переделе — доля 1', () => {
     expect(validateShares([STAFF_ASSEMBLY])).toBeNull();
@@ -102,15 +196,24 @@ describe('Доли на переделе', () => {
     ])).toBeNull();
   });
 
-  it('недобор долей ловится: часть объёма никем не оплачена', () => {
-    expect(validateShares([{ ...STAFF_ASSEMBLY, share: 0.5 }])).toMatch(/50 % вместо 100 %/);
+  // Недобор перестал быть ошибкой (решение 23.08.2026): штат не хранится
+  // строкой, он остаток от нормы. Одинокая доля 0.5 — это либо подряд на
+  // половину передела (вторую делает штат по норме), либо передел без нормы
+  it('недобор долей допустим: остаток забирает штат по норме', () => {
+    expect(validateShares([{ ...STAFF_ASSEMBLY, share: 0.5 }])).toBeNull();
+  });
+
+  it('одинокий подряд без нормы считается, а не падает', () => {
+    expect(validateShares([
+      { ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR', share: 0.6 },
+    ])).toBeNull();
   });
 
   it('перебор долей ловится: объём посчитан дважды', () => {
     expect(validateShares([
       { ...STAFF_ASSEMBLY, share: 0.7 },
       { ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR', share: 0.7 },
-    ])).toMatch(/140 % вместо 100 %/);
+    ])).toMatch(/140 %/);
   });
 
   it('разные переделы считаются независимо', () => {
@@ -160,9 +263,11 @@ describe('Смешанный передел: штат и подряд вмест
     expect(s.totalCost).toBe(36612);
   });
 
-  it('битые доли не дают посчитать заказ вовсе', () => {
-    expect(() => summarizeLabor([{ ...STAFF_ASSEMBLY, share: 0.4 }], { qty: 4 }))
-      .toThrow(LaborConfigError);
+  it('двойной счёт не даёт посчитать заказ вовсе', () => {
+    expect(() => summarizeLabor([
+      { ...STAFF_ASSEMBLY, share: 0.8 },
+      { ...STAFF_ASSEMBLY, laborKind: 'CONTRACTOR', share: 0.8 },
+    ], { qty: 4 })).toThrow(LaborConfigError);
   });
 });
 

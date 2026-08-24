@@ -28,6 +28,8 @@ export interface BuildCostingOptions {
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
+/** Доля объёма передела — Decimal(6,4) в базе */
+const round4 = (n: number) => Math.round(n * 10000) / 10000;
 
 /**
  * Калькуляция заказа как документ (09_COSTING_AND_STAGES.md §3).
@@ -44,38 +46,153 @@ export class OrderCostingService {
     private readonly batches: MaterialBatchService,
   ) {}
 
-  /** Строки исполнения заказа; если их не заводили — весь объём делает штат по нормам */
+  /**
+   * Строки исполнения позиции заказа (решение 23.08.2026: «норматив молчит,
+   * подряд говорит»).
+   *
+   * Норма изделия — всегда основа: по умолчанию весь объём каждого передела
+   * делает штат, и вводить для этого нечего. Строка подряда не заменяет
+   * норму, а вычитает свою долю на СВОЁМ переделе; остаток (1 − Σ доля)
+   * достаётся штату автоматически — «штат 40 %» не вводит никто.
+   *
+   * Раньше здесь было `if (saved.length > 0) return saved`, и одна строка
+   * подряда выбивала из себестоимости все прочие переделы: на DEMO-1003
+   * подряд на сборке ронял труд с 652 800 ₸ до 480 000 ₸ (резка и покраска
+   * исчезали молча), а при доле меньше 1 расчёт падал с INVALID_SHARES.
+   */
   async assignmentsFor(orderLineId: string, articleId: string | null, hourlyRate: number): Promise<LaborAssignment[]> {
-    const saved = await this.prisma.orderLaborAssignment.findMany({ where: { orderLineId } });
-    if (saved.length > 0) {
-      return saved.map((a) => ({
-        id: a.id,
-        stage: a.stage as StageValue,
-        laborKind: a.laborKind,
-        share: Number(a.share),
-        rateType: a.rateType,
-        rate: Number(a.rate),
-        countInShopHours: a.countInShopHours,
-        plannedHours: a.plannedHours != null ? Number(a.plannedHours) : null,
-        contractorId: a.contractorId,
-        workCenterId: a.workCenterId,
-        workers: 0,
-        hoursPerUnit: 0,
-      }));
-    }
-    if (!articleId) return [];
-
-    const ops = await this.prisma.routingOperation.findMany({
-      where: { articleId },
-      include: { workCenter: true },
+    const line = await this.prisma.orderLine.findUnique({
+      where: { id: orderLineId },
+      select: { orderId: true, qty: true, articleId: true },
     });
-    return defaultStaffAssignments(ops.map((o) => ({
+
+    // Подряд заводится либо на позицию, либо на заказ целиком (режим ORDER)
+    const works = line
+      ? await this.prisma.contractorWork.findMany({
+          where: {
+            OR: [
+              { orderLineId },
+              { orderId: line.orderId, orderLineId: null },
+            ],
+          },
+        })
+      : [];
+
+    // Заказ-уровневая работа делится между позициями: «фикс 500 000 ₸ за
+    // передел» и принятая сумма — величины абсолютные, и без разнесения
+    // списались бы целиком в каждую позицию (заказ из двух позиций стоил
+    // бы вдвое дороже). База разнесения — нормативные часы передела,
+    // а где норм нет — количество; в последнюю очередь поровну.
+    const needsAllocation = works.some((w) => w.orderLineId === null);
+    const allocByStage = needsAllocation && line
+      ? await this.allocationFactors(line.orderId, orderLineId)
+      : null;
+
+    const ops = articleId
+      ? await this.prisma.routingOperation.findMany({
+          where: { articleId },
+          include: { workCenter: true },
+        })
+      : [];
+    const staffByNorm = defaultStaffAssignments(ops.map((o) => ({
       stage: o.stage as StageValue,
       workers: Number(o.workers),
       hoursPerUnit: Number(o.hoursPerUnit),
       hourlyRate: o.workCenter ? Number(o.workCenter.hourlyRate) : hourlyRate,
       workCenterId: o.workCenterId,
     })));
+
+    if (works.length === 0) return staffByNorm;
+
+    const contractorRows: LaborAssignment[] = works.map((w) => ({
+      id: w.id,
+      stage: w.routingStage as StageValue,
+      laborKind: 'CONTRACTOR',
+      share: Number(w.share),
+      rateType: w.rateType,
+      rate: Number(w.rate),
+      // Часы занимают мощность участка, только если работают у нас
+      countInShopHours: w.workLocation === 'OUR_SHOP',
+      plannedHours: w.plannedHours != null ? Number(w.plannedHours) : null,
+      actualQty: w.actualQty != null ? Number(w.actualQty) : null,
+      actualAmount: w.actualAmount != null ? Number(w.actualAmount) : null,
+      // Строка на позицию принадлежит ей целиком; заказ-уровневая — долей
+      allocationFactor: w.orderLineId === null
+        ? allocByStage?.get(w.routingStage as StageValue) ?? 1
+        : 1,
+      contractorId: w.contractorId,
+      workCenterId: null,
+      workers: 0,
+      hoursPerUnit: 0,
+    }));
+
+    const takenByStage = new Map<StageValue, number>();
+    for (const r of contractorRows) {
+      takenByStage.set(r.stage, (takenByStage.get(r.stage) ?? 0) + r.share);
+    }
+
+    const result: LaborAssignment[] = [];
+    for (const staff of staffByNorm) {
+      // Остаток объёма после подряда достаётся штату; вводить его не нужно
+      const rest = round4(Math.max(0, 1 - (takenByStage.get(staff.stage) ?? 0)));
+      if (rest > 0) result.push({ ...staff, share: rest });
+    }
+    // Подряд на переделе, для которого нормы нет вовсе, всё равно считается
+    result.push(...contractorRows);
+    return result;
+  }
+
+  /**
+   * Какая доля заказ-уровневой работы приходится на эту позицию — по каждому
+   * переделу отдельно (решение 23.08.2026, находка проверки).
+   *
+   * База — нормативные часы передела: позиция, которой на сборку нужно
+   * 400 нормо-часов из 500 по заказу, забирает 80 % подрядной суммы.
+   * Норм нет — делим по количеству, нет и его — поровну. Сумма долей по
+   * позициям всегда даёт единицу, поэтому заказ не дорожает и не дешевеет.
+   */
+  private async allocationFactors(
+    orderId: string,
+    thisLineId: string,
+  ): Promise<Map<StageValue, number>> {
+    const lines = await this.prisma.orderLine.findMany({
+      where: { orderId },
+      select: { id: true, qty: true, articleId: true },
+    });
+    const result = new Map<StageValue, number>();
+    if (lines.length <= 1) return result; // единственная позиция — вся работа её
+
+    const articleIds = lines.map((l) => l.articleId).filter(Boolean) as string[];
+    const ops = articleIds.length
+      ? await this.prisma.routingOperation.findMany({
+          where: { articleId: { in: articleIds } },
+          select: { articleId: true, stage: true, workers: true, hoursPerUnit: true },
+        })
+      : [];
+    const normPerUnit = new Map<string, number>();
+    for (const o of ops) {
+      normPerUnit.set(`${o.articleId}:${o.stage}`, Number(o.workers) * Number(o.hoursPerUnit));
+    }
+
+    for (const stage of ['CUTTING', 'ASSEMBLY', 'PAINTING'] as StageValue[]) {
+      const weightOf = (l: (typeof lines)[number]) => {
+        const perUnit = l.articleId ? normPerUnit.get(`${l.articleId}:${stage}`) ?? 0 : 0;
+        return perUnit * Number(l.qty);
+      };
+      let total = lines.reduce((s, l) => s + weightOf(l), 0);
+      let mine = weightOf(lines.find((l) => l.id === thisLineId)!);
+
+      if (total <= 0) {
+        // Норм на этот передел нет ни у кого — считаем по количеству
+        total = lines.reduce((s, l) => s + Number(l.qty), 0);
+        mine = Number(lines.find((l) => l.id === thisLineId)!.qty);
+      }
+      result.set(
+        stage,
+        total > 0 ? round4(mine / total) : round4(1 / lines.length),
+      );
+    }
+    return result;
   }
 
   /**
@@ -144,11 +261,15 @@ export class OrderCostingService {
         batchId: override.batchId,
         explicitPrice: override.explicitPrice,
         allowAnomalies: override.allowAnomalies,
-      });
+      }, line.orderId);
 
       materialCost += resolution.totalCost;
       if (resolution.isShortage) hasShortage = true;
 
+      // Стадия цены: партия прихода = факт; всё, что без партии
+      // (последний закуп, прайс, ручная) — оценка. «Заказано» проставляет
+      // снабжение из «Заказа поставщику» 1С отдельным действием.
+      const hasBatch = Boolean(resolution.allocations[0]?.batchId);
       materialRows.push({
         materialId: item.materialId,
         materialCodeSnapshot: item.material.materialCode,
@@ -164,11 +285,13 @@ export class OrderCostingService {
         isShortage: resolution.isShortage,
         shortageQty: resolution.shortageQty,
         shortageUnitPrice: resolution.shortageUnitPrice,
+        priceState: (hasBatch && !resolution.isShortage ? 'ACTUAL' : 'ESTIMATE') as any,
+        priceStateChangedAt: new Date(),
       });
     }
     materialCost = round2(materialCost);
 
-    // ---- труд: штат и подряд, доли по переделам
+    // ---- труд: штат по нормам, подряд вычитает свою долю
     const assignments = await this.withNorms(
       await this.assignmentsFor(orderLineId, line.article?.id ?? null, rates.hourlyRate),
       line.article?.id ?? null,
@@ -176,6 +299,11 @@ export class OrderCostingService {
     const labor = assignments.length > 0
       ? summarizeLabor(assignments, { qty, weightKg })
       : { lines: [], shopManHours: 0, staffCost: 0, contractorCost: 0, offsiteContractorCost: 0, totalCost: 0, byStage: [] };
+
+    // Нормы не заведены — штатная часть посчиталась в ноль. Без этой отметки
+    // заказ выглядит бесплатным по труду и при этом честным на вид
+    const hasStaffLine = assignments.some((a) => a.laborKind === 'STAFF');
+    const hasMissingNorm = !hasStaffLine && labor.staffCost === 0;
 
     // ---- коэффициенты и цена
     const logisticsCost = logisticsCostOf(materialCost, rates, { weightKg });
@@ -219,6 +347,7 @@ export class OrderCostingService {
         price,
         totalManHours: labor.shopManHours,
         hasShortage,
+        hasMissingNorm,
         note: opts.note?.trim() || null,
 
         materials: { create: materialRows as any },
