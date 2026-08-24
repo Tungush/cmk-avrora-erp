@@ -223,7 +223,7 @@ table td, table th,
 
 /* ---------------------------------------------------------------
    Компонентные классы, которые используют формы заказа
-   (OrderWizard / OrderDetail / GanttChart)
+   (OrderDetail / GanttChart)
    --------------------------------------------------------------- */
 
 .input-field {
@@ -343,3 +343,167 @@ textarea.input-field {
 .table-container tbody tr:last-child td {
   border-bottom: none;
 }
+
+/* ---------------------------------------------------------------
+   Движение и глубина (решение 23.08.2026).
+   Правила: одна кривая на систему; отклик 120 мс, переходы 200–320 мс;
+   тень появляется только в движении — покой остаётся плоским,
+   «рамки вместо теней» продолжают действовать для статики.
+   --------------------------------------------------------------- */
+
+:root {
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);       /* вход и ховер */
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);   /* перемещения */
+  --shadow-hover: 0 4px 16px rgba(30, 29, 25, 0.07), 0 1px 3px rgba(30, 29, 25, 0.05);
+  --shadow-pop: 0 16px 48px rgba(30, 29, 25, 0.14), 0 4px 12px rgba(30, 29, 25, 0.08);
+}
+
+/* Интерактивные карточки: лёгкий подъём на ховере, посадка при нажатии.
+   Только там, где карточка кликабельна — курсор уже pointer */
+.mantine-Card-root[style*="cursor: pointer"],
+.mantine-Card-root[style*="cursor:pointer"] {
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out),
+              border-color 0.2s var(--ease-out);
+}
+.mantine-Card-root[style*="cursor: pointer"]:hover,
+.mantine-Card-root[style*="cursor:pointer"]:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  border-color: var(--gray-3);
+}
+.mantine-Card-root[style*="cursor: pointer"]:active,
+.mantine-Card-root[style*="cursor:pointer"]:active {
+  transform: translateY(0) scale(0.995);
+  box-shadow: none;
+  transition-duration: 0.12s;
+}
+
+/* Кнопки: физика нажатия. Материал должен отвечать пальцу */
+.mantine-Button-root {
+  transition: transform 0.12s var(--ease-out), box-shadow 0.2s var(--ease-out),
+              background-color 0.15s var(--ease-out), opacity 0.15s var(--ease-out);
+}
+.mantine-Button-root:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.mantine-ActionIcon-root { transition: transform 0.12s var(--ease-out), background-color 0.15s var(--ease-out); }
+.mantine-ActionIcon-root:active:not(:disabled) { transform: scale(0.92); }
+
+/* Строки таблиц: подсветка приходит мягко, а не мигает */
+.mantine-Table-tr { transition: background-color 0.15s var(--ease-out); }
+
+/* Шапка — стекло: содержимое живёт «под» ней, интерфейс получает глубину */
+.mantine-AppShell-header {
+  background: color-mix(in srgb, var(--app-surface) 82%, transparent) !important;
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  backdrop-filter: saturate(1.6) blur(14px);
+}
+
+/* Навигация: активный пункт слегка выдвигается, остальные отвечают на ховер */
+.mantine-NavLink-root {
+  transition: background-color 0.15s var(--ease-out), transform 0.15s var(--ease-out);
+}
+.mantine-NavLink-root:active { transform: scale(0.98); }
+
+/* Прогресс доезжает, а не прыгает */
+.mantine-Progress-section { transition: width 0.6s var(--ease-in-out); }
+
+/* Шторка карточки и модалки: контент мягко поднимается после открытия */
+.mantine-Drawer-content { box-shadow: var(--shadow-pop); }
+.mantine-Modal-content  { box-shadow: var(--shadow-pop); }
+
+/* Бейджи статусов: смена статуса — событие, пусть цвет доезжает */
+.mantine-Badge-root { transition: background-color 0.25s var(--ease-out), color 0.25s var(--ease-out); }
+
+/* Строка результата поиска */
+.search-row { transition: background-color 0.12s var(--ease-out); }
+.search-row:hover { background: var(--gray-1); }
+.search-row:active { background: var(--gray-2); }
+
+/* Уважение к настройке ОС: движение выключается целиком */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------
+   Слой света (24.08.2026). Материалы отражают свет сверху:
+   заливка кнопки чуть светлее у верхней кромки, у KPI — тёплая
+   засветка в углу. Это глубина без теней — идентичность не ломается.
+   --------------------------------------------------------------- */
+
+/* Верхний свет на залитых кнопках — как на клавишах */
+.mantine-Button-root[data-variant="filled"] {
+  background-image: linear-gradient(rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 48%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+.mantine-Button-root[data-variant="filled"]:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+/* Живой индикатор: точка «в работе» дышит. Пульс — только смысловой:
+   работа идёт прямо сейчас; готовые и не начатые статусы неподвижны */
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 45%, transparent); }
+  70%  { box-shadow: 0 0 0 5px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.live-dot {
+  animation: live-pulse 2.2s var(--ease-out) infinite;
+  border-radius: 50%;
+}
+
+/* KPI: тёплая засветка в верхнем углу — свет от акцента */
+.kpi-glow {
+  position: relative;
+  overflow: hidden;
+}
+.kpi-glow::before {
+  content: '';
+  position: absolute;
+  top: -60px; right: -60px;
+  width: 180px; height: 180px;
+  background: radial-gradient(circle, color-mix(in srgb, var(--brand-6) 7%, transparent), transparent 70%);
+  pointer-events: none;
+}
+
+/* Логин: северное сияние из раскалённого металла — медленное, живое */
+@keyframes aurora-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(60px, -40px) scale(1.15); }
+}
+@keyframes aurora-b {
+  0%, 100% { transform: translate(0, 0) scale(1.1); }
+  50%      { transform: translate(-50px, 50px) scale(0.95); }
+}
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora::before, .aurora::after {
+  content: '';
+  position: absolute;
+  width: 55vmax; height: 55vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.35;
+}
+.aurora::before {
+  background: radial-gradient(circle, #D9480F, transparent 65%);
+  top: -18vmax; right: -12vmax;
+  animation: aurora-a 16s ease-in-out infinite;
+}
+.aurora::after {
+  background: radial-gradient(circle, #B93B0B, transparent 62%);
+  bottom: -20vmax; left: -14vmax;
+  animation: aurora-b 21s ease-in-out infinite;
+}
+
+/* Пункты меню: ховер мягкий, активную пилюлю рисует framer-motion */
+.nav-item { transition: background-color 0.15s var(--ease-out); }
+.nav-item:hover { background: var(--gray-1); }
+.nav-item:active { transform: scale(0.98); }

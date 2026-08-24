@@ -82,6 +82,7 @@ export interface OrderLine {
 }
 
 export type OrderStatus =
+  | 'NEW'
   | 'DRAFT'
   | 'CONFIRMED'
   | 'IN_PRODUCTION'
@@ -109,6 +110,14 @@ export interface Order {
   balanceDue: number;
   createdAt: string;
   updatedAt: string;
+  // Данные из 1С (владелец — 1С)
+  onecNum?: string | null;
+  onecStatus?: string | null;
+  onecApprovalStatus?: string | null;
+  onecSyncedAt?: string | null;
+  // Приём из инбокса и архив Excel-миграции
+  acceptedAt?: string | null;
+  isArchived?: boolean;
 }
 
 export interface ProductionPlanItem {

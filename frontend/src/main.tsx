@@ -131,6 +131,24 @@ const theme = createTheme({
         radius: 'md',
       },
     },
+    // Движение (решение 23.08.2026): одна кривая на систему.
+    // Шторка выезжает 280 мс, модалки появляются подъёмом 220 мс —
+    // быстро, но с весом; ничего не «телепортируется»
+    Drawer: {
+      defaultProps: {
+        transitionProps: { transition: 'slide-left', duration: 280, timingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+        overlayProps: { backgroundOpacity: 0.35, blur: 3 },
+      },
+    },
+    Modal: {
+      defaultProps: {
+        transitionProps: { transition: 'pop', duration: 220, timingFunction: 'cubic-bezier(0.25, 1, 0.5, 1)' },
+        overlayProps: { backgroundOpacity: 0.35, blur: 3 },
+      },
+    },
+    Skeleton: {
+      defaultProps: { radius: 'md' },
+    },
   },
 });
 

@@ -1,19 +1,17 @@
 import React from 'react';
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom';
-import { NavLink, Stack, Text, Group, Avatar, Divider, Box } from '@mantine/core';
+import { Stack, Text, Group, Avatar, Divider, Box, UnstyledButton } from '@mantine/core';
+import { motion, useReducedMotion } from 'framer-motion';
 import {
-  IconLayoutDashboard,
+  IconClipboardList,
+  IconSettings,
   IconShoppingCart,
-  IconCalendarClock,
-  IconLayoutKanban,
   IconPackage,
   IconBuildingBank,
-  IconBook,
   IconRuler2,
-  IconShieldLock,
-  IconPlugConnected,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
+import { LogoLockup } from '../Brand';
 import { canAccessModule, ROLE_LABELS } from '../../utils/roles';
 
 interface SidebarProps {
@@ -24,20 +22,18 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const user = useAuthStore((state) => state.user);
   const permissions = useAuthStore((state) => state.permissions);
   const { pathname } = useLocation();
+  const reduced = useReducedMotion();
 
   // Меню собирается из прав: у кладовщика останется 4 пункта, у директора — все (§2.2)
   const navItems = [
-    { to: '/dashboard', icon: IconLayoutDashboard, label: 'Дашборд', module: 'dashboard' },
+    { to: '/', icon: IconClipboardList, label: 'Моя работа', module: 'work' },
     { to: '/orders', icon: IconShoppingCart, label: 'Заказы', module: 'orders' },
-    { to: '/production', icon: IconCalendarClock, label: 'План производства', module: 'production' },
-    { to: '/production/kanban', icon: IconLayoutKanban, label: 'Цех', module: 'kanban' },
-    { to: '/specs', icon: IconRuler2, label: 'Спецификации', module: 'specs' },
-    { to: '/warehouse', icon: IconPackage, label: 'Склад', module: 'warehouse' },
-    { to: '/finance', icon: IconBuildingBank, label: 'Финансы', module: 'finance' },
-    { to: '/catalog', icon: IconBook, label: 'Справочники', module: 'catalog' },
-    { to: '/integration', icon: IconPlugConnected, label: 'Обмен с 1С', module: 'audit' },
-    { to: '/audit', icon: IconShieldLock, label: 'Аудит', module: 'audit' },
+    { to: '/specs', icon: IconRuler2, label: 'Изделия', module: 'specs' },
+    { to: '/warehouse', icon: IconPackage, label: 'Материалы', module: 'materials' },
+    { to: '/finance', icon: IconBuildingBank, label: 'Деньги', module: 'money' },
+    { to: '/settings', icon: IconSettings, label: 'Настройки', module: 'settings' },
   ];
+
 
   const initials = user?.email?.[0]?.toUpperCase() || 'U';
   const displayName = user?.email?.split('@')[0] || 'Пользователь';
@@ -47,19 +43,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     <Stack justify="space-between" h="100%" gap={0}>
       <Stack gap={0}>
         <Box pb="sm" mb="sm">
-          <Group gap="sm">
-            <Avatar size={40} radius="md" variant="filled" color="brand.6">
-              <Text fw={900} size="lg" c="white">А</Text>
-            </Avatar>
-            <Stack gap={0}>
-              <Text fw={800} size="md" lh={1} tt="uppercase" style={{ letterSpacing: '-0.02em' }}>
-              ЦМК АВРОРА
-            </Text>
-            <Text size="xs" tt="uppercase" fw={500} c="dimmed" style={{ letterSpacing: '0.12em', fontSize: 10 }}>
-              ERP System
-            </Text>
-            </Stack>
-          </Group>
+          <LogoLockup />
         </Box>
 
         <Divider my="sm" />
@@ -71,23 +55,44 @@ export function Sidebar({ onNavigate }: SidebarProps) {
         <Stack gap={2} mt="xs">
           {navItems.map((item) => {
             if (!canAccessModule(item.module, permissions)) return null;
+            if ((item as any).roles && !(item as any).roles.some((r: string) => user?.roles?.includes(r))) return null;
             const Icon = item.icon;
             const isActive = pathname === item.to;
             return (
-              <NavLink
+              /* Активная пилюля — ОДНА на всё меню, скользит между пунктами
+                 (layoutId): выбор ощущается перемещением, а не перекраской */
+              <UnstyledButton
                 key={item.to}
                 component={RouterNavLink}
                 to={item.to}
                 onClick={onNavigate}
-                label={item.label}
-                leftSection={<Icon size={18} stroke={1.8} />}
-                variant="subtle"
-                active={isActive}
-                color="brand"
-                h={42}
+                className="nav-item"
                 px="xs"
-                style={{ borderRadius: 'var(--mantine-radius-md)' }}
-              />
+                h={42}
+                style={{ position: 'relative', borderRadius: 'var(--mantine-radius-md)', display: 'flex', alignItems: 'center' }}
+              >
+                {isActive && (
+                  <motion.span
+                    layoutId={reduced ? undefined : 'nav-active-pill'}
+                    transition={{ type: 'spring', stiffness: 480, damping: 38 }}
+                    style={{
+                      position: 'absolute',
+                      inset: 0,
+                      borderRadius: 'var(--mantine-radius-md)',
+                      background: 'var(--brand-0)',
+                      border: '1px solid color-mix(in srgb, var(--brand-6) 18%, transparent)',
+                    }}
+                  />
+                )}
+                <Group gap="sm" wrap="nowrap" style={{ position: 'relative', zIndex: 1 }}>
+                  <Icon size={18} stroke={1.8}
+                    style={{ color: isActive ? 'var(--brand-7)' : 'var(--gray-6)' }} />
+                  <Text size="sm" fw={isActive ? 700 : 500}
+                    c={isActive ? 'brand.8' : undefined}>
+                    {item.label}
+                  </Text>
+                </Group>
+              </UnstyledButton>
             );
           })}
         </Stack>

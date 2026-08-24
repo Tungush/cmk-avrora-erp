@@ -4,7 +4,7 @@ import {
   Skeleton, Pagination, Drawer, Switch, Box, Button, Modal, ActionIcon, Menu,
 } from '@mantine/core';
 import {
-  IconSearch, IconAlertTriangle, IconPlus, IconBookmark, IconBookmarkPlus, IconTrash,
+  IconSearch, IconAlertTriangle, IconBookmark, IconBookmarkPlus, IconTrash,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
@@ -13,9 +13,8 @@ import { useAuthStore } from '../../store/auth';
 import { StatusBadge } from '../../components/StatusBadge';
 import { Divider } from '@mantine/core';
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS } from '../../utils/formatters';
-import { OrderDetail } from './OrderDetail';
-import { OrderWizard } from './OrderWizard';
 import { useSavedViews, useCreateSavedView, useDeleteSavedView } from '../../hooks/useSavedViews';
+import { OrderRef, useOrderCard } from '../../components/OrderCard/OrderCardProvider';
 
 const ORDER_TYPE_LABELS: Record<string, string> = { FZ: 'ФЗ', VZ: 'ВЗ' };
 
@@ -36,7 +35,7 @@ const num = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 
 /** Общие колонки каждого пресета: № и заказчик слева, статус справа */
 const colNumber: ColumnDef = {
   key: 'orderNumber', label: '№ заказа',
-  render: (o) => <Text size="sm" ff="monospace" fw={600} c="brand.7">{o.orderNumber}</Text>,
+  render: (o) => <OrderRef id={o.id} number={o.orderNumber} bold={false} />,
 };
 const colCustomer: ColumnDef = {
   key: 'customer', label: 'Заказчик',
@@ -112,6 +111,7 @@ const PRESETS: Record<PresetCode, { label: string; permission: string | null; co
 
 export function OrdersRegistry() {
   const can = useAuthStore((s) => s.can);
+  const { open: openCard } = useOrderCard();
   // < 768px: таблица превращается в ленту карточек (§4.6)
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [preset, setPreset] = useState<PresetCode>('core');
@@ -119,15 +119,12 @@ export function OrdersRegistry() {
   const [status, setStatus] = useState<string | null>(null);
   const [overdueOnly, setOverdueOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [wizardOpened, setWizardOpened] = useState(false);
   const [viewName, setViewName] = useState('');
   const [saveViewOpened, setSaveViewOpened] = useState(false);
 
   const { data: savedViews } = useSavedViews('orders');
   const createView = useCreateSavedView('orders');
   const deleteView = useDeleteSavedView('orders');
-  const canCreateOrder = can('write', 'order.core');
 
   /** Применить сохранённый вид: фильтры + пресет колонок одним кликом (§2.1) */
   const applyView = (v: { config: Record<string, unknown> }) => {
@@ -252,11 +249,6 @@ export function OrdersRegistry() {
             radius="md"
           />
 
-          {canCreateOrder && (
-            <Button size="sm" leftSection={<IconPlus size={15} />} onClick={() => setWizardOpened(true)}>
-              Новый заказ
-            </Button>
-          )}
         </Group>
       </Group>
 
@@ -272,9 +264,9 @@ export function OrdersRegistry() {
               const qty = sumLines(o, 'qty');
               const total = sumLines(o, 'lineTotalVat');
               return (
-                <Card key={o.id} withBorder radius="md" padding="sm" onClick={() => setSelectedId(o.id)} style={{ cursor: 'pointer' }}>
+                <Card key={o.id} withBorder radius="md" padding="sm" onClick={() => openCard(o.id)} style={{ cursor: 'pointer' }}>
                   <Group justify="space-between" wrap="nowrap" mb={4}>
-                    <Text size="sm" ff="monospace" fw={700} c="brand.7">{o.orderNumber}</Text>
+                    <OrderRef id={o.id} number={o.orderNumber} />
                     <StatusBadge status={o.status} />
                   </Group>
                   <Text size="xs" c="dimmed" lineClamp={1}>
@@ -319,7 +311,7 @@ export function OrdersRegistry() {
                 {orders.map((o) => (
                   <Table.Tr
                     key={o.id}
-                    onClick={() => setSelectedId(o.id)}
+                    onClick={() => openCard(o.id)}
                     style={{ cursor: 'pointer' }}
                   >
                     {columns.map((c) => (
@@ -349,18 +341,9 @@ export function OrdersRegistry() {
         <Pagination value={page} onChange={setPage} total={totalPages} size="sm" radius="md" />
       </Group>
 
-      {/* Мастер создания заказа в 4 шага (§2.3 ②) */}
-      <Modal
-        opened={wizardOpened}
-        onClose={() => setWizardOpened(false)}
-        title={<Text fw={700}>Новый заказ</Text>}
-        size="xl"
-        radius="md"
-        centered
-        fullScreen={isMobile}
-      >
-        <OrderWizard onClose={() => setWizardOpened(false)} />
-      </Modal>
+      {/* Мастера создания заказа здесь нет намеренно (решение 23.08.2026):
+          заказ рождается сделкой Б24 → документом 1С → приходит в инбокс
+          «Новые из 1С». Руками его завести негде, и это правильно. */}
 
       {/* Имя для сохраняемого вида */}
       <Modal
@@ -392,17 +375,7 @@ export function OrdersRegistry() {
         </Stack>
       </Modal>
 
-      {/* Карточка заказа — боковая панель, без ухода со страницы (§2.3 ①) */}
-      <Drawer
-        opened={selectedId !== null}
-        onClose={() => setSelectedId(null)}
-        position="right"
-        size={isMobile ? '100%' : 'lg'}
-        title={<Text fw={700}>Карточка заказа</Text>}
-        padding="md"
-      >
-        {selectedId && <OrderDetail id={selectedId} onClose={() => setSelectedId(null)} />}
-      </Drawer>
+      {/* Карточка заказа — общая шторка из Layout, открывается по адресу */}
     </Stack>
   );
 }

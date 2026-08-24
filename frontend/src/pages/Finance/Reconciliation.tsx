@@ -6,6 +6,7 @@ import {
 import { IconScale, IconAlertTriangle, IconFileOff } from '@tabler/icons-react';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/formatters';
+import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 
 interface ReconciliationResponse {
   customers: Array<{
@@ -171,7 +172,7 @@ export function Reconciliation() {
             <Table.Tbody>
               {orders.map((o) => (
                 <Table.Tr key={o.orderId}>
-                  <Table.Td><Text size="sm" ff="monospace" fw={600} c="brand.7">{o.orderNumber}</Text></Table.Td>
+                  <Table.Td><OrderRef id={o.orderId} number={o.orderNumber} focus="money" /></Table.Td>
                   <Table.Td><Text size="sm" lineClamp={1}>{o.customerName}</Text></Table.Td>
                   <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{o.docsCount}</Table.Td>
                   <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(o.orderTotal)} ₸</Table.Td>

@@ -10,6 +10,7 @@ interface StatusBadgeProps {
 }
 
 const STATUS_TO_MANTINE: Record<string, 'blue' | 'green' | 'yellow' | 'cyan' | 'gray' | 'red' | 'teal'> = {
+  NEW: 'red',
   DRAFT: 'gray',
   CONFIRMED: 'blue',
   IN_PRODUCTION: 'yellow',
@@ -38,9 +39,11 @@ export function StatusBadge({
           <Box
             w={6}
             h={6}
+            className={status === 'IN_PRODUCTION' || status === 'NEW' ? 'live-dot' : undefined}
             style={{
               borderRadius: 999,
               backgroundColor: customColor,
+              color: customColor,
               boxShadow: `0 0 0 3px ${customColor}22`,
             }}
           />

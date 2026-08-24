@@ -3,6 +3,7 @@ import { Tabs, Stack, Text } from '@mantine/core';
 import { SpreadsheetTable } from '../../components/SpreadsheetTable';
 import { useSpreadsheetRows } from '../../hooks/useSpreadsheet';
 import {
+  IconGavel,
   IconBoxSeam,
   IconTruckDelivery,
   IconAlertSquare,
@@ -11,6 +12,8 @@ import {
 } from '@tabler/icons-react';
 import { MaterialsStock } from './MaterialsStock';
 import { MaterialReceipts } from './MaterialReceipts';
+import { BatchesReserves } from './BatchesReserves';
+import { useSearchParams } from 'react-router-dom';
 
 /** Excel-архив: исходные листы как есть — для сверки с оригиналом */
 const WAREHOUSE_SHEETS = [
@@ -67,6 +70,13 @@ function ExcelArchive() {
 }
 
 export function Warehouse() {
+  // Вкладка живёт в адресе: ссылки «Требует решения» с экрана директора
+  // ведут прямо в «Партии и резервы», а не на первую попавшуюся вкладку
+  const [params, setParams] = useSearchParams();
+  const tab = params.get('tab') ?? 'stock';
+  const setTab = (v: string) => setParams((prev) => {
+    const next = new URLSearchParams(prev); next.set('tab', v); return next;
+  }, { replace: true });
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
       <Stack gap={4}>
@@ -78,14 +88,16 @@ export function Warehouse() {
         </Text>
       </Stack>
 
-      <Tabs defaultValue="stock" radius="md" keepMounted={false}>
+      <Tabs value={tab} onChange={(v) => setTab(v ?? 'stock')} radius="md" keepMounted={false}>
         <Tabs.List mb="md">
           <Tabs.Tab value="stock" leftSection={<IconBoxSeam size={15} />}>База сырья</Tabs.Tab>
+          <Tabs.Tab value="batches" leftSection={<IconGavel size={15} />}>Партии и резервы</Tabs.Tab>
           <Tabs.Tab value="receipts" leftSection={<IconTruckDelivery size={15} />}>Приход материалов</Tabs.Tab>
           <Tabs.Tab value="archive" leftSection={<IconFileSpreadsheet size={15} />}>Excel-архив</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="stock"><MaterialsStock /></Tabs.Panel>
+        <Tabs.Panel value="batches"><BatchesReserves /></Tabs.Panel>
         <Tabs.Panel value="receipts"><MaterialReceipts /></Tabs.Panel>
         <Tabs.Panel value="archive"><ExcelArchive /></Tabs.Panel>
       </Tabs>

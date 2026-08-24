@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Group, Text, TextInput, ActionIcon, Badge, Box, Tooltip } from '@mantine/core';
+import { Group, Text, ActionIcon, Badge, Box, Tooltip, UnstyledButton, Kbd } from '@mantine/core';
+import { useDisclosure } from '@mantine/hooks';
+import { GlobalSearch, useGlobalSearchHotkey } from '../GlobalSearch';
 import { IconSearch, IconBell, IconLogout, IconMenu2, IconBaselineDensityMedium, IconBaselineDensitySmall } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { notifications } from '@mantine/notifications';
@@ -10,6 +12,8 @@ interface TopBarProps {
 
 export function TopBar({ onToggleMobile }: TopBarProps) {
   const logout = useAuthStore((state) => state.logout);
+  const [searchOpened, { open: openSearch, close: closeSearch }] = useDisclosure(false);
+  useGlobalSearchHotkey(openSearch);
   // Плотность (§4.1 п.3): «компактно» — таблицы в 40 строк для плановика
   const [density, setDensity] = useState(
     () => localStorage.getItem('ui-density') ?? 'normal',
@@ -31,6 +35,7 @@ export function TopBar({ onToggleMobile }: TopBarProps) {
   };
 
   return (
+    <>
     <Group h="100%" px="md" justify="space-between" wrap="nowrap">
       <Group wrap="nowrap" style={{ flex: 1 }}>
         <ActionIcon
@@ -43,14 +48,32 @@ export function TopBar({ onToggleMobile }: TopBarProps) {
         >
           <IconMenu2 size={20} />
         </ActionIcon>
-        <TextInput
-          placeholder="Поиск заказов, материалов, номенклатуры..."
-          leftSection={<IconSearch size={16} stroke={1.8} />}
+        {/* Поле было TextInput без обработчика — обещало поиск и не делало
+            ничего. Теперь это кнопка, открывающая общий поиск (Cmd/Ctrl+K) */}
+        <UnstyledButton
+          onClick={openSearch}
           style={{ flex: 1, maxWidth: 520 }}
-          size="md"
-          radius="xl"
-          variant="filled"
-        />
+          aria-label="Поиск"
+        >
+          <Group
+            gap="sm"
+            wrap="nowrap"
+            px="md"
+            py={8}
+            style={{
+              borderRadius: 999,
+              background: 'var(--mantine-color-default-hover)',
+            }}
+          >
+            <IconSearch size={16} stroke={1.8} style={{ color: 'var(--mantine-color-dimmed)' }} />
+            <Text size="sm" c="dimmed" style={{ flex: 1 }} lineClamp={1}>
+              Заказ, заказчик, объект, материал…
+            </Text>
+            <Group gap={2} visibleFrom="sm">
+              <Kbd size="xs">⌘</Kbd><Kbd size="xs">K</Kbd>
+            </Group>
+          </Group>
+        </UnstyledButton>
       </Group>
 
       <Group gap={8} wrap="nowrap">
@@ -108,5 +131,7 @@ export function TopBar({ onToggleMobile }: TopBarProps) {
         </ActionIcon>
       </Group>
     </Group>
+      <GlobalSearch opened={searchOpened} onClose={closeSearch} />
+    </>
   );
 }

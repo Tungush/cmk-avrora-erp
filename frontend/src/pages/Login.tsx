@@ -12,12 +12,12 @@ import {
   Group,
   Box,
   Flex,
-  Avatar,
   Badge,
   SimpleGrid,
 } from '@mantine/core';
 import { IconArrowRight, IconCheck } from '@tabler/icons-react';
 import { useAuthStore } from '../store/auth';
+import { LogoLockup } from '../components/Brand';
 import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
 
@@ -62,10 +62,12 @@ export function Login() {
     }
   }, [email, roles, setAuth, navigate]);
 
+  // Настоящие числа завода, а не витринные «1200+» и «24/7»:
+  // конкретика — единственная статистика, которой верят
   const stats = [
-    { value: '1 200+', label: 'Заказов обработано' },
-    { value: '98,4%', label: 'Выполнение плана' },
-    { value: '24/7', label: 'Мониторинг цехов' },
+    { value: '2 160', label: 'изделий в каталоге' },
+    { value: '3 147', label: 'материалов с ценами партий' },
+    { value: '3 866', label: 'норм труда по переделам' },
   ];
 
   return (
@@ -80,29 +82,20 @@ export function Login() {
             p={{ base: 32, lg: 48, xl: 80 }}
             style={{ overflow: 'hidden' }}
           >
+            {/* Медленное сияние раскалённого металла — живой фон, не отвлекает */}
+            <div className="aurora" />
 
             <Stack justify="space-between" h="100%" pos="relative" style={{ zIndex: 1 }}>
               <Stack gap="xl">
-                <Group gap="md">
-                  <Avatar size={44} radius="md" variant="filled" color="brand.6">
-                    <Text fw={900} size="xl" c="white">А</Text>
-                  </Avatar>
-                  <Stack gap={0}>
-                    <Text fw={800} size="xl" c="white" tt="uppercase" style={{ letterSpacing: '-0.02em' }}>
-                      ЦМК АВРОРА
-                    </Text>
-                    <Text size="xs" tt="uppercase" fw={500} c="dark.3" style={{ letterSpacing: '0.18em', fontSize: 10 }}>
-                      ERP Platform
-                    </Text>
-                  </Stack>
-                </Group>
+                <LogoLockup onDark markSize={44} />
 
                 <Stack gap="lg" mt={64}>
-                  <Title order={1} c="white" fw={900} lh={1.05} style={{ fontSize: 32, letterSpacing: '-0.03em', maxWidth: 520 }}>
-                    Управление производством нового уровня
+                  <Title order={1} c="white" fw={900} lh={1.04} style={{ fontSize: 38, letterSpacing: '-0.03em', maxWidth: 560 }}>
+                    Заказ, цех и себестоимость — в одном окне
                   </Title>
                   <Text c="dark.3" size="lg" maw={480} lh={1.6}>
-                    ERP-система для планирования, контроля заказов и аналитики в реальном времени.
+                    Заказы приходят из 1С, цех отмечает переделы, цена считается
+                    по партиям металла. Таблица на 44 листа больше не нужна.
                   </Text>
                 </Stack>
               </Stack>
@@ -123,13 +116,8 @@ export function Login() {
           <Container size={460} py={60} px="md" mih="100vh" display="flex" style={{ alignItems: 'center' }}>
             <Paper withBorder shadow="sm" p="xl" radius="lg" w="100%">
               <Stack gap="lg">
-                <Group gap="md" display={{ base: 'flex', lg: 'none' }} mb="xs">
-                  <Avatar size={36} radius="md" variant="filled" color="brand.6">
-                    <Text fw={900} size="lg" c="white">А</Text>
-                  </Avatar>
-                  <Text fw={800} size="lg" style={{ letterSpacing: '-0.02em' }}>
-                    ЦМК АВРОРА
-                  </Text>
+                <Group display={{ base: 'flex', lg: 'none' }} mb="xs">
+                  <LogoLockup markSize={34} />
                 </Group>
 
                 <Stack gap={6}>

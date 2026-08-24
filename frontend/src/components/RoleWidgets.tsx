@@ -9,6 +9,7 @@ import {
 import api from '../api/client';
 import { StatusBadge } from './StatusBadge';
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS } from '../utils/formatters';
+import { OrderRef } from './OrderCard/OrderCardProvider';
 
 interface RoleWidgetsResponse {
   family: string | null;
@@ -83,7 +84,7 @@ export function RoleWidgets() {
           {w.overdueOrders.top.map((o) => (
             <Group key={o.id} justify="space-between" wrap="nowrap" gap="xs">
               <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                <Text size="xs" ff="monospace" fw={600} c="brand.7">{o.orderNumber}</Text>
+                <OrderRef id={o.id} number={o.orderNumber} size="xs" />
                 <Text size="xs" c="dimmed" truncate>{o.customer?.name ?? '—'}</Text>
               </Group>
               <Badge size="sm" color="danger" variant="light" radius="xl">{o.overdueDays} дн</Badge>
@@ -221,7 +222,7 @@ export function RoleWidgets() {
           {w.readyToShip.top.map((o) => (
             <Group key={o.id} justify="space-between" wrap="nowrap" gap="xs">
               <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                <Text size="xs" ff="monospace" fw={600} c="brand.7">{o.orderNumber}</Text>
+                <OrderRef id={o.id} number={o.orderNumber} size="xs" />
                 <Text size="xs" c="dimmed" truncate>{o.customer?.name ?? '—'}</Text>
               </Group>
               <Text size="xs" ff="monospace" c="dimmed">{formatDate(o.plannedShipmentDate)}</Text>

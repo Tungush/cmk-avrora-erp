@@ -17,6 +17,40 @@ export const ordersApi = {
   transitionStatus: (id: string, toStatus: string, comment?: string) =>
     api.patch<Order>(`/orders/${id}/status`, { status: toStatus, comment }),
 
+  // Инбокс «Новые заказы» из 1С: блокеры + явный приём в производство
+  inbox: () =>
+    api.get<{ data: Array<Order & { blockers: Array<{ code: string; message: string }>; canAccept: boolean }>; meta: { total: number } }>('/orders/inbox'),
+
+  accept: (id: string, comment?: string) =>
+    api.post<{ order: Order }>(`/orders/${id}/accept`, { comment }),
+
+  // Подряд по заказу и сверка с актами 1С
+  contractorWork: (orderId: string) =>
+    api.get<{
+      data: Array<{
+        id: string; routingStage: string; contractorId: string; share: number;
+        rateType: string; rate: number; actualQty: number | null; amount: number;
+        isAccepted: boolean; contractor?: { id: string; name: string };
+      }>;
+      reconciliation: Array<{ contractorId: string; name: string; logged: number; acted: number; delta: number; status: string }>;
+    }>(`/orders/${orderId}/contractor-work`),
+
+  /** Отдать передел подрядчику — вызывается прямо из отметки этапа */
+  assignContractor: (orderId: string, stage: string, body: {
+    contractorId: string; share?: number; rateType?: string; rate?: number;
+    workLocation?: 'OUR_SHOP' | 'CONTRACTOR_SITE'; plannedHours?: number; reason?: string;
+  }) => api.post(`/orders/${orderId}/stages/${stage}/contractor`, body),
+
+  /** Принять работу подрядчика: замораживает сумму */
+  acceptContractorWork: (workId: string, body: { actualQty: number; actualWorkers?: number; actualAmount?: number }) =>
+    api.patch(`/contractor-work/${workId}/accept`, body),
+
+  removeContractorWork: (workId: string) =>
+    api.delete(`/contractor-work/${workId}`),
+
+  contractors: () =>
+    api.get<Array<{ id: string; name: string; defaultRateType: string; defaultRate: number; defaultWorkLocation: string }>>('/contractors'),
+
   getStages: (id: string) =>
     api.get<ProductionStage[]>(`/orders/${id}/production-stages`),
 

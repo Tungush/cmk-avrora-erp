@@ -20,6 +20,8 @@ import {
   IconTrendingUp,
 } from '@tabler/icons-react';
 import { useProductionSummary } from '../../hooks/useDashboard';
+import { useQuery } from '@tanstack/react-query';
+import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { KpiCard } from '../../components/KpiCard';
 import { PriceReviewsPanel } from '../../components/PriceReviewsPanel';
@@ -53,6 +55,13 @@ ChartJS.register(
 
 export function Dashboard() {
   const { data: summary, isLoading } = useProductionSummary();
+  // Ряды графиков — из базы. Раньше здесь были захардкоженные массивы:
+  // ровный тренд, которого не существовало
+  const { data: series } = useQuery({
+    queryKey: ['dashboard', 'monthly-series'],
+    queryFn: () => api.get<{ months: Array<{ label: string; ordersIn: number; planned: number; shipped: number }> }>('/dashboards/monthly-series').then((r) => r.data),
+  });
+  const months = series?.months ?? [];
   // Палитра графиков — «горячий металл», валидирована на CVD и контраст
   const chart = {
     cat1: '#D9480F', cat2: '#0891B2',
@@ -80,31 +89,31 @@ export function Dashboard() {
   }, [summary]);
 
   const barData = useMemo(() => ({
-    labels: ['Янв', 'Фев', 'Мар', 'Апр', 'Май', 'Июн'],
+    labels: months.map((m) => m.label),
     datasets: [
       {
-        label: 'План',
-        data: [120, 150, 180, 190, 210, summary?.productionPlanFact?.planned ?? 0],
+        label: 'План отгрузок',
+        data: months.map((m) => m.planned),
         backgroundColor: chart.muted,
         borderRadius: 6,
         borderSkipped: false,
       },
       {
-        label: 'Факт',
-        data: [115, 140, 175, 195, 205, summary?.productionPlanFact?.actual ?? 0],
+        label: 'Отгружено',
+        data: months.map((m) => m.shipped),
         backgroundColor: chart.cat1,
         borderRadius: 6,
         borderSkipped: false,
       },
     ],
-  }), [summary]);
+  }), [months]);
 
   const lineData = useMemo(() => ({
-    labels: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+    labels: months.map((m) => m.label),
     datasets: [
       {
-        label: 'Дебиторка (млн ₸)',
-        data: [12, 11.5, 13, 12.8, 11.2, 10.5, (summary?.receivablesTotal ?? 0) / 1000000],
+        label: 'Поступило заказов',
+        data: months.map((m) => m.ordersIn),
         borderColor: chart.cat1,
         backgroundColor: 'rgba(217, 72, 15, 0.07)',
         fill: true,
@@ -114,7 +123,7 @@ export function Dashboard() {
         borderWidth: 2.5,
       },
     ],
-  }), [summary]);
+  }), [months]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -199,14 +208,12 @@ export function Dashboard() {
           value={`${summary.productionPlanFact.actual} / ${summary.productionPlanFact.planned}`}
           subtitle="Выполнение плана (шт)"
           icon={<IconPackage size={20} />}
-          trend={{ value: 4.2, label: 'к прошлому месяцу' }}
         />
         <KpiCard
           title="Загрузка цеха"
           value={`${loadPct.toFixed(1)}%`}
           subtitle={`${summary.workshopLoadHours.used} / ${summary.workshopLoadHours.total} ч.`}
           icon={<IconCpu size={20} />}
-          trend={{ value: -1.5, label: 'к прошлой неделе' }}
         />
         {canFinance && (
           <KpiCard
@@ -214,7 +221,6 @@ export function Dashboard() {
             value={formatCurrency(summary.receivablesTotal)}
             subtitle="Общая сумма задолженности"
             icon={<IconBuildingBank size={20} />}
-            trend={{ value: 12.4, label: 'рост задолженности' }}
           />
         )}
         <KpiCard
@@ -232,8 +238,8 @@ export function Dashboard() {
         <Card withBorder padding="lg" radius="lg">
           <Group justify="space-between" mb="lg">
             <Stack gap={4}>
-              <Text fw={800} size="lg">Выполнение плана</Text>
-              <Text size="xs" c="dimmed">Плановые и фактические объёмы</Text>
+              <Text fw={800} size="lg">Отгрузки: план и факт</Text>
+              <Text size="xs" c="dimmed">По месяцам, из дат заказов</Text>
             </Stack>
             <Badge variant="light" color="gray" size="lg" radius="xl">
               2026
@@ -248,8 +254,8 @@ export function Dashboard() {
         <Card withBorder padding="lg" radius="lg">
           <Group justify="space-between" mb="lg">
             <Stack gap={4}>
-              <Text fw={800} size="lg">Дебиторская задолженность</Text>
-              <Text size="xs" c="dimmed">Тренд по дням недели</Text>
+              <Text fw={800} size="lg">Поступление заказов</Text>
+              <Text size="xs" c="dimmed">Заявок в месяц, последние полгода</Text>
             </Stack>
             <Group gap="xs">
               <ThemeIcon color="success" size="sm" variant="light" radius="xl">

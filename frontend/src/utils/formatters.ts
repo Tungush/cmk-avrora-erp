@@ -52,6 +52,7 @@ export function formatPercent(value?: number | null): string {
 }
 
 export const ORDER_STATUS_LABELS: Record<string, string> = {
+  NEW: 'Новый из 1С',
   DRAFT: 'Черновик',
   CONFIRMED: 'Подтверждён',
   IN_PRODUCTION: 'В производстве',
@@ -63,6 +64,7 @@ export const ORDER_STATUS_LABELS: Record<string, string> = {
 
 /** Статусы — чернильная гамма (§4.4): приглушённые, различимые по тону, не кричат */
 export const ORDER_STATUS_COLORS: Record<string, string> = {
+  NEW: '#D9480F',
   DRAFT: '#8A867B',
   CONFIRMED: '#0E7490',
   IN_PRODUCTION: '#C08F0E',
