@@ -35,7 +35,16 @@ export class BatchReservationService {
       this.prisma,
       async () => {
         const batches = await this.prisma.materialBatch.findMany({
-          where: { materialId, qtyRemaining: { gt: 0 } },
+          // Чужие давальческие партии не показываем вовсе: их нельзя ни
+          // резервировать, ни перехватывать — это не наш металл
+          where: {
+            materialId,
+            qtyRemaining: { gt: 0 },
+            OR: [
+              { batchType: 'OWN' as any },
+              ...(forOrderId ? [{ batchType: 'TOLLING' as any, ownerOrderId: forOrderId }] : []),
+            ],
+          },
           orderBy: { receiptDate: 'asc' },
         });
         const reservations = this.toLike(
@@ -50,6 +59,8 @@ export class BatchReservationService {
           supplierName: b.supplierName,
           documentNumber: b.documentNumber,
           priceAnomaly: b.priceAnomaly,
+          batchType: b.batchType,
+          ownerOrderId: b.ownerOrderId,
         }));
       },
       () => [],

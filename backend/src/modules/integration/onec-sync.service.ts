@@ -4,6 +4,8 @@ import { IntegrationService } from '../../services/integration.service';
 import {
   OneCClientService, OneCClientOrder, OneCSupplierOrder, parseOrderNumber,
 } from '../../services/onec-client.service';
+import { MaterialReceiptService } from '../../services/material-receipt.service';
+import { normalizeName } from '../../common/nomenclature';
 
 /** Статусы 1С → наши. Незнакомый статус не двигает заказ, а попадает в отчёт. */
 // Ключи — без пробелов: реальная 1С пишет статусы слитно («КОтгрузке»,
@@ -113,6 +115,8 @@ export interface SyncReport {
   unknownArticles: string[];
   unknownStatuses: string[];
   errors: Array<{ orderNumber: string; error: string }>;
+  /** Создано как NEW: заказ 1С, которого у нас не было, — ушёл в инбокс */
+  createdAsNew?: number;
 }
 
 export function emptyReport(): SyncReport {
@@ -184,6 +188,7 @@ export class OneCSyncService {
     private readonly prisma: PrismaService,
     private readonly onec: OneCClientService,
     private readonly integration: IntegrationService,
+    private readonly receipts: MaterialReceiptService,
   ) {}
 
   /** Контрагент по БИН — юридический реквизит, владелец 1С */
@@ -221,8 +226,9 @@ export class OneCSyncService {
 
   /**
    * Синхронизировать один заказ клиента по номеру (GET A).
-   * Заказ должен существовать у нас — создание «с нуля» появится, когда 1С
-   * начнёт присылать список новых номеров.
+   * Неизвестный нам заказ (рождён сделкой Б24 → документом 1С) создаётся
+   * в статусе NEW и попадает в инбокс «Новые заказы» — производство
+   * принимает его явно, кнопкой, после проверки позиций.
    */
   async syncClientOrder(orderNumber: string, report: SyncReport): Promise<boolean> {
     const rows = await this.onec.getClientOrder(orderNumber);
@@ -249,13 +255,28 @@ export class OneCSyncService {
     }
     report.found++;
 
-    const order = await this.prisma.order.findUnique({
+    let order = await this.prisma.order.findUnique({
       where: { orderNumber },
       include: { orderLines: true },
     });
     if (!order) {
-      report.missingLocally.push(orderNumber);
-      return false;
+      // Заказ рождён в 1С (сделка Б24) — заводим у нас в NEW, в инбокс.
+      // Контрагент нужен сразу: без него запись не имеет смысла.
+      const newCustomerId = await this.upsertCustomer(str(data.client), str(data.client_bin));
+      if (!newCustomerId) {
+        report.missingLocally.push(orderNumber);
+        return false;
+      }
+      order = await this.prisma.order.create({
+        data: {
+          orderNumber,
+          customerId: newCustomerId,
+          orderType: 'FZ',
+          status: 'NEW' as any,
+        },
+        include: { orderLines: true },
+      });
+      report.createdAsNew = (report.createdAsNew ?? 0) + 1;
     }
 
     // Строки: имя массива в ТЗ не указано — ищем по известным вариантам.
@@ -276,7 +297,11 @@ export class OneCSyncService {
     if (rawStatus && !mapped && !report.unknownStatuses.includes(rawStatus)) {
       report.unknownStatuses.push(rawStatus);
     }
-    const keepOurs = OUR_PRODUCTION_STATUSES.has(order.status) && mapped === 'CONFIRMED';
+    // NEW не подтверждается статусом 1С: из инбокса заказ выходит только
+    // явным «Принять в производство», иначе инбокс превратится в фикцию
+    const keepOurs =
+      (OUR_PRODUCTION_STATUSES.has(order.status) && mapped === 'CONFIRMED') ||
+      (order.status === ('NEW' as any) && mapped === 'CONFIRMED');
     const nextStatus = mapped && !keepOurs ? mapped : order.status;
 
     const customerId = await this.upsertCustomer(str(data.client), str(data.client_bin));
@@ -311,6 +336,10 @@ export class OneCSyncService {
           // Суммы пишем только если строки реально разобраны
           ...(itemRows.length > 0 ? { onecTotalAmount: totalAmount } : {}),
           ...(payments.length > 0 ? { onecPaidAmount: paidAmount } : {}),
+          // Конечный заказчик: 1С его отдаёт, а мы раньше выбрасывали —
+          // хотя для работы через генподрядчиков это ключевой реквизит
+          finalCustomer: cut(data.final_client, 200) ?? order.finalCustomer,
+          customerOrderNum: cut(data.client_po, 60) ?? order.customerOrderNum,
           projectGroup: cut(data.project_group, 100),
           projectSite: cut(data.project_site, 150),
           divisionCode: cut(data.division_code, 20),
@@ -427,7 +456,7 @@ export class OneCSyncService {
 
     const orders = await this.prisma.order.findMany({
       where: {
-        ...(options.onlyActive === false ? {} : { status: { in: ['DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] } }),
+        ...(options.onlyActive === false ? {} : { status: { in: ['NEW', 'DRAFT', 'CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] } }),
         // Номера вида TC-ROW104 придуманы импортом — в 1С их нет
         NOT: { orderNumber: { contains: 'ROW' } },
       },
@@ -486,6 +515,14 @@ export class OneCSyncService {
     let created = 0;
     let updated = 0;
     const errors: string[] = [];
+    // Сырьё из позиций документов: опознано / не опознано / приходы / стадии цен
+    const procurement = {
+      matched: 0,
+      unmatched: [] as string[],
+      receiptsCreated: 0,
+      rowsOrdered: 0,
+      rowsActual: 0,
+    };
 
     for (const [supplierNumber, supplierYear] of supplierNumbers) {
       try {
@@ -574,11 +611,156 @@ export class OneCSyncService {
           });
           created++;
         }
+
+        // Позиции заказа поставщику: сырьё, цены, факт поступления.
+        // Отсюда рождаются партии с фактической ценой — никто ничего
+        // не вводит руками (решение 22.08.2026: приходы приходят из 1С).
+        const applied = await this.applyProcurementItems(order?.id ?? null, doNumber, data, items);
+        procurement.matched += applied.matched;
+        procurement.unmatched.push(...applied.unmatched);
+        procurement.receiptsCreated += applied.receiptsCreated;
+        procurement.rowsOrdered += applied.rowsOrdered;
+        procurement.rowsActual += applied.rowsActual;
       } catch (e) {
         errors.push(`${supplierNumber}: ${e instanceof Error ? e.message : 'ошибка'}`);
       }
     }
 
-    return { orderNumber, supplierOrders: supplierNumbers.size, created, updated, errors };
+    return { orderNumber, supplierOrders: supplierNumbers.size, created, updated, errors, procurement };
+  }
+
+  /**
+   * Позиция 1С → наш материал. Три ступени: код 1С, точное имя,
+   * нормализованный алиас (§7.6) — тот самый механизм «узнаём чужие имена».
+   */
+  private async matchMaterial(name: string, code: string): Promise<string | null> {
+    if (code) {
+      const byCode = await this.prisma.material.findFirst({
+        where: { materialCode: code },
+        select: { id: true },
+      });
+      if (byCode) return byCode.id;
+    }
+    if (!name) return null;
+    const byName = await this.prisma.material.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+      select: { id: true },
+    });
+    if (byName) return byName.id;
+    const byAlias = await this.prisma.materialAlias.findFirst({
+      where: { normalized: normalizeName(name) },
+      select: { materialId: true },
+    });
+    return byAlias?.materialId ?? null;
+  }
+
+  /**
+   * Что делает строка заказа поставщику у нас:
+   *  1) материал опознаётся (код → имя → алиас); неопознанные — в отчёт,
+   *     это кандидаты на алиас или заявку, молча терять их нельзя;
+   *  2) строки калькуляции этого заказа двигаются «оценка → заказано»
+   *     с номером документа; цена трогается только в черновиках —
+   *     согласованная версия остаётся снимком;
+   *  3) если по документу есть акт (товар поступил) — создаётся приход
+   *     и партия с фактической ценой; карантин аномалий срабатывает сам;
+   *     строки калькуляции получают стадию «факт».
+   */
+  private async applyProcurementItems(
+    orderId: string | null,
+    doNumber: string,
+    data: OneCSupplierOrder,
+    items: any[],
+  ) {
+    const result = {
+      matched: 0,
+      unmatched: [] as string[],
+      receiptsCreated: 0,
+      rowsOrdered: 0,
+      rowsActual: 0,
+    };
+
+    // Акт по документу = сырьё физически поступило; его дата — дата прихода
+    const acts = Array.isArray(data.actdoc_alldata) ? data.actdoc_alldata : [];
+    const actDateRaw = acts
+      .map((a) => parseDate(a.actdoc_processed_date ?? a.actdoc_date))
+      .filter(Boolean)
+      .sort((a, b) => (a as Date).getTime() - (b as Date).getTime())[0] ?? null;
+    const hasArrived = acts.length > 0;
+
+    const costingRows = orderId
+      ? await this.prisma.orderCostingMaterial.findMany({
+          where: { costing: { orderId } },
+          select: { id: true, materialId: true, qtyTotal: true, priceState: true, costing: { select: { status: true } } },
+        })
+      : [];
+
+    for (const it of items) {
+      const name = str(it.item);
+      const code = str(it.item_code);
+      const qty = num(it.qty);
+      const unitPrice = num(it.unit_price);
+      if (!(qty > 0) || !(unitPrice > 0)) continue;
+
+      const materialId = await this.matchMaterial(name, code);
+      if (!materialId) {
+        result.unmatched.push(name || code || '—');
+        continue;
+      }
+      result.matched++;
+
+      // «Оценка → заказано»: цена уже известна из документа 1С
+      for (const row of costingRows.filter((r) => r.materialId === materialId && r.priceState === 'ESTIMATE')) {
+        await this.prisma.orderCostingMaterial.update({
+          where: { id: row.id },
+          data: {
+            priceState: 'ORDERED',
+            supplierOrderNumber: doNumber,
+            priceStateChangedAt: new Date(),
+            // Снимок согласованной версии неприкосновенен — деньги меняем только в черновике
+            ...(row.costing.status === 'DRAFT'
+              ? { unitPrice, lineCost: Math.round(unitPrice * Number(row.qtyTotal) * 100) / 100 }
+              : {}),
+          },
+        });
+        result.rowsOrdered++;
+      }
+
+      if (!hasArrived) continue;
+
+      // Приход идемпотентен по (материал, документ): повторный синк
+      // того же счёта не задваивает склад
+      const already = await this.prisma.materialStockMovement.findFirst({
+        where: { itemId: materialId, documentNumber: doNumber, movementType: 'RECEIPT' as any },
+      });
+      if (!already) {
+        await this.receipts.receive({
+          materialId,
+          qty,
+          unitPrice,
+          movementDate: (actDateRaw ?? new Date()).toISOString(),
+          supplierName: str(data.supplier) || null,
+          documentNumber: doNumber,
+          comment: `Заказ поставщику ${doNumber} (синхронизация 1С)`,
+        } as any);
+        result.receiptsCreated++;
+      }
+
+      // «Заказано → факт»: партия с фактической ценой существует
+      for (const row of costingRows.filter((r) => r.materialId === materialId && r.priceState !== 'ACTUAL')) {
+        await this.prisma.orderCostingMaterial.update({
+          where: { id: row.id },
+          data: {
+            priceState: 'ACTUAL',
+            supplierOrderNumber: doNumber,
+            priceStateChangedAt: new Date(),
+            ...(row.costing.status === 'DRAFT'
+              ? { unitPrice, lineCost: Math.round(unitPrice * Number(row.qtyTotal) * 100) / 100 }
+              : {}),
+          },
+        });
+        result.rowsActual++;
+      }
+    }
+    return result;
   }
 }

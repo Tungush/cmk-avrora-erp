@@ -50,6 +50,17 @@ export class AuthController {
       email = dbUser.email;
       roles = dbUser.userRoles.map(ur => ur.role.code);
     } else {
+      // Неизвестный email с ролями из тела запроса — это ДЕМО-режим:
+      // удобно для показа, недопустимо на живых данных, где любой знающий
+      // адрес получал бы полный доступ к заказам и ценам. Перед подключением
+      // боевой 1С выключить: AUTH_DEMO_MODE=false в backend/.env
+      const demoMode = process.env.AUTH_DEMO_MODE !== 'false';
+      if (!demoMode) {
+        throw new UnauthorizedException({
+          code: 'UNKNOWN_USER',
+          message: 'Пользователь не найден. Демо-вход отключён (AUTH_DEMO_MODE=false)',
+        });
+      }
       userId = `usr-${Date.now()}`;
       email = body.email;
       roles = selectedRoles;

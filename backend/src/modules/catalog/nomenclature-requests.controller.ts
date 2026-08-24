@@ -8,6 +8,7 @@ import { CurrentUser, UserPayload } from '../../common/decorators/current-user.d
 import { PrismaService } from '../../services/prisma.service';
 import { runWithFallback } from '../../common/fallback';
 import { IntegrationService } from '../../services/integration.service';
+import { BitrixClientService } from '../../services/bitrix-client.service';
 
 /** Серии артикулов из исходной таблицы: k — крепёж, n/d/t — изделия, z — заказные */
 const KNOWN_SERIES = ['k', 'n', 'd', 't', 'z', 'a', 'b'];
@@ -26,6 +27,7 @@ export class NomenclatureRequestsController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly integration: IntegrationService,
+    private readonly bitrix: BitrixClientService,
   ) {}
 
   /** Следующий свободный артикул в серии: k-001 → k-002 … */
@@ -78,7 +80,7 @@ export class NomenclatureRequestsController {
 
     // Заявка и сообщение для 1С пишутся одной транзакцией (§3.3):
     // иначе заявка есть, а в 1С не ушла, и никто не заметил
-    return this.prisma.$transaction(async (tx) => {
+    const created = await this.prisma.$transaction(async (tx) => {
       const request = await tx.nomenclatureRequest.create({
         data: {
           proposedName: name,
@@ -103,6 +105,17 @@ export class NomenclatureRequestsController {
       });
       return request;
     });
+
+    // Задача оператору 1С в Б24 — после транзакции: внешний HTTP не должен
+    // держать её открытой, а падение Б24 не должно валить заявку
+    const task = await this.bitrix.createNomenclatureTask(created);
+    if (task) {
+      return this.prisma.nomenclatureRequest.update({
+        where: { id: created.id },
+        data: { bitrixTaskId: task.taskId, bitrixTaskCreatedAt: new Date() },
+      });
+    }
+    return created;
   }
 
   @Get()

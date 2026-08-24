@@ -64,8 +64,33 @@ export class BatchReservationsController {
     const rows = await this.prisma.batchOverrideRequest.findMany({
       where: status ? { status: status as any } : { status: 'PENDING' },
       orderBy: { createdAt: 'asc' },
-      include: { reservation: { select: { orderId: true, batchId: true, qty: true } } },
+      include: {
+        reservation: {
+          select: {
+            orderId: true,
+            qty: true,
+            batch: {
+              select: {
+                unitPrice: true,
+                material: { select: { materialCode: true, name: true, unit: true } },
+              },
+            },
+          },
+        },
+      },
     });
+
+    // Номера заказов, а не UUID: директор решает про «DEMO-1007 просит
+    // у DEMO-1006», а не про пару шестнадцатеричных строк
+    const orderIds = [...new Set(rows.flatMap((r) => [r.requestedByOrderId, r.reservation.orderId]))];
+    const orders = orderIds.length
+      ? await this.prisma.order.findMany({
+          where: { id: { in: orderIds } },
+          select: { id: true, orderNumber: true, plannedShipmentDate: true },
+        })
+      : [];
+    const orderById = new Map(orders.map((o) => [o.id, o]));
+
     return {
       data: rows.map((r) => ({
         id: r.id,
@@ -74,10 +99,56 @@ export class BatchReservationsController {
         reason: r.reason,
         createdAt: r.createdAt,
         requestedByOrderId: r.requestedByOrderId,
+        requestedByOrder: orderById.get(r.requestedByOrderId) ?? null,
         holderOrderId: r.reservation.orderId,
+        holderOrder: orderById.get(r.reservation.orderId) ?? null,
+        material: r.reservation.batch.material,
+        unitPrice: Number(r.reservation.batch.unitPrice),
+        reservedQty: Number(r.reservation.qty),
         // Возраст на виду: если очередь к директору начнёт копиться,
         // это будет заметно за неделю, а не через квартал
         ageHours: Math.floor((now - new Date(r.createdAt).getTime()) / 3_600_000),
+      })),
+      total: rows.length,
+    };
+  }
+
+  /**
+   * Резервы, истекающие в ближайшие дни, — сюда ведёт ссылка с экрана
+   * директора. Резерв протухает через 30 дней без движения (09 §4.4):
+   * список показывает, чей металл вот-вот освободится.
+   */
+  @Get('expiring')
+  @ApiOperation({ summary: 'Резервы, истекающие в ближайшие дни' })
+  async listExpiring(@Query('days') days?: string) {
+    const horizon = Math.max(1, Number(days) || 3);
+    const rows = await this.prisma.batchReservation.findMany({
+      where: {
+        status: 'ACTIVE',
+        expiresAt: { lt: new Date(Date.now() + horizon * 86_400_000) },
+      },
+      orderBy: { expiresAt: 'asc' },
+      include: {
+        order: { select: { id: true, orderNumber: true, status: true } },
+        batch: {
+          select: {
+            unitPrice: true,
+            material: { select: { materialCode: true, name: true, unit: true } },
+          },
+        },
+      },
+      take: 100,
+    });
+    const now = Date.now();
+    return {
+      data: rows.map((r) => ({
+        id: r.id,
+        order: r.order,
+        material: r.batch.material,
+        qty: Number(r.qty),
+        unitPrice: Number(r.batch.unitPrice),
+        expiresAt: r.expiresAt,
+        daysLeft: Math.max(0, Math.ceil((new Date(r.expiresAt).getTime() - now) / 86_400_000)),
       })),
       total: rows.length,
     };

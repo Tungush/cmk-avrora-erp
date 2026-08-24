@@ -17,6 +17,7 @@
     "migrate:full": "ts-node prisma/migrate-full-xlsx.ts",
     "test": "jest",
     "migrate:payment-docs": "ts-node prisma/import-payment-docs.ts",
+    "seed:demo": "ts-node prisma/seed-demo-scenarios.ts",
     "migrate:bom": "ts-node prisma/import-bom.ts",
     "migrate:receipts": "ts-node prisma/import-material-receipts.ts",
     "mock:1c": "node tools/mock-1c-server.js"

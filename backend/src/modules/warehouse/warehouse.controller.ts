@@ -123,14 +123,55 @@ export class WarehouseController {
     );
   }
 
+  @Post('materials/tolling-receipt')
+  @Roles('warehouse_material', 'admin')
+  @ApiOperation({ summary: 'Приход давальческого сырья: партия заказа, цена 0' })
+  async postTollingReceipt(@Body() body: {
+    materialId: string; orderId: string; qty: number;
+    receiptDate?: string; documentNumber?: string; supplierName?: string;
+  }) {
+    const [mat, order] = await Promise.all([
+      this.prisma.material.findUnique({ where: { id: body.materialId } }),
+      this.prisma.order.findUnique({ where: { id: body.orderId } }),
+    ]);
+    if (!mat) throw new NotFoundException({ code: 'NOT_FOUND', message: `Material ${body.materialId} not found` });
+    if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${body.orderId} not found` });
+
+    await this.prisma.material.update({
+      where: { id: body.materialId },
+      data: { stockQty: { increment: Math.abs(body.qty) } },
+    });
+    return this.batches.createTollingReceipt({
+      materialId: body.materialId,
+      orderId: body.orderId,
+      qty: Math.abs(body.qty),
+      receiptDate: body.receiptDate ? new Date(body.receiptDate) : undefined,
+      documentNumber: body.documentNumber ?? null,
+      supplierName: body.supplierName ?? null,
+    });
+  }
+
+  /**
+   * Движение материала. ПРИХОД здесь заводить нельзя (решение 23.08.2026):
+   * сырьё приезжает из «Заказа поставщику» 1С вместе с фактической ценой,
+   * и второй способ создать ту же партию — это расхождение склада с 1С,
+   * которое потом никто не объяснит. Списание в производство остаётся:
+   * в таком разрезе 1С учёт не ведёт.
+   */
   @Post('materials/movements')
   @Roles('warehouse_material', 'admin')
-  @ApiOperation({ summary: 'Record material stock movement' })
+  @ApiOperation({ summary: 'Списание материала в производство (приход — только из 1С)' })
   async postMaterialMovement(@Body() body: any) {
     const mat = await this.prisma.material.findUnique({ where: { id: body.materialId } });
     if (!mat) throw new NotFoundException({ code: 'NOT_FOUND', message: `Material ${body.materialId} not found` });
 
     const isExpense = body.movementType === 'EXPENSE' || body.movementType === 'TO_PRODUCTION';
+    if (!isExpense) {
+      throw new BadRequestException({
+        code: 'RECEIPT_COMES_FROM_1C',
+        message: 'Приход материала не заводится руками — он приходит из «Заказа поставщику» 1С с фактической ценой',
+      });
+    }
     const qtyChange = isExpense ? -Math.abs(body.qty) : Math.abs(body.qty);
 
     const movement = await this.prisma.materialStockMovement.create({
@@ -153,7 +194,7 @@ export class WarehouseController {
     // живым и подбор цены начнёт предлагать давно израсходованное (09 §4.1).
     // Непокрытая часть не прячется: она уходит в ответ и видна в сверке.
     const batchConsumption = isExpense
-      ? await this.batches.consumeFifo(body.materialId, Math.abs(body.qty))
+      ? await this.batches.consumeFifo(body.materialId, Math.abs(body.qty), undefined, body.orderId ?? null)
       : null;
 
     return { ...movement, batchConsumption };

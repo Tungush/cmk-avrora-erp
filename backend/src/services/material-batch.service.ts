@@ -18,12 +18,23 @@ export const DEFAULT_ANOMALY_THRESHOLD = 5;
 export class MaterialBatchService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Партии материала: сначала свежие — так их читает человек в интерфейсе */
-  async batchesOf(materialId: string, includeEmpty = false): Promise<any[]> {
+  /**
+   * Партии материала: сначала свежие — так их читает человек в интерфейсе.
+   * Давальческие партии видит только заказ-владелец (forOrderId): чужой металл
+   * не должен даже показываться как доступный.
+   */
+  async batchesOf(materialId: string, includeEmpty = false, forOrderId?: string | null): Promise<any[]> {
     return runWithFallback(
       this.prisma,
       () => this.prisma.materialBatch.findMany({
-        where: { materialId, ...(includeEmpty ? {} : { qtyRemaining: { gt: 0 } }) },
+        where: {
+          materialId,
+          ...(includeEmpty ? {} : { qtyRemaining: { gt: 0 } }),
+          OR: [
+            { batchType: 'OWN' as any },
+            ...(forOrderId ? [{ batchType: 'TOLLING' as any, ownerOrderId: forOrderId }] : []),
+          ],
+        },
         orderBy: { receiptDate: 'desc' },
       }),
       () => [],
@@ -45,8 +56,8 @@ export class MaterialBatchService {
    * ни разу не приходовали), падаем на учётную цену справочника — иначе
    * калькуляция обнулилась бы там, где раньше работала.
    */
-  async priceFor(materialId: string, req: PriceRequest): Promise<PriceResolution> {
-    const rows = await this.batchesOf(materialId, true);
+  async priceFor(materialId: string, req: PriceRequest, forOrderId?: string | null): Promise<PriceResolution> {
+    const rows = await this.batchesOf(materialId, true, forOrderId);
     const batches = this.toBatchLike(rows);
 
     if (batches.length === 0) {
@@ -67,12 +78,25 @@ export class MaterialBatchService {
    * Списание в производство расходует партии по FIFO — иначе «живой остаток»
    * перестанет быть живым и подбор начнёт предлагать давно израсходованное.
    */
-  async consumeFifo(materialId: string, qty: number, tx?: any) {
+  async consumeFifo(materialId: string, qty: number, tx?: any, forOrderId?: string | null) {
     const client = tx ?? this.prisma;
-    const rows = await client.materialBatch.findMany({
-      where: { materialId, qtyRemaining: { gt: 0 } },
+    const fetched = await client.materialBatch.findMany({
+      where: {
+        materialId,
+        qtyRemaining: { gt: 0 },
+        OR: [
+          { batchType: 'OWN' },
+          ...(forOrderId ? [{ batchType: 'TOLLING', ownerOrderId: forOrderId }] : []),
+        ],
+      },
       orderBy: [{ receiptDate: 'asc' }, { id: 'asc' }],
     });
+    // Давальческий металл заказа расходуется первым: он принесён под этот
+    // заказ, и пока он лежит, свой металл со склада трогать не надо
+    const rows = [
+      ...fetched.filter((b: any) => b.batchType === 'TOLLING'),
+      ...fetched.filter((b: any) => b.batchType !== 'TOLLING'),
+    ];
     let left = qty;
     const consumed: Array<{ batchId: string; qty: number }> = [];
     for (const b of rows) {
@@ -103,34 +127,77 @@ export class MaterialBatchService {
     movementDate: Date;
     supplierName?: string | null;
     documentNumber?: string | null;
+    batchType?: 'OWN' | 'TOLLING';
+    ownerOrderId?: string | null;
   }, threshold = DEFAULT_ANOMALY_THRESHOLD) {
     const existing = await this.prisma.materialBatch.findUnique({
       where: { sourceMovementId: movement.id },
     });
     if (existing) return existing;
 
+    const isTolling = movement.batchType === 'TOLLING';
+
     // Сравниваем с уже проверенными партиями: одна ошибка ввода не должна
-    // утаскивать за собой оценку следующих
+    // утаскивать за собой оценку следующих. Давальческие с их нулевой ценой
+    // в сравнении не участвуют и в карантин не попадают.
     const healthy = await this.prisma.materialBatch.findMany({
-      where: { materialId: movement.itemId, priceAnomaly: false },
+      where: { materialId: movement.itemId, priceAnomaly: false, batchType: 'OWN' as any },
       select: { unitPrice: true },
     });
     const others = healthy.map((b) => Number(b.unitPrice));
-    const anomaly = isPriceAnomaly(movement.unitPrice, others, threshold);
+    const anomaly = !isTolling && isPriceAnomaly(movement.unitPrice, others, threshold);
 
     return this.prisma.materialBatch.create({
       data: {
         materialId: movement.itemId,
         receiptDate: movement.movementDate,
-        unitPrice: movement.unitPrice,
+        unitPrice: isTolling ? 0 : movement.unitPrice,
         qtyReceived: movement.qty,
         qtyRemaining: movement.qty,
         supplierName: movement.supplierName ?? null,
         documentNumber: movement.documentNumber ?? null,
         sourceMovementId: movement.id,
+        batchType: (movement.batchType ?? 'OWN') as any,
+        ownerOrderId: isTolling ? movement.ownerOrderId ?? null : null,
         priceAnomaly: anomaly,
         anomalyFactor: anomaly ? anomalyFactor(movement.unitPrice, others) : null,
       },
+    });
+  }
+
+  /**
+   * Приход давальческого сырья вручную: пока не подтверждено, что 1С ведёт
+   * давальческий склад (счёт 002), кладовщик фиксирует его у нас.
+   * Партия принадлежит заказу, цена 0 — в себестоимость не попадает.
+   */
+  async createTollingReceipt(input: {
+    materialId: string;
+    orderId: string;
+    qty: number;
+    receiptDate?: Date;
+    documentNumber?: string | null;
+    supplierName?: string | null;
+  }) {
+    const movement = await this.prisma.materialStockMovement.create({
+      data: {
+        itemId: input.materialId,
+        movementType: 'RECEIPT' as any,
+        qty: input.qty,
+        unitPrice: 0,
+        movementDate: input.receiptDate ?? new Date(),
+        project: null,
+      },
+    });
+    return this.createFromMovement({
+      id: movement.id,
+      itemId: input.materialId,
+      qty: input.qty,
+      unitPrice: 0,
+      movementDate: movement.movementDate,
+      supplierName: input.supplierName ?? null,
+      documentNumber: input.documentNumber ?? null,
+      batchType: 'TOLLING',
+      ownerOrderId: input.orderId,
     });
   }
 
@@ -221,9 +288,10 @@ export class MaterialBatchService {
     return { created, anomalies, scanned: movements.length };
   }
 
-  /** Последняя закупочная по партиям — для подписи и для цены дефицита */
+  /** Последняя закупочная по партиям — для подписи и для цены дефицита.
+   *  Только свои партии: нулевая цена давальческих — не закупочная цена. */
   async lastPurchaseOf(materialId: string) {
-    const rows = await this.batchesOf(materialId, true);
+    const rows = (await this.batchesOf(materialId, true)).filter((b) => b.batchType !== 'TOLLING');
     return lastPurchasePriceOf(this.toBatchLike(rows).filter((b) => !b.priceAnomaly));
   }
 }

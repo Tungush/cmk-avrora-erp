@@ -13,6 +13,7 @@ import { RoutingController, WorkCentersController, CostingConfigController } fro
 import { PriceReviewsController } from './modules/catalog/price-reviews.controller';
 import { NomenclatureRequestsController } from './modules/catalog/nomenclature-requests.controller';
 import { SavedViewsController } from './modules/platform/saved-views.controller';
+import { SearchController } from './modules/platform/search.controller';
 import { EventsController } from './modules/platform/events.controller';
 import { EventsService } from './services/events.service';
 import { ArticleCostingService } from './services/article-costing.service';
@@ -30,10 +31,12 @@ import { MaterialBatchesController } from './modules/warehouse/material-batches.
 import { IntegrationController } from './modules/integration/integration.controller';
 import { InboxHandlersService } from './modules/integration/inbox-handlers.service';
 import { OneCClientService } from './services/onec-client.service';
+import { BitrixClientService } from './services/bitrix-client.service';
 import { OneCSyncService } from './modules/integration/onec-sync.service';
 import { MaterialsController } from './modules/catalog/materials.controller';
 import { CustomersController } from './modules/catalog/customers.controller';
 import { OrdersController } from './modules/orders/orders.controller';
+import { ContractorWorkController } from './modules/orders/contractor-work.controller';
 import { ProductionPlanController } from './modules/orders/production-plan.controller';
 import { MinStockController } from './modules/orders/min-stock.controller';
 import { WarehouseController } from './modules/warehouse/warehouse.controller';
@@ -55,6 +58,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     NomenclatureRequestsController,
     NomenclatureController,
     SavedViewsController,
+    SearchController,
     IntegrationController,
     EventsController,
     MaterialsController,
@@ -62,6 +66,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     BatchReservationsController,
     CustomersController,
     OrdersController,
+    ContractorWorkController,
     ProductionPlanController,
     OrderCostingsController,
     MinStockController,
@@ -87,6 +92,7 @@ import { DashboardsController } from './modules/dashboards/dashboards.controller
     InboxHandlersService,
     OneCClientService,
     OneCSyncService,
+    BitrixClientService,
     {
       provide: APP_GUARD,
       useClass: JwtAuthGuard,

@@ -788,6 +788,257 @@
         ]
       }
     },
+    "/api/v1/nomenclature/search": {
+      "get": {
+        "operationId": "NomenclatureController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Поиск по всем именам; промахи логируются и учат справочник",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/suggest": {
+      "get": {
+        "operationId": "NomenclatureController_suggest",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Похожее уже есть? — проверка перед созданием заявки",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/duplicates": {
+      "get": {
+        "operationId": "NomenclatureController_duplicates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отчёт о возможных дублях справочника",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/stalled-requests": {
+      "get": {
+        "operationId": "NomenclatureController_stalled",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Заявки, зависшие в ожидании кода из 1С",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/materials/{materialId}/names": {
+      "get": {
+        "operationId": "NomenclatureController_names",
+        "parameters": [
+          {
+            "name": "materialId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Все имена материала: наше, из 1С, из заявок, от поставщиков",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/materials/{materialId}/aliases": {
+      "post": {
+        "operationId": "NomenclatureController_addAlias",
+        "parameters": [
+          {
+            "name": "materialId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Добавить имя, под которым материал знают люди",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/search-misses/{missId}/resolve": {
+      "post": {
+        "operationId": "NomenclatureController_resolveMiss",
+        "parameters": [
+          {
+            "name": "missId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Промах привёл к материалу — его слова становятся именем",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/requests/{requestId}/onec-response": {
+      "post": {
+        "operationId": "NomenclatureController_onecResponse",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ответ 1С: код и имя закрывают заявку и становятся алиасами",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
+    "/api/v1/nomenclature/materials/{materialId}/onec-rename": {
+      "post": {
+        "operationId": "NomenclatureController_rename",
+        "parameters": [
+          {
+            "name": "materialId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Переименование в 1С: старое имя уходит в алиасы с датой",
+        "tags": [
+          "Nomenclature"
+        ]
+      }
+    },
     "/api/v1/saved-views": {
       "get": {
         "operationId": "SavedViewsController_list",
@@ -861,6 +1112,35 @@
         "summary": "Удалить своё представление",
         "tags": [
           "Platform - Saved views"
+        ]
+      }
+    },
+    "/api/v1/search": {
+      "get": {
+        "operationId": "SearchController_search",
+        "parameters": [
+          {
+            "name": "q",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Общий поиск: заказы, изделия, материалы",
+        "tags": [
+          "Search"
         ]
       }
     },
@@ -1222,6 +1502,381 @@
         ]
       }
     },
+    "/api/v1/material-batches/anomalies": {
+      "get": {
+        "operationId": "MaterialBatchesController_anomalies",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Материалы с подозрительными ценами (карантин)",
+        "tags": [
+          "Material Batches"
+        ]
+      }
+    },
+    "/api/v1/material-batches/anomalies/{batchId}/clear": {
+      "post": {
+        "operationId": "MaterialBatchesController_clearAnomaly",
+        "parameters": [
+          {
+            "name": "batchId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Подтвердить цену партии — вернуть её в автоподбор",
+        "tags": [
+          "Material Batches"
+        ]
+      }
+    },
+    "/api/v1/material-batches/backfill": {
+      "post": {
+        "operationId": "MaterialBatchesController_backfill",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Разово наполнить партии из истории приходов (идемпотентно)",
+        "tags": [
+          "Material Batches"
+        ]
+      }
+    },
+    "/api/v1/material-batches/{materialId}": {
+      "get": {
+        "operationId": "MaterialBatchesController_list",
+        "parameters": [
+          {
+            "name": "materialId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeEmpty",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Партии материала с живыми остатками",
+        "tags": [
+          "Material Batches"
+        ]
+      }
+    },
+    "/api/v1/material-batches/{materialId}/price": {
+      "post": {
+        "operationId": "MaterialBatchesController_price",
+        "parameters": [
+          {
+            "name": "materialId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Подобрать цену под объём по выбранному источнику",
+        "tags": [
+          "Material Batches"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/availability/{materialId}": {
+      "get": {
+        "operationId": "BatchReservationsController_availability",
+        "parameters": [
+          {
+            "name": "materialId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Партии материала со свободным остатком и блокировщиками",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/assess": {
+      "post": {
+        "operationId": "BatchReservationsController_assess",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Хватит ли партии и нужно ли согласование",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/from-costing/{costingId}": {
+      "post": {
+        "operationId": "BatchReservationsController_reserve",
+        "parameters": [
+          {
+            "name": "costingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Зарезервировать партии под согласованную калькуляцию",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/overrides": {
+      "post": {
+        "operationId": "BatchReservationsController_requestOverride",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Запросить перехват чужого резерва",
+        "tags": [
+          "Batch Reservations"
+        ]
+      },
+      "get": {
+        "operationId": "BatchReservationsController_listOverrides",
+        "parameters": [
+          {
+            "name": "status",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Очередь запросов на перехват",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/expiring": {
+      "get": {
+        "operationId": "BatchReservationsController_listExpiring",
+        "parameters": [
+          {
+            "name": "days",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Резервы, истекающие в ближайшие дни",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/overrides/{requestId}": {
+      "get": {
+        "operationId": "BatchReservationsController_overrideContext",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Обе стороны на одном экране: чей резерв, во что обойдётся",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/overrides/{requestId}/decide": {
+      "post": {
+        "operationId": "BatchReservationsController_decide",
+        "parameters": [
+          {
+            "name": "requestId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Решение директора по перехвату",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
+    "/api/v1/batch-reservations/expire-stale": {
+      "post": {
+        "operationId": "BatchReservationsController_expireStale",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Снять протухшие резервы и предупредить об истекающих",
+        "tags": [
+          "Batch Reservations"
+        ]
+      }
+    },
     "/api/v1/customers": {
       "get": {
         "operationId": "CustomersController_findAll",
@@ -1334,12 +1989,14 @@
         "tags": [
           "Orders"
         ]
-      },
-      "post": {
-        "operationId": "OrdersController_create",
+      }
+    },
+    "/api/v1/orders/inbox": {
+      "get": {
+        "operationId": "OrdersController_inbox",
         "parameters": [],
         "responses": {
-          "201": {
+          "200": {
             "description": ""
           }
         },
@@ -1348,7 +2005,36 @@
             "bearer": []
           }
         ],
-        "summary": "Create order",
+        "summary": "Инбокс новых заказов из 1С, ждущих приёма в производство",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/accept": {
+      "post": {
+        "operationId": "OrdersController_acceptOrder",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Принять заказ из инбокса в производство",
         "tags": [
           "Orders"
         ]
@@ -1466,6 +2152,35 @@
         ]
       }
     },
+    "/api/v1/orders/{id}/stage-tracking-mode": {
+      "patch": {
+        "operationId": "OrdersController_setStageTrackingMode",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Переключить отметку этапов: заказ целиком или по позициям",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
     "/api/v1/orders/{id}/production-stages/{code}": {
       "patch": {
         "operationId": "OrdersController_updateProductionStage",
@@ -1497,9 +2212,218 @@
             "bearer": []
           }
         ],
-        "summary": "Update production stage status (Канбан цеха)",
+        "summary": "Отметить этап заказа (КД / Снабжение / Производство + передел)",
         "tags": [
           "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{id}/production-stages/{code}/hours-allocation": {
+      "get": {
+        "operationId": "OrdersController_stageHoursAllocation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "code",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "routingStage",
+            "required": true,
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Как фактические часы этапа лягут на позиции заказа",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/contractors": {
+      "get": {
+        "operationId": "ContractorWorkController_contractors",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Справочник подрядчиков",
+        "tags": [
+          "Contractor Work"
+        ]
+      }
+    },
+    "/api/v1/contractor-work": {
+      "get": {
+        "operationId": "ContractorWorkController_allWork",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Все работы подрядчиков: что делают, сколько должны, что принято",
+        "tags": [
+          "Contractor Work"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/contractor-work": {
+      "get": {
+        "operationId": "ContractorWorkController_orderWork",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Подряд по заказу со сверкой против актов 1С",
+        "tags": [
+          "Contractor Work"
+        ]
+      }
+    },
+    "/api/v1/orders/{orderId}/stages/{stage}/contractor": {
+      "post": {
+        "operationId": "ContractorWorkController_assign",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "stage",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отдать передел подрядчику (целиком или частью)",
+        "tags": [
+          "Contractor Work"
+        ]
+      }
+    },
+    "/api/v1/contractor-work/{id}/accept": {
+      "patch": {
+        "operationId": "ContractorWorkController_accept",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Принять работу подрядчика (замораживает сумму)",
+        "tags": [
+          "Contractor Work"
+        ]
+      }
+    },
+    "/api/v1/contractor-work/{id}": {
+      "delete": {
+        "operationId": "ContractorWorkController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Убрать подряд — объём возвращается штату по норме",
+        "tags": [
+          "Contractor Work"
         ]
       }
     },
@@ -1636,6 +2560,194 @@
         "summary": "Update stage status",
         "tags": [
           "Production Plan"
+        ]
+      }
+    },
+    "/api/v1/order-lines/{orderLineId}/costings": {
+      "get": {
+        "operationId": "OrderCostingsController_list",
+        "parameters": [
+          {
+            "name": "orderLineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Версии калькуляции позиции заказа",
+        "tags": [
+          "Order Costings"
+        ]
+      },
+      "post": {
+        "operationId": "OrderCostingsController_build",
+        "parameters": [
+          {
+            "name": "orderLineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Посчитать новую версию калькуляции",
+        "tags": [
+          "Order Costings"
+        ]
+      }
+    },
+    "/api/v1/order-lines/{orderLineId}/costings/{costingId}": {
+      "get": {
+        "operationId": "OrderCostingsController_getOne",
+        "parameters": [
+          {
+            "name": "costingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Калькуляция целиком: материалы со стадией цены, труд",
+        "tags": [
+          "Order Costings"
+        ]
+      }
+    },
+    "/api/v1/order-lines/{orderLineId}/costings/{costingId}/approve": {
+      "post": {
+        "operationId": "OrderCostingsController_approve",
+        "parameters": [
+          {
+            "name": "costingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Согласовать версию; прежняя уходит в архив",
+        "tags": [
+          "Order Costings"
+        ]
+      }
+    },
+    "/api/v1/order-lines/{orderLineId}/costings/{costingId}/materials/{rowId}/ordered": {
+      "post": {
+        "operationId": "OrderCostingsController_markOrdered",
+        "parameters": [
+          {
+            "name": "costingId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "rowId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Стадия цены «заказано»: цена из заказа поставщику 1С",
+        "tags": [
+          "Order Costings"
+        ]
+      }
+    },
+    "/api/v1/order-lines/{orderLineId}/costings/compare/{baseId}/{targetId}": {
+      "get": {
+        "operationId": "OrderCostingsController_compare",
+        "parameters": [
+          {
+            "name": "baseId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "targetId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Факторный разбор разницы между версиями",
+        "tags": [
+          "Order Costings"
         ]
       }
     },
@@ -1785,6 +2897,26 @@
         ]
       }
     },
+    "/api/v1/warehouse/materials/tolling-receipt": {
+      "post": {
+        "operationId": "WarehouseController_postTollingReceipt",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Приход давальческого сырья: партия заказа, цена 0",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
     "/api/v1/warehouse/materials/movements": {
       "post": {
         "operationId": "WarehouseController_postMaterialMovement",
@@ -1799,7 +2931,7 @@
             "bearer": []
           }
         ],
-        "summary": "Record material stock movement",
+        "summary": "Списание материала в производство (приход — только из 1С)",
         "tags": [
           "Warehouse"
         ]
@@ -2219,6 +3351,46 @@
           }
         ],
         "summary": "Виджеты дашборда по правам ролей (§2.4)",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/director": {
+      "get": {
+        "operationId": "DashboardsController_director",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Дэшборд директора: маржа, требует решения, деньги",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/monthly-series": {
+      "get": {
+        "operationId": "DashboardsController_monthlySeries",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Динамика по месяцам: заказы и отгрузки — настоящие",
         "tags": [
           "Dashboards"
         ]

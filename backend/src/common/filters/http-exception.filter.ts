@@ -42,6 +42,13 @@ export class HttpExceptionFilter implements ExceptionFilter {
         status = HttpStatus.CONFLICT;
         code = exception.code || 'BUSINESS_RULE_VIOLATION';
         message = exception.message;
+      } else if (exception.name === 'LaborConfigError' || exception.name === 'BatchSelectionError') {
+        // Настройка труда и подбор партии — тоже бизнес-правила: без этого
+        // «доли посчитаны дважды» уходило наружу голым 500 без кода и текста,
+        // и человек не понимал, что именно чинить
+        status = HttpStatus.CONFLICT;
+        code = exception.code || 'INVALID_CONFIGURATION';
+        message = exception.message;
       }
     } else if (exception instanceof Error) {
       message = exception.message;
