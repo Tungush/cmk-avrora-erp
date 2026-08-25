@@ -24,7 +24,8 @@
     "go-live": "ts-node prisma/go-live.ts",
     "import:1c-csv": "ts-node prisma/import-1c-csv.ts",
     "rotate-passwords": "ts-node prisma/rotate-passwords.ts",
-    "setup-shared-login": "ts-node prisma/setup-shared-login.ts"
+    "setup-shared-login": "ts-node prisma/setup-shared-login.ts",
+    "backfill:price-list": "ts-node prisma/backfill-price-list.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"
