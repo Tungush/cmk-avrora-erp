@@ -55,8 +55,6 @@ export const mockIds = {
   material: 'mock-material-1',
   paymentDoc: 'mock-payment-1',
   purchaseRequest: 'mock-pr-1',
-  spreadsheetImport: 'mock-import-1',
-  spreadsheetSheet: 'mock-sheet-1',
 };
 
 export function createPaginated<T>(data: T[], page = 1, pageSize = 50) {

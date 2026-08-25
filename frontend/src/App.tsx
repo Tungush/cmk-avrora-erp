@@ -13,7 +13,6 @@ import { ProductionPlan, ShopFloor } from './pages/Production';
 import { ContractorWork } from './pages/Production/ContractorWork';
 import { Warehouse } from './pages/Warehouse';
 import { Finance } from './pages/Finance';
-import { Catalog } from './pages/Catalog';
 import { Integration } from './pages/Integration';
 import { Specifications } from './pages/Specifications';
 import { Pipeline } from './pages/Sales/Pipeline';
@@ -50,7 +49,6 @@ export default function App() {
             <Route path="warehouse" element={<Warehouse />} />
             <Route path="finance" element={<Finance />} />
             <Route path="specs" element={<Specifications />} />
-            <Route path="catalog" element={<Catalog />} />
             <Route path="integration" element={<Integration />} />
             <Route path="audit" element={<div className="p-8">Аудит (заглушка)</div>} />
             {/* Незнакомый адрес — молча на «Мою работу», а не белый экран */}

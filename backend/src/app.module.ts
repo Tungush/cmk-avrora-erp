@@ -44,7 +44,6 @@ import { PurchaseRequestsController } from './modules/warehouse/purchase-request
 import { PaymentDocumentsController } from './modules/finance/payment-documents.controller';
 import { AcceptanceActsController } from './modules/finance/acceptance-acts.controller';
 import { AuditLogController } from './modules/platform/audit-log.controller';
-import { SpreadsheetController } from './modules/spreadsheet/spreadsheet.controller';
 import { DashboardsController } from './modules/dashboards/dashboards.controller';
 import { DealsController } from './modules/sales/deals.controller';
 
@@ -76,7 +75,6 @@ import { DealsController } from './modules/sales/deals.controller';
     PaymentDocumentsController,
     AcceptanceActsController,
     AuditLogController,
-    SpreadsheetController,
     DashboardsController,
     DealsController,
   ],

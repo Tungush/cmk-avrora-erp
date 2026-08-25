@@ -98,23 +98,6 @@ const mockPaymentDoc = {
   order: mockOrder,
 };
 
-const mockSpreadsheetHeaders = ['Заказ', 'Клиент', 'Статус', 'Сумма'];
-
-const mockSpreadsheetRows = [
-  {
-    id: 'mock-row-1',
-    rowNumber: 1,
-    cells: ['ORD-LOCAL-001', 'ТОО "Телеком KZ"', 'IN_PRODUCTION', '2400000'],
-    data: {
-      Заказ: 'ORD-LOCAL-001',
-      Клиент: 'ТОО "Телеком KZ"',
-      Статус: 'IN_PRODUCTION',
-      Сумма: '2400000',
-    },
-    isEmpty: false,
-  },
-];
-
 export function getMockAuthUser(email: string, roles: string[]) {
   return {
     accessToken: 'mock-access-token',
@@ -275,71 +258,3 @@ export function getMockAuditLog(page = 1, pageSize = 50) {
   );
 }
 
-export function getMockSpreadsheetImport() {
-  return {
-    id: mockIds.spreadsheetImport,
-    sourceFile: 'mock-local.xlsx',
-    importedAt: new Date().toISOString(),
-    totalSheets: 1,
-    totalRows: mockSpreadsheetRows.length,
-    status: 'completed',
-    sheets: [
-      {
-        id: mockIds.spreadsheetSheet,
-        name: 'Telecom',
-        headerRow: 1,
-        colCount: mockSpreadsheetHeaders.length,
-        rowCount: mockSpreadsheetRows.length,
-        headers: mockSpreadsheetHeaders,
-      },
-    ],
-  };
-}
-
-export function getMockSpreadsheetSheets() {
-  return {
-    data: [
-      {
-        id: mockIds.spreadsheetSheet,
-        name: 'Telecom',
-        headerRow: 1,
-        colCount: mockSpreadsheetHeaders.length,
-        rowCount: mockSpreadsheetRows.length,
-        headers: mockSpreadsheetHeaders,
-        headerRows: [mockSpreadsheetHeaders],
-      },
-    ],
-  };
-}
-
-export function getMockSpreadsheetSheet(name: string) {
-  return {
-    id: mockIds.spreadsheetSheet,
-    name,
-    headerRow: 1,
-    colCount: mockSpreadsheetHeaders.length,
-    rowCount: mockSpreadsheetRows.length,
-    headers: mockSpreadsheetHeaders,
-    headerRows: [mockSpreadsheetHeaders],
-  };
-}
-
-export function getMockSpreadsheetRows(page = 1, pageSize = 100, name = 'Telecom') {
-  return {
-    sheet: {
-      id: mockIds.spreadsheetSheet,
-      name,
-      headers: mockSpreadsheetHeaders,
-      headerRows: [mockSpreadsheetHeaders],
-      headerRow: 1,
-      colCount: mockSpreadsheetHeaders.length,
-      rowCount: mockSpreadsheetRows.length,
-    },
-    data: mockSpreadsheetRows,
-    meta: {
-      page,
-      pageSize,
-      total: mockSpreadsheetRows.length,
-    },
-  };
-}

@@ -4,7 +4,7 @@
  * Порядок один и тот же на репетиции с моком и в бою:
  *   1) ping 1С через наш API — без связи ничего не сносим;
  *   2) --wipe: снос ОПЕРАЦИОННЫХ данных (заказы, деньги, склад, партии,
- *      резервы, подряд, Excel-архив, контрагенты). Каталог остаётся:
+ *      резервы, подряд, контрагенты). Каталог остаётся:
  *      артикулы, BOM, нормы, участки, конфиг, алиасы, пользователи —
  *      1С этого не отдаёт, без них калькуляция мертва;
  *   3) --orders <файл>: заливка по списку номеров (1С не отдаёт список
@@ -95,9 +95,6 @@ export async function wipeOperationalData(prisma: PrismaClient) {
     ['исходящие сообщения', () => prisma.outboxMessage.deleteMany()],
     ['входящие сообщения', () => prisma.inboxMessage.deleteMany()],
     ['журнал аудита', () => prisma.auditLogEntry.deleteMany()],
-    ['строки Excel-архива', () => prisma.spreadsheetRow.deleteMany()],
-    ['листы Excel-архива', () => prisma.spreadsheetSheet.deleteMany()],
-    ['импорты Excel-архива', () => prisma.spreadsheetImport.deleteMany()],
   ];
 
   // Учётки переживают снос, но их привязки указывают на удаляемые записи
