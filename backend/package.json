@@ -27,7 +27,9 @@
     "setup-shared-login": "ts-node prisma/setup-shared-login.ts",
     "backfill:price-list": "ts-node prisma/backfill-price-list.ts",
     "quarantine:inventory-batches": "ts-node prisma/quarantine-inventory-batches.ts",
-    "mark:material-resale": "ts-node prisma/mark-material-resale-articles.ts"
+    "mark:material-resale": "ts-node prisma/mark-material-resale-articles.ts",
+    "apply-views": "ts-node prisma/apply-views.ts",
+    "import:spreadsheet-only": "node --max-old-space-size=8192 -r ts-node/register prisma/import-spreadsheet-only.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

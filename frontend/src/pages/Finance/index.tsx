@@ -19,7 +19,8 @@ const FINANCE_SHEETS = [
 export function Finance() {
   const [activeSheet, setActiveSheet] = useState<string>('reconciliation');
   const [page, setPage] = useState(1);
-  const { data, isLoading } = useSpreadsheetRows(activeSheet, { page, pageSize: 100 });
+  const isSheetTab = activeSheet !== 'reconciliation';
+  const { data, isLoading } = useSpreadsheetRows(isSheetTab ? activeSheet : '', { page, pageSize: 100 });
 
   return (
     <Tabs

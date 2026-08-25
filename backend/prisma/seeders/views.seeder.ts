@@ -16,11 +16,18 @@ export async function seedViews(prisma: PrismaClient) {
     return;
   }
   const sql = fs.readFileSync(sqlPath, 'utf8');
+  // Убираем построчные комментарии до разбивки — иначе каждый CREATE VIEW
+  // склеен в одном куске со своим предваряющим комментарием и весь кусок
+  // отбраковывается как «это просто комментарий» (было: 0 применённых вью).
+  const withoutComments = sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n');
   // Разбиваем по ';' в конце строки — внутри вью точек с запятой нет
-  const statements = sql
+  const statements = withoutComments
     .split(/;\s*\n/)
     .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith('--'));
+    .filter((s) => s.length > 0);
   for (const stmt of statements) {
     await prisma.$executeRawUnsafe(stmt);
   }
