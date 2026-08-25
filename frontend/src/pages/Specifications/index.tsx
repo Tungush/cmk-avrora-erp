@@ -717,8 +717,12 @@ export function Specifications() {
                     >
                       <Group gap={6} wrap="nowrap">
                         <Text size="xs" ff="monospace" c="brand.7" fw={700}>{a.articleCode}</Text>
-                        {!a.bomItems?.length && (
-                          <Badge size="xs" variant="light" color="yellow" radius="xl">нет состава</Badge>
+                        {a.isMaterialResale ? (
+                          <Badge size="xs" variant="light" color="gray" radius="xl">сырьё, не изделие</Badge>
+                        ) : (
+                          !a.bomItems?.length && (
+                            <Badge size="xs" variant="light" color="yellow" radius="xl">нет состава</Badge>
+                          )
                         )}
                       </Group>
                       <Text size="xs" lineClamp={1}>{a.name}</Text>

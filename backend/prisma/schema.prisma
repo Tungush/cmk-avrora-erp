@@ -246,6 +246,11 @@ model Article {
   series        String? @db.VarChar(10)
   description   String? @db.Text
   approvedPrice Decimal @default(0) @map("approved_price") @db.Decimal(14, 2)
+  /// Прямая продажа сырья без изготовления — не изделие с пустым составом,
+  /// а отдельный тип позиции (решение 25.08.2026, аудит нашёл 1002 таких
+  /// карточек: articleCode совпадает с кодом материала в справочнике).
+  /// Себестоимость = цена материала, не через BOM/нормы; цех не участвует.
+  isMaterialResale Boolean @default(false) @map("is_material_resale")
 
   // Calculated fields (populated by service layer, default 0 in DDL)
   specPrice         Decimal @default(0) @map("spec_price") @db.Decimal(14, 2)

@@ -26,7 +26,8 @@
     "rotate-passwords": "ts-node prisma/rotate-passwords.ts",
     "setup-shared-login": "ts-node prisma/setup-shared-login.ts",
     "backfill:price-list": "ts-node prisma/backfill-price-list.ts",
-    "quarantine:inventory-batches": "ts-node prisma/quarantine-inventory-batches.ts"
+    "quarantine:inventory-batches": "ts-node prisma/quarantine-inventory-batches.ts",
+    "mark:material-resale": "ts-node prisma/mark-material-resale-articles.ts"
   },
   "prisma": {
     "seed": "ts-node prisma/seed.ts"

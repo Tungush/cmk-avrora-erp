@@ -239,12 +239,24 @@ export class OrderCostingService {
     const qty = Number(line.qty);
     const weightKg = line.article ? Number(line.article.weightKg) : 0;
 
+    // Прямая продажа сырья без изготовления (решение 25.08.2026): «состав»
+    // изделия — это сама единица материала того же кода, один к одному,
+    // без BOM в базе. Цех и труд тут ни при чём — только цена материала.
+    const isResale = Boolean(line.article?.isMaterialResale);
+
     // ---- материалы: цена берётся из партий и запоминается со ссылкой на приход
     const bom = line.article
-      ? await this.prisma.bomItem.findMany({
-          where: { articleId: line.article.id },
-          include: { material: true },
-        })
+      ? isResale
+        ? await (async () => {
+            const material = await this.prisma.material.findUnique({
+              where: { materialCode: line.article!.articleCode },
+            });
+            return material ? [{ materialId: material.id, qtyPerUnit: 1 as any, material }] : [];
+          })()
+        : await this.prisma.bomItem.findMany({
+            where: { articleId: line.article.id },
+            include: { material: true },
+          })
       : [];
 
     const defaultSource = opts.priceSource ?? 'FIFO_STOCK';
@@ -291,8 +303,9 @@ export class OrderCostingService {
     }
     materialCost = round2(materialCost);
 
-    // ---- труд: штат по нормам, подряд вычитает свою долю
-    const assignments = await this.withNorms(
+    // ---- труд: штат по нормам, подряд вычитает свою долю (у продажи сырья
+    // труда нет вовсе — цех этот заказ никогда не увидит)
+    const assignments = isResale ? [] : await this.withNorms(
       await this.assignmentsFor(orderLineId, line.article?.id ?? null, rates.hourlyRate),
       line.article?.id ?? null,
     );
@@ -301,12 +314,14 @@ export class OrderCostingService {
       : { lines: [], shopManHours: 0, staffCost: 0, contractorCost: 0, offsiteContractorCost: 0, totalCost: 0, byStage: [] };
 
     // Нормы не заведены — штатная часть посчиталась в ноль. Без этой отметки
-    // заказ выглядит бесплатным по труду и при этом честным на вид
+    // заказ выглядит бесплатным по труду и при этом честным на вид.
+    // У продажи сырья норм по конструкции нет — это не проблема, а факт
     const hasStaffLine = assignments.some((a) => a.laborKind === 'STAFF');
-    const hasMissingNorm = !hasStaffLine && labor.staffCost === 0;
+    const hasMissingNorm = !isResale && !hasStaffLine && labor.staffCost === 0;
     // Нет состава вовсе — materialCost честный ноль, а не «дёшево»: 608
-    // артикулов без BOM (25.08.2026), заказы с ними давали заниженную цену
-    const hasMissingBom = Boolean(line.article) && bom.length === 0;
+    // артикулов без BOM (25.08.2026), заказы с ними давали заниженную цену.
+    // У продажи сырья bom — синтетическая запись из материала, не пусто
+    const hasMissingBom = !isResale && Boolean(line.article) && bom.length === 0;
 
     // ---- коэффициенты и цена
     const logisticsCost = logisticsCostOf(materialCost, rates, { weightKg });

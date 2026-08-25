@@ -17,6 +17,9 @@ export interface Article {
   /// Список артикулов (GET /articles) отдаёт состав вместе с карточкой —
   /// используется, чтобы честно пометить карточки без BOM в интерфейсе
   bomItems?: unknown[];
+  /// true — это не изделие, а прямая продажа сырья/хозтоваров без изготовления
+  /// (карточка «Изделия» заведена под кодом реального материала, см. mark-material-resale-articles.ts)
+  isMaterialResale?: boolean;
   updatedAt: string;
 }
 

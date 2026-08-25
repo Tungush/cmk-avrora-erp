@@ -356,6 +356,7 @@ async function main() {
     ordersCreated: 0, ordersUpdated: 0,
     linesCreated: 0, linesSkippedZeroQty: 0, linesUnresolvedCollision: 0,
     articlesCreated: [] as string[],
+    materialResaleCreated: 0,
     docsCreated: 0, docsUpdated: 0,
     batchesCreated: 0, batchAnomalies: 0,
     unmatchedMaterials: new Map<string, { qty: number; amount: number }>(),
@@ -483,8 +484,15 @@ async function main() {
         article = await prisma.article.findFirst({ where: { name: { equals: itemName, mode: 'insensitive' } } });
       }
       if (!article) {
-        article = await prisma.article.create({ data: { articleCode, name: itemName || articleCode } });
+        // Тот же код уже занят материалом — не изделие, а прямая продажа
+        // сырья без изготовления (решение 25.08.2026, аудит нашёл 1002
+        // таких карточек); иначе следующая синхронизация повторила бы то же
+        const sameCodeMaterial = await prisma.material.findFirst({ where: { materialCode: articleCode } });
+        article = await prisma.article.create({
+          data: { articleCode, name: itemName || articleCode, isMaterialResale: Boolean(sameCodeMaterial) },
+        });
         report.articlesCreated.push(articleCode);
+        if (sameCodeMaterial) report.materialResaleCreated += 1;
       }
       await prisma.orderLine.create({
         data: {
@@ -716,7 +724,8 @@ async function main() {
     console.log(`Заказы поставщику (ДО): создано ${report.docsCreated}, обновлено ${report.docsUpdated}`);
     console.log(`Исторические партии закупа: ${report.batchesCreated}, в карантине: ${report.batchAnomalies}`);
     if (report.articlesCreated.length) {
-      console.log(`\nАвтоматически заведённые артикулы (${report.articlesCreated.length}) — без состава и норм, калькуляция даст 0:`);
+      const realNew = report.articlesCreated.length - report.materialResaleCreated;
+      console.log(`\nАвтоматически заведённые артикулы: ${report.articlesCreated.length} (из них прямая продажа сырья, помечено само: ${report.materialResaleCreated}; настоящих новых изделий без состава: ${realNew}):`);
       for (const a of report.articlesCreated.slice(0, 30)) console.log(`  · ${a}`);
       if (report.articlesCreated.length > 30) console.log(`  … и ещё ${report.articlesCreated.length - 30}`);
     }
