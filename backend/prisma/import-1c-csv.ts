@@ -1,21 +1,33 @@
 /**
- * Заливка выгрузки 1С из трёх CSV-отчётов (24.08.2026): заказы (шапки+строки)
- * и номенклатура. В отличие от go-live.ts (живой HTTP 1С, недоступен с этой
- * машины), этот путь работает офлайн — оператор выгружает отчёты из 1С сам.
+ * Заливка выгрузки 1С (24.08.2026, второй заход): заказы, номенклатура —
+ * и теперь контрагенты, оплаты, остатки склада, журнал производства.
+ * В отличие от go-live.ts (живой HTTP 1С, недоступен с этой машины), этот
+ * путь работает офлайн — оператор выгружает отчёты из 1С сам.
  *
  * Ключевая находка при разборе: «Номер» документа в выгрузке — это номер
  * внутри 1С-серии, которая сбрасывается по годам, а год в колонке не виден.
- * Пять номеров заказов клиента и 301 номер заказов поставщику в этой
- * выгрузке повторяются у РАЗНЫХ документов (разные контрагенты, суммы,
- * даты) — это коллизия серии, не дубль. Разрешается добавлением года
- * только к столкнувшимся номерам (buildUniqueKeys).
+ * Коллизии серии разрешаются добавлением года только к столкнувшимся
+ * номерам (buildUniqueKeys) — для заказов клиента/поставщику через строки,
+ * для оплат и производства — через ближайшую дату (resolveOrderId).
  *
  * Материалы, как и в живой синхронизации, автоматически НЕ создаются —
- * непознанные уходят в отчёт (procurement.unmatched — тот же принцип).
- * Артикулы клиентских позиций создаются, как в живой синхронизации.
+ * непознанные уходят в отчёт. Артикулы клиентских позиций создаются, как
+ * в живой синхронизации.
+ *
+ * Контрагенты.csv решает проблему «1С сама называет контрагента по-разному»
+ * не отчётом, а по-настоящему: сопоставление по нормализованному имени
+ * (без учёта порядка слов) сначала ищет уже созданного контрагента под
+ * ДРУГИМ написанием, и только потом — эталонную запись со своим БИН.
+ *
+ * Производство (ПроизводствоШапки/Строки.csv) — только ОТЧЁТ, в базу не
+ * пишется: связь со стадией/трудочасами по этим данным не восстановить,
+ * писать в ProductionStage значило бы придумывать то, чего нет в выгрузке.
  *
  * Запуск:
- *   npm run import:1c-csv -- --headers "…ЗаказыШапки.csv" --lines "…ЗаказыСтроки.csv" --nomenclature "…Номенклатура.csv" [--wipe --yes] [--dry-run]
+ *   npm run import:1c-csv -- --headers <файл> --lines <файл> --nomenclature <файл>
+ *     [--contractors <файл>] [--payments <файл>] [--stock <файл>]
+ *     [--production-headers <файл>] [--production-lines <файл>]
+ *     [--wipe --yes] [--dry-run]
  */
 import * as fs from 'fs';
 import * as crypto from 'crypto';
@@ -191,12 +203,35 @@ async function matchMaterial(prisma: PrismaClient, name: string, code: string): 
 
 interface NomEntry { code: string; articleCode: string | null; type: string; unit: string }
 
+// Ключ дедупликации контрагентов: слова без учёта порядка и регистра —
+// «ТОО» то до имени, то после, а точное сравнение это не ловит
+function contractorKey(name: string): string {
+  return normalizeName(name).split(' ').filter(Boolean).sort().join(' ');
+}
+
+// «Назначение» в производстве пишет номер БЕЗ ведущих нулей («Т7АА-415»),
+// а «Номер» в заказах — с ними до 6 цифр («Т7АА-000415»). Без выравнивания
+// resolveOrderId никогда не находит совпадение, хотя заказ реально есть.
+function padOrderNumber(raw: string): string {
+  const m = /^(Т7АА-)(\d+)$/.exec(raw);
+  if (!m) return raw;
+  return m[1] + m[2].padStart(6, '0');
+}
+
+interface StockRow { name: string; qty: number; unit: string; price: number; date: Date | null }
+interface PaymentRow { docNumber: string; kind: 'Клиенту' | 'Поставщику'; date: Date | null; amount: number }
+
 async function main() {
   const headersPath = arg('--headers');
   const linesPath = arg('--lines');
   const nomPath = arg('--nomenclature');
+  const contractorsPath = arg('--contractors');
+  const paymentsPath = arg('--payments');
+  const stockPath = arg('--stock');
+  const prodHeadersPath = arg('--production-headers');
+  const prodLinesPath = arg('--production-lines');
   if (!headersPath || !linesPath || !nomPath) {
-    console.log('Использование: npm run import:1c-csv -- --headers <файл> --lines <файл> --nomenclature <файл> [--wipe --yes] [--dry-run]');
+    console.log('Использование: npm run import:1c-csv -- --headers <файл> --lines <файл> --nomenclature <файл> [--contractors <файл>] [--payments <файл>] [--stock <файл>] [--production-headers <файл>] [--production-lines <файл>] [--wipe --yes] [--dry-run]');
     process.exit(1);
   }
   const dryRun = has('--dry-run');
@@ -204,7 +239,45 @@ async function main() {
   const headers = readRows(headersPath);
   const lines = readRows(linesPath);
   const nomRows = readRows(nomPath);
-  console.log(`Прочитано: шапки ${headers.length}, строки ${lines.length}, номенклатура ${nomRows.length}`);
+  const contractorRows = contractorsPath ? readRows(contractorsPath) : [];
+  const paymentRowsRaw = paymentsPath ? readRows(paymentsPath) : [];
+  const stockRowsRaw = stockPath ? readRows(stockPath) : [];
+  const prodHeaderRows = prodHeadersPath ? readRows(prodHeadersPath) : [];
+  const prodLineRows = prodLinesPath ? readRows(prodLinesPath) : [];
+  console.log(`Прочитано: шапки ${headers.length}, строки ${lines.length}, номенклатура ${nomRows.length}` +
+    (contractorRows.length ? `, контрагенты ${contractorRows.length}` : '') +
+    (paymentRowsRaw.length ? `, оплаты ${paymentRowsRaw.length}` : '') +
+    (stockRowsRaw.length ? `, остатки ${stockRowsRaw.length}` : '') +
+    (prodHeaderRows.length ? `, производство ${prodHeaderRows.length}/${prodLineRows.length}` : ''));
+
+  // Эталонный справочник контрагентов: ключ — тот же, что и у отчёта
+  // о вероятных дублях, чтобы сразу МЕНЯТЬ поведение, а не только показывать
+  const canonicalContractors = new Map<string, { name: string; binIin: string; type: string }>();
+  for (const c of contractorRows) {
+    const name = c['Наименование']?.trim();
+    const binIin = c['БИН']?.trim();
+    if (!name || !binIin) continue;
+    canonicalContractors.set(contractorKey(name), { name, binIin, type: c['Тип']?.trim() ?? '' });
+  }
+
+  const paymentRows: PaymentRow[] = paymentRowsRaw
+    .map((p) => ({
+      docNumber: p['НомерДокументаОснования']?.trim() ?? '',
+      kind: p['Тип']?.trim() as 'Клиенту' | 'Поставщику',
+      date: parseRuDate(p['Дата']),
+      amount: num(p['Сумма']),
+    }))
+    .filter((p) => p.docNumber && p.amount > 0 && (p.kind === 'Клиенту' || p.kind === 'Поставщику'));
+
+  const stockRows: StockRow[] = stockRowsRaw
+    .map((s) => ({
+      name: s['Материал']?.trim() ?? '',
+      qty: num(s['Количество']),
+      unit: (s['ЕдиницаИзмерения']?.trim() || 'шт').slice(0, 10),
+      price: num(s['УчётнаяЦена']),
+      date: parseRuDate(s['ДатаОстатка']),
+    }))
+    .filter((s) => s.name && s.qty > 0);
 
   const nomDict = new Map<string, NomEntry>();
   let nomCollisions = 0;
@@ -297,36 +370,57 @@ async function main() {
     }
 
     console.log('\n===== КОНТРАГЕНТЫ =====');
-    const customerIdByName = new Map<string, string>();
-    for (const name of customerNames) {
-      const existing = await prisma.customer.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
-      if (existing) { customerIdByName.set(name, existing.id); report.customersMatched += 1; continue; }
-      const created = await prisma.customer.create({
-        data: { name, binIin: slug(name), customerType: 'OUTSIDE' },
-      });
-      customerIdByName.set(name, created.id);
-      report.customersCreated += 1;
-    }
-    console.log(`Сопоставлено: ${report.customersMatched}, создано новых: ${report.customersCreated}`);
-
     // Сама 1С называет одного контрагента по-разному в заказах клиента и
     // поставщику («LVE Group, ТОО» / «ТОО "LVE Group"») — точное сравнение
-    // это не поймает и заведёт двух разных заказчиков. Не сливаем молча
-    // (риск ошибочно объединить разных), только показываем — тот же принцип,
-    // что и для дублей материалов (duplicateReport в nomenclature.service.ts).
-    // «ТОО» встречается то до имени, то после — сортировка слов ловит и это
-    const probableDuplicateCustomers = new Map<string, string[]>();
+    // это не ловит. Теперь ловим по-настоящему: если под другим написанием
+    // с тем же нормализованным ключом контрагент уже создан в ЭТОМ прогоне —
+    // переиспользуем его id, а не заводим второго. Если есть эталон
+    // (Контрагенты.csv) — берём оттуда настоящий БИН вместо синтетического.
+    const customerIdByName = new Map<string, string>();
+    const customerIdByKey = new Map<string, string>();
+    const mergedDuplicates: string[][] = [];
+    const dedupGroups = new Map<string, string[]>();
     for (const name of customerNames) {
-      const key = normalizeName(name).split(' ').filter(Boolean).sort().join(' ');
+      const key = contractorKey(name);
       if (!key) continue;
-      (probableDuplicateCustomers.get(key) ?? probableDuplicateCustomers.set(key, []).get(key)!).push(name);
+      (dedupGroups.get(key) ?? dedupGroups.set(key, []).get(key)!).push(name);
     }
-    for (const [key, names] of probableDuplicateCustomers) {
-      if (names.length < 2) probableDuplicateCustomers.delete(key);
+
+    for (const name of customerNames) {
+      const key = contractorKey(name);
+      const byKey = key ? customerIdByKey.get(key) : undefined;
+      if (byKey) { customerIdByName.set(name, byKey); continue; } // уже создан под другим написанием в этом прогоне
+
+      const existing = await prisma.customer.findFirst({ where: { name: { equals: name, mode: 'insensitive' } } });
+      if (existing) {
+        customerIdByName.set(name, existing.id);
+        if (key) customerIdByKey.set(key, existing.id);
+        report.customersMatched += 1;
+        continue;
+      }
+      const canonical = key ? canonicalContractors.get(key) : undefined;
+      const created = await prisma.customer.create({
+        data: {
+          name: canonical?.name ?? name,
+          binIin: canonical?.binIin ?? slug(name),
+          customerType: 'OUTSIDE',
+        },
+      });
+      customerIdByName.set(name, created.id);
+      if (key) customerIdByKey.set(key, created.id);
+      report.customersCreated += 1;
     }
+    for (const [key, names] of dedupGroups) {
+      if (names.length > 1) mergedDuplicates.push(names);
+    }
+    console.log(`Сопоставлено: ${report.customersMatched}, создано новых: ${report.customersCreated}, слито написаний-дублей: ${mergedDuplicates.length}`);
 
     console.log('\n===== ЗАКАЗЫ КЛИЕНТА =====');
     const orderIdByHeader = new Map<Record<string, string>, string>();
+    // Сырой номер → все заказы под этим номером (обычно один; при коллизии
+    // серии — несколько, тогда оплату/производство относим к ближайшему
+    // по дате). Тем же способом решалась коллизия строк заказа выше.
+    const orderCandidatesByRawNumber = new Map<string, Array<{ id: string; date: Date | null }>>();
     for (const h of clientHeaders) {
       const orderNumber = orderKeyOf.get(h)!;
       const { status, guessed } = mapStatus(h['Статус']);
@@ -353,8 +447,25 @@ async function main() {
       });
       if (existedBefore) report.ordersUpdated += 1; else report.ordersCreated += 1;
       orderIdByHeader.set(h, order.id);
+      const raw = h['Номер'];
+      (orderCandidatesByRawNumber.get(raw) ?? orderCandidatesByRawNumber.set(raw, []).get(raw)!)
+        .push({ id: order.id, date: requestDate });
     }
     console.log(`Создано: ${report.ordersCreated}, обновлено: ${report.ordersUpdated}`);
+
+    // Ближайший по дате кандидат — тот же приём, что и для строк заказа
+    // поставщику при коллизии серии, только на уровне целого документа
+    function resolveOrderId(rawNumber: string, when: Date | null): string | null {
+      const candidates = orderCandidatesByRawNumber.get(rawNumber);
+      if (!candidates || candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0].id;
+      if (!when) return candidates[0].id;
+      return candidates.reduce((best, c) => {
+        const bd = Math.abs((best.date?.getTime() ?? 0) - when.getTime());
+        const cd = Math.abs((c.date?.getTime() ?? 0) - when.getTime());
+        return cd < bd ? c : best;
+      }).id;
+    }
 
     console.log('\n===== ПОЗИЦИИ ЗАКАЗОВ КЛИЕНТА =====');
     for (const l of clientLines) {
@@ -392,6 +503,7 @@ async function main() {
 
     console.log('\n===== ЗАКАЗЫ ПОСТАВЩИКУ (платёжные документы) =====');
     const docByHeader = new Map<Record<string, string>, { id: string; date: Date | null; customerName: string; doNumber: string }>();
+    const docCandidatesByRawNumber = new Map<string, Array<{ doNumber: string; date: Date | null }>>();
     for (const h of supplierHeaders) {
       const doNumber = docKeyOf.get(h)!;
       const contractorId = customerIdByName.get(h['Контрагент'].trim());
@@ -410,8 +522,23 @@ async function main() {
       });
       if (existedBefore) report.docsUpdated += 1; else report.docsCreated += 1;
       docByHeader.set(h, { id: doc.id, date: dateOfHeader(h), customerName: h['Контрагент'], doNumber });
+      const raw = h['Номер'];
+      (docCandidatesByRawNumber.get(raw) ?? docCandidatesByRawNumber.set(raw, []).get(raw)!)
+        .push({ doNumber, date: dateOfHeader(h) });
     }
     console.log(`Создано: ${report.docsCreated}, обновлено: ${report.docsUpdated}`);
+
+    function resolveDoNumber(rawNumber: string, when: Date | null): string | null {
+      const candidates = docCandidatesByRawNumber.get(rawNumber);
+      if (!candidates || candidates.length === 0) return null;
+      if (candidates.length === 1) return candidates[0].doNumber;
+      if (!when) return candidates[0].doNumber;
+      return candidates.reduce((best, c) => {
+        const bd = Math.abs((best.date?.getTime() ?? 0) - when.getTime());
+        const cd = Math.abs((c.date?.getTime() ?? 0) - when.getTime());
+        return cd < bd ? c : best;
+      }).doNumber;
+    }
 
     console.log('\n===== ПРИХОДЫ ПО СТРОКАМ ЗАКУПА (исторические партии) =====');
     const healthyByMaterial = new Map<string, number[]>();
@@ -455,11 +582,134 @@ async function main() {
     console.log(`Создано исторических партий: ${report.batchesCreated} (в карантине по цене: ${report.batchAnomalies})`);
     console.log(`Неопознанных материалов (уникальных названий): ${report.unmatchedMaterials.size}`);
 
+    // ===== ОПЛАТЫ: дебиторка заказчиков + оплаченность закупа =====
+    let paymentsToOrders = 0, paymentsToOrdersUnmatched = 0;
+    let paymentsToDocs = 0, paymentsToDocsUnmatched = 0;
+    if (paymentRows.length) {
+      console.log('\n===== ОПЛАТЫ =====');
+      const paidByOrder = new Map<string, number>();
+      const paidByDoNumber = new Map<string, number>();
+      for (const p of paymentRows) {
+        if (p.kind === 'Клиенту') {
+          const orderId = resolveOrderId(p.docNumber, p.date);
+          if (!orderId) { paymentsToOrdersUnmatched += 1; continue; }
+          paidByOrder.set(orderId, (paidByOrder.get(orderId) ?? 0) + p.amount);
+          paymentsToOrders += 1;
+        } else {
+          const doNumber = resolveDoNumber(p.docNumber, p.date);
+          if (!doNumber) { paymentsToDocsUnmatched += 1; continue; }
+          paidByDoNumber.set(doNumber, (paidByDoNumber.get(doNumber) ?? 0) + p.amount);
+          paymentsToDocs += 1;
+        }
+      }
+      for (const [orderId, paid] of paidByOrder) {
+        await prisma.order.update({ where: { id: orderId }, data: { onecPaidAmount: paid } });
+      }
+      for (const [doNumber, paid] of paidByDoNumber) {
+        const doc = await prisma.paymentDocument.findUnique({ where: { doNumber }, select: { totalAmount: true } });
+        if (!doc) continue;
+        const total = Number(doc.totalAmount);
+        const unpaid = Math.max(0, total - paid);
+        await prisma.paymentDocument.update({
+          where: { doNumber },
+          data: {
+            paidAmount: paid,
+            unpaidAmount: unpaid,
+            status: (unpaid <= 0 && total > 0 ? 'PAID' : paid > 0 ? 'PARTIALLY_PAID' : 'UNPAID') as any,
+          },
+        });
+      }
+      console.log(`Заказы клиента: разнесено платежей на ${paidByOrder.size} заказов (${paymentsToOrders} строк, не сопоставлено — ${paymentsToOrdersUnmatched})`);
+      console.log(`Заказы поставщику: разнесено платежей на ${paidByDoNumber.size} документов (${paymentsToDocs} строк, не сопоставлено — ${paymentsToDocsUnmatched})`);
+    }
+
+    // ===== ОСТАТКИ СКЛАДА: стартовые партии с реальным qtyRemaining =====
+    let stockBatchesCreated = 0;
+    const unmatchedStock = new Map<string, { qty: number; value: number }>();
+    if (stockRows.length) {
+      console.log('\n===== ОСТАТКИ СКЛАДА =====');
+      for (const s of stockRows) {
+        // Остатки.csv дописывает длину в скобках («…40×3 мм (6 м)»), которой
+        // нет в самом названии материала («…40×3 мм») — 446 из 3021 строк.
+        // Фоллбэк только здесь, не в общей normalizeName: в других местах
+        // скобки бывают значащими (код поставщика и т.п.), рисковать нельзя.
+        let materialId = await matchMaterial(prisma, s.name, '');
+        if (!materialId) {
+          const withoutLength = s.name.replace(/\s*\([^)]*\)\s*$/, '').trim();
+          if (withoutLength !== s.name) materialId = await matchMaterial(prisma, withoutLength, '');
+        }
+        if (!materialId) {
+          const acc = unmatchedStock.get(s.name) ?? { qty: 0, value: 0 };
+          acc.qty += s.qty; acc.value += s.qty * s.price;
+          unmatchedStock.set(s.name, acc);
+          continue;
+        }
+        await prisma.materialBatch.create({
+          data: {
+            materialId,
+            receiptDate: s.date ?? new Date(),
+            unitPrice: s.price,
+            qtyReceived: s.qty,
+            qtyRemaining: s.qty, // не 0, как у исторических приходов — это то, что физически лежит сейчас
+            origin: 'INVENTORY',
+          },
+        });
+        // Material.stockQty — отдельный счётчик (не сумма по партиям!),
+        // его двигает только material-receipt.service.ts. Партия создана
+        // в обход сервиса (это не покупка, а снимок остатка) — счётчик
+        // пришлось бы иначе оставить на 0, и склад показывал бы «пусто»
+        // при реально существующей партии. Курс закупки не трогаем —
+        // это не покупка, пересчитывать среднюю цену не нужно.
+        await prisma.material.update({
+          where: { id: materialId },
+          data: { stockQty: { increment: s.qty } },
+        });
+        stockBatchesCreated += 1;
+      }
+      console.log(`Создано партий стартового остатка: ${stockBatchesCreated}`);
+      console.log(`Неопознанных материалов в остатках: ${unmatchedStock.size}`);
+    }
+
+    // ===== ПРОИЗВОДСТВО: только отчёт, в базу не пишем =====
+    // «Назначение» строки несёт номер заказа клиента текстом — надёжно
+    // там, где вообще заполнено (проверено на выгрузке: где есть текст,
+    // там всегда есть и номер, 0 исключений). Но восстановить из этого
+    // передел/трудочасы нельзя — писать в ProductionStage значило бы
+    // придумывать данные, которых в выгрузке нет.
+    let productionOrdersConfirmed = 0;
+    let productionDocsWithOrder = 0;
+    if (prodHeaderRows.length && prodLineRows.length) {
+      console.log('\n===== ПРОИЗВОДСТВО (отчёт, в базу не пишется) =====');
+      const orderNumRe = /Т7АА-\d+/;
+      const prodDateByNum = new Map<string, Date | null>();
+      for (const h of prodHeaderRows) prodDateByNum.set(h['Номер'], parseRuDate(h['Дата']));
+
+      const rawOrderByProdDoc = new Map<string, string>();
+      for (const l of prodLineRows) {
+        const m = orderNumRe.exec(l['Назначение'] ?? '');
+        if (m && !rawOrderByProdDoc.has(l['НомерПроизводства'])) {
+          rawOrderByProdDoc.set(l['НомерПроизводства'], padOrderNumber(m[0]));
+        }
+      }
+      const confirmedOrderIds = new Set<string>();
+      for (const [prodDoc, rawOrderNum] of rawOrderByProdDoc) {
+        const when = prodDateByNum.get(prodDoc) ?? null;
+        const orderId = resolveOrderId(rawOrderNum, when);
+        if (orderId) { confirmedOrderIds.add(orderId); productionDocsWithOrder += 1; }
+      }
+      productionOrdersConfirmed = confirmedOrderIds.size;
+      console.log(`Документов производства: ${prodHeaderRows.length}, строк: ${prodLineRows.length}`);
+      console.log(`Документов со ссылкой на заказ клиента в «Назначении»: ${rawOrderByProdDoc.size}`);
+      console.log(`Из них сопоставлено с реальным заказом в базе: ${productionDocsWithOrder}`);
+      console.log(`Уникальных заказов с подтверждённой историей производства: ${productionOrdersConfirmed}`);
+      console.log('Решение о том, писать ли это в ProductionStage/этапы и как — за вами: данных о переделе и часах в выгрузке нет.');
+    }
+
     console.log('\n===== ИТОГ =====');
     console.log(`Контрагенты: сопоставлено ${report.customersMatched}, создано ${report.customersCreated}`);
-    if (probableDuplicateCustomers.size) {
-      console.log(`Вероятные дубли контрагентов (сама 1С называет по-разному) — ${probableDuplicateCustomers.size} групп:`);
-      for (const [, names] of probableDuplicateCustomers) console.log(`  · ${names.join('  ==  ')}`);
+    if (mergedDuplicates.length) {
+      console.log(`Слитые написания-дубли (сама 1С называет по-разному, теперь один контрагент) — ${mergedDuplicates.length} групп:`);
+      for (const names of mergedDuplicates) console.log(`  · ${names.join('  ==  ')}`);
     }
     console.log(`Заказы клиента: создано ${report.ordersCreated}, обновлено ${report.ordersUpdated}`);
     console.log(`Позиции: ${report.linesCreated} (не разнесено из-за коллизии номера года: ${report.linesUnresolvedCollision})`);
