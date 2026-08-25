@@ -579,7 +579,7 @@
             "bearer": []
           }
         ],
-        "summary": "Новая версия коэффициентов (admin, версионируется)",
+        "summary": "Новая версия коэффициентов (admin/director, версионируется)",
         "tags": [
           "Costing config"
         ]
@@ -3396,6 +3396,46 @@
         ]
       }
     },
+    "/api/v1/dashboards/workload-forecast": {
+      "get": {
+        "operationId": "DashboardsController_workloadForecast",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Загрузка цеха: нормо-часы остатка против мощности участков",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    },
+    "/api/v1/dashboards/cash-forecast": {
+      "get": {
+        "operationId": "DashboardsController_cashForecast",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Дебиторка (нам должны) и кредиторка (мы должны) — раздельно",
+        "tags": [
+          "Dashboards"
+        ]
+      }
+    },
     "/api/v1/dashboards/production-summary": {
       "get": {
         "operationId": "DashboardsController_getProductionSummary",
@@ -3433,6 +3473,129 @@
         "summary": "Get finished goods dashboard summary",
         "tags": [
           "Dashboards"
+        ]
+      }
+    },
+    "/api/v1/deals": {
+      "get": {
+        "operationId": "DealsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List deals",
+        "tags": [
+          "Sales - Deals"
+        ]
+      },
+      "post": {
+        "operationId": "DealsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Create deal (customerId/articleId or customerName/articleName — resolved or created)",
+        "tags": [
+          "Sales - Deals"
+        ]
+      }
+    },
+    "/api/v1/deals/{id}": {
+      "patch": {
+        "operationId": "DealsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Edit a forecast deal (not yet a formal order)",
+        "tags": [
+          "Sales - Deals"
+        ]
+      },
+      "delete": {
+        "operationId": "DealsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a forecast deal that never materialized",
+        "tags": [
+          "Sales - Deals"
+        ]
+      }
+    },
+    "/api/v1/deals/{id}/status": {
+      "patch": {
+        "operationId": "DealsController_updateStatus",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update deal status and create finished-goods expense movement on shipment",
+        "tags": [
+          "Sales - Deals"
         ]
       }
     }

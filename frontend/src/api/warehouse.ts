@@ -32,14 +32,16 @@ export const warehouseApi = {
 
 export interface Receipt {
   id: string;
-  itemId: string;
-  movementType: string;
+  itemId?: string;
+  movementType?: string;
   qty: string | number;
   unitPrice: string | number;
   movementDate: string;
   supplierName: string | null;
   documentNumber: string | null;
   comment: string | null;
+  origin?: 'MOVEMENT' | 'LOCAL' | 'ONEC' | 'INVENTORY';
+  priceAnomaly?: boolean;
   material?: { materialCode: string; name: string; unit: string; category: string };
 }
 

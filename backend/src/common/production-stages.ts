@@ -19,8 +19,8 @@ export interface StageStep {
 
 /** Порядок прохождения заказа: 2 вехи + 3 передела */
 export const STAGE_STEPS: StageStep[] = [
-  { code: 'DESIGN', routingStage: null, key: 'DESIGN', label: 'КД' },
-  { code: 'SUPPLY', routingStage: null, key: 'SUPPLY', label: 'Снабжение' },
+  { code: 'DESIGN', routingStage: null, key: 'DESIGN', label: 'Чертежи' },
+  { code: 'SUPPLY', routingStage: null, key: 'SUPPLY', label: 'Закуп' },
   { code: 'PRODUCTION', routingStage: 'CUTTING', key: 'PRODUCTION:CUTTING', label: 'Резка' },
   { code: 'PRODUCTION', routingStage: 'ASSEMBLY', key: 'PRODUCTION:ASSEMBLY', label: 'Сборка / сварка / обшивка' },
   { code: 'PRODUCTION', routingStage: 'PAINTING', key: 'PRODUCTION:PAINTING', label: 'Зачистка / покраска' },

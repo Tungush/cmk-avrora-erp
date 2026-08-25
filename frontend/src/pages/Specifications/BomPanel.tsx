@@ -9,13 +9,6 @@ import { useBom, useMaterials, useAddBomItem, useUpdateBomItem, useRemoveBomItem
 import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
 
-const OPERATION_LABELS: Record<string, string> = {
-  CUTTING: 'Резка',
-  WELDING_ASSEMBLY: 'Сборка / сварка',
-  CLADDING: 'Обшивка',
-  PAINTING: 'Покраска',
-};
-
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
 /** Строка состава: расход правится инлайн (engineer), удаление — крестиком */
@@ -49,9 +42,6 @@ function BomRow({
       <Table.Td>
         <Text size="sm" ff="monospace" fw={600} c="brand.7">{item.material?.materialCode ?? '—'}</Text>
         <Text size="xs" c="dimmed" lineClamp={1}>{item.material?.name ?? '—'}</Text>
-      </Table.Td>
-      <Table.Td>
-        <Badge variant="light" color="gray" size="sm">{OPERATION_LABELS[item.operationType] ?? item.operationType}</Badge>
       </Table.Td>
       <Table.Td style={{ textAlign: 'right' }}>
         {canEdit ? (
@@ -180,7 +170,6 @@ export function BomPanel({ articleId }: { articleId: string }) {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Материал</Table.Th>
-                <Table.Th>Передел</Table.Th>
                 <Table.Th style={{ textAlign: 'right' }}>Расход на ед.</Table.Th>
                 <Table.Th>Ед.</Table.Th>
                 <Table.Th style={{ textAlign: 'right' }}>Учётная цена</Table.Th>
@@ -221,14 +210,6 @@ export function BomPanel({ articleId }: { articleId: string }) {
             step={0.01}
             decimalScale={4}
             w={130}
-            size="sm"
-          />
-          <Select
-            label="Передел"
-            data={Object.entries(OPERATION_LABELS).map(([value, label]) => ({ value, label }))}
-            value={newOp}
-            onChange={(v) => setNewOp(v ?? 'WELDING_ASSEMBLY')}
-            w={170}
             size="sm"
           />
           <Button

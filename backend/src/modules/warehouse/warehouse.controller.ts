@@ -76,16 +76,60 @@ export class WarehouseController {
     return this.receipts.receive(body, user?.userId);
   }
 
+  /**
+   * История цены закупа — «когда и почём брали» (запрос 25.08.2026).
+   * Два источника, слитые в одну ленту: ручные приходы через этот же
+   * контроллер пишут в material_stock_movements, а заливка из 1С
+   * (import-1c-csv.ts) пишет партии сразу в material_batches, эту
+   * таблицу не трогая. Экран был пуст не потому что истории нет —
+   * он смотрел только в первую таблицу, где после сегодняшней заливки
+   * реальных партий физически быть не может.
+   */
   @Get('materials/:id/movements')
   @ApiOperation({ summary: 'История движений материала — за сколько и когда покупали' })
   async getMaterialMovements(@Param('id') id: string, @Query('limit') limit?: string) {
+    const take = Number(limit) || 50;
     return runWithFallback(
       this.prisma,
-      () => this.prisma.materialStockMovement.findMany({
-        where: { itemId: id },
-        orderBy: [{ movementDate: 'desc' }, { createdAt: 'desc' }],
-        take: Number(limit) || 50,
-      }),
+      async () => {
+        const [movements, batches] = await Promise.all([
+          this.prisma.materialStockMovement.findMany({
+            where: { itemId: id },
+            orderBy: [{ movementDate: 'desc' }, { createdAt: 'desc' }],
+            take,
+          }),
+          this.prisma.materialBatch.findMany({
+            where: { materialId: id },
+            orderBy: { receiptDate: 'desc' },
+            take,
+          }),
+        ]);
+        const fromMovements = movements.map((m) => ({
+          id: m.id,
+          movementDate: m.movementDate,
+          qty: m.qty,
+          unitPrice: m.unitPrice,
+          documentNumber: m.documentNumber,
+          supplierName: m.supplierName,
+          comment: m.comment,
+          origin: 'MOVEMENT' as const,
+          priceAnomaly: false,
+        }));
+        const fromBatches = batches.map((b) => ({
+          id: b.id,
+          movementDate: b.receiptDate,
+          qty: b.qtyReceived,
+          unitPrice: b.unitPrice,
+          documentNumber: b.documentNumber,
+          supplierName: b.supplierName,
+          comment: b.origin === 'INVENTORY' ? 'Стартовый остаток (инвентаризация)' : null,
+          origin: b.origin,
+          priceAnomaly: b.priceAnomaly,
+        }));
+        return [...fromMovements, ...fromBatches]
+          .sort((a, b) => new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime())
+          .slice(0, take);
+      },
       () => [],
     );
   }

@@ -64,7 +64,12 @@ function MovementHistory({ materialId, material }: { materialId: string; materia
                 <Table.Td ff="monospace">{formatDate(m.movementDate)}</Table.Td>
                 <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(m.qty), 3)}</Table.Td>
                 <Table.Td ff="monospace" style={{ textAlign: 'right' }}>
-                  {Number(m.unitPrice) > 0 ? `${num(Number(m.unitPrice))} ₸` : '—'}
+                  <Group gap={6} justify="flex-end" wrap="nowrap">
+                    {m.priceAnomaly && (
+                      <Badge color="danger" variant="light" size="xs" radius="xl">карантин</Badge>
+                    )}
+                    {Number(m.unitPrice) > 0 ? `${num(Number(m.unitPrice))} ₸` : '—'}
+                  </Group>
                 </Table.Td>
                 <Table.Td>
                   <Text size="xs" ff="monospace">{m.documentNumber ?? '—'}</Text>

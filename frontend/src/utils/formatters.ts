@@ -79,9 +79,9 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
  * Ключ передела — «PRODUCTION:CUTTING», как его отдаёт бэкенд.
  */
 export const STAGE_LABELS: Record<string, string> = {
-  DESIGN: 'КД',
-  SUPPLY: 'Снабжение',
-  PRODUCTION: 'Производство',
+  DESIGN: 'Чертежи',
+  SUPPLY: 'Закуп',
+  PRODUCTION: 'Осн производство',
   'PRODUCTION:CUTTING': 'Резка',
   'PRODUCTION:ASSEMBLY': 'Сборка / сварка / обшивка',
   'PRODUCTION:PAINTING': 'Зачистка / покраска',
@@ -97,8 +97,8 @@ export const STAGE_ORDER = [
 
 /** Короткие метки для полосы этапов — два символа читаются на любой ширине */
 export const STAGE_SHORT: Record<string, string> = {
-  DESIGN: 'КД',
-  SUPPLY: 'СН',
+  DESIGN: 'ЧТ',
+  SUPPLY: 'ЗК',
   'PRODUCTION:CUTTING': 'РЗ',
   'PRODUCTION:ASSEMBLY': 'СВ',
   'PRODUCTION:PAINTING': 'ПК',

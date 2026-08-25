@@ -509,8 +509,8 @@ export class CostingConfigController {
   }
 
   @Put()
-  @Roles('admin')
-  @ApiOperation({ summary: 'Новая версия коэффициентов (admin, версионируется)' })
+  @Roles('admin', 'director')
+  @ApiOperation({ summary: 'Новая версия коэффициентов (admin/director, версионируется)' })
   async update(
     @Body() body: {
       hourlyRate: number; logisticsPct: number; utilitiesPct: number;

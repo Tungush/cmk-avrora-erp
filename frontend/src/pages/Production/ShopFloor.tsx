@@ -64,8 +64,8 @@ const MY_STAGES = [
   { key: 'PRODUCTION:CUTTING', label: 'Резка' },
   { key: 'PRODUCTION:ASSEMBLY', label: 'Сборка / сварка' },
   { key: 'PRODUCTION:PAINTING', label: 'Покраска' },
-  { key: 'DESIGN', label: 'КД' },
-  { key: 'SUPPLY', label: 'Снабжение' },
+  { key: 'DESIGN', label: 'Чертежи' },
+  { key: 'SUPPLY', label: 'Закуп' },
 ];
 
 const RATE_TYPE_LABELS: Record<string, string> = {

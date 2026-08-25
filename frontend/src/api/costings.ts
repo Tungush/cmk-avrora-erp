@@ -59,6 +59,22 @@ export interface CostingDetail {
   labor: CostingLaborRow[];
 }
 
+export interface CostingConfig {
+  hourlyRate: number;
+  logisticsPct: number;
+  utilitiesPct: number;
+  vatPct: number;
+  marginPct: number;
+  paymentTermDays: number;
+}
+
+export const costingConfigApi = {
+  /** Действующие коэффициенты калькуляции — читать может любой вошедший */
+  get: () => api.get<CostingConfig>('/costing-config'),
+  /** Новая версия — старая закрывается по дате, история коэффициентов не теряется (admin) */
+  update: (body: CostingConfig) => api.put<CostingConfig>('/costing-config', body),
+};
+
 export const costingsApi = {
   list: (orderLineId: string) =>
     api.get<{ data: CostingVersionSummary[]; total: number }>(`/order-lines/${orderLineId}/costings`),
