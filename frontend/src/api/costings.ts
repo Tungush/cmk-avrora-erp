@@ -10,6 +10,8 @@ export interface CostingVersionSummary {
   price: number;
   marginPct: number;
   hasShortage: boolean;
+  hasMissingNorm: boolean;
+  hasMissingBom: boolean;
   materialsCount: number;
 }
 
@@ -55,6 +57,8 @@ export interface CostingDetail {
   price: number;
   marginPct: number;
   hasShortage: boolean;
+  hasMissingNorm: boolean;
+  hasMissingBom: boolean;
   materials: CostingMaterialRow[];
   labor: CostingLaborRow[];
 }

@@ -633,8 +633,14 @@ export function Specifications() {
   const [activeTab, setActiveTab] = useState<string>('routing');
   const [requestOpened, setRequestOpened] = useState(false);
 
-  const { data: articlesData, isLoading: articlesLoading } = useArticles({ search, pageSize: 30 });
+  // Раньше жёсткий pageSize:30 без способа увидеть остальное — из 2315
+  // артикулов было видно 30 (1,3%), и поиск это не спасало (найденное
+  // тоже обрезалось). Теперь список растёт по кнопке, честно показывая,
+  // сколько всего и сколько ещё скрыто.
+  const [visibleCount, setVisibleCount] = useState(30);
+  const { data: articlesData, isLoading: articlesLoading } = useArticles({ search, pageSize: visibleCount });
   const articles = articlesData?.data ?? [];
+  const articlesTotal = articlesData?.meta?.total ?? articles.length;
   const activeId = selectedId ?? articles[0]?.id ?? null;
   const activeArticle = useMemo(() => articles.find((a) => a.id === activeId), [articles, activeId]);
 
@@ -685,10 +691,13 @@ export function Specifications() {
             placeholder="Поиск артикула..."
             leftSection={<IconSearch size={15} />}
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelectedId(null); }}
+            onChange={(e) => { setSearch(e.target.value); setSelectedId(null); setVisibleCount(30); }}
             size="sm"
-            mb="sm"
+            mb={4}
           />
+          <Text size="xs" c="dimmed" mb="sm">
+            {articlesLoading ? ' ' : `Показано ${articles.length} из ${articlesTotal}`}
+          </Text>
           <ScrollArea h={isMobile ? 220 : 560} scrollbarSize={6}>
             <Stack gap={4}>
               {articlesLoading
@@ -706,7 +715,12 @@ export function Specifications() {
                         border: a.id === activeId ? '1px solid light-dark(var(--mantine-color-brand-2), rgba(90, 124, 255, 0.35))' : '1px solid transparent',
                       }}
                     >
-                      <Text size="xs" ff="monospace" c="brand.7" fw={700}>{a.articleCode}</Text>
+                      <Group gap={6} wrap="nowrap">
+                        <Text size="xs" ff="monospace" c="brand.7" fw={700}>{a.articleCode}</Text>
+                        {!a.bomItems?.length && (
+                          <Badge size="xs" variant="light" color="yellow" radius="xl">нет состава</Badge>
+                        )}
+                      </Group>
                       <Text size="xs" lineClamp={1}>{a.name}</Text>
                     </Box>
                   ))}
@@ -717,6 +731,16 @@ export function Specifications() {
                     Запросить номенклатуру
                   </Button>
                 </Stack>
+              )}
+              {!articlesLoading && articles.length < articlesTotal && (
+                <Button
+                  size="xs"
+                  variant="subtle"
+                  fullWidth
+                  onClick={() => setVisibleCount((n) => n + 100)}
+                >
+                  Показать ещё {Math.min(100, articlesTotal - articles.length)}
+                </Button>
               )}
             </Stack>
           </ScrollArea>

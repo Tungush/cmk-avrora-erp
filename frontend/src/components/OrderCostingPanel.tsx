@@ -147,6 +147,12 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
               {detail.hasShortage && (
                 <Badge color="red" variant="light">есть дефицит материалов</Badge>
               )}
+              {detail.hasMissingBom && (
+                <Badge color="red" variant="light">нет состава — себестоимость материалов не посчитана</Badge>
+              )}
+              {detail.hasMissingNorm && (
+                <Badge color="orange" variant="light">нет нормы труда — себестоимость труда не посчитана</Badge>
+              )}
             </Group>
 
             <Table.ScrollContainer minWidth={480}>

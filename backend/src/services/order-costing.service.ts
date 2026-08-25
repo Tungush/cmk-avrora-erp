@@ -304,6 +304,9 @@ export class OrderCostingService {
     // заказ выглядит бесплатным по труду и при этом честным на вид
     const hasStaffLine = assignments.some((a) => a.laborKind === 'STAFF');
     const hasMissingNorm = !hasStaffLine && labor.staffCost === 0;
+    // Нет состава вовсе — materialCost честный ноль, а не «дёшево»: 608
+    // артикулов без BOM (25.08.2026), заказы с ними давали заниженную цену
+    const hasMissingBom = Boolean(line.article) && bom.length === 0;
 
     // ---- коэффициенты и цена
     const logisticsCost = logisticsCostOf(materialCost, rates, { weightKg });
@@ -348,6 +351,7 @@ export class OrderCostingService {
         totalManHours: labor.shopManHours,
         hasShortage,
         hasMissingNorm,
+        hasMissingBom,
         note: opts.note?.trim() || null,
 
         materials: { create: materialRows as any },

@@ -679,6 +679,10 @@ model OrderCosting {
   /// Без этого флага заказ выглядит бесплатным по труду и честным на вид
   /// (485 артикулов из 2 160 норм не имеют)
   hasMissingNorm Boolean @default(false) @map("has_missing_norm")
+  /// У изделия нет состава (BOM) вовсе — materialCost честный ноль, а не
+  /// «дёшево»: найдено аудитом 25.08.2026, 608 артикулов без состава,
+  /// заказы с ними показывали заниженную цену без единого предупреждения
+  hasMissingBom  Boolean @default(false) @map("has_missing_bom")
 
   note String? @db.Text
 

@@ -14,6 +14,9 @@ export interface Article {
   palletCapacity?: number;
   isActive: boolean;
   createdAt: string;
+  /// Список артикулов (GET /articles) отдаёт состав вместе с карточкой —
+  /// используется, чтобы честно пометить карточки без BOM в интерфейсе
+  bomItems?: unknown[];
   updatedAt: string;
 }
 

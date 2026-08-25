@@ -76,6 +76,8 @@ export class OrderCostingsController {
         ratesSource: c.ratesSource,
         ratesReason: c.ratesReason,
         hasShortage: c.hasShortage,
+        hasMissingNorm: c.hasMissingNorm,
+        hasMissingBom: c.hasMissingBom,
         materialsCount: c.materials.length,
       })),
       total: rows.length,
@@ -121,6 +123,8 @@ export class OrderCostingsController {
       price: Number(c.price),
       marginPct: Number(c.marginPct),
       hasShortage: c.hasShortage,
+      hasMissingNorm: c.hasMissingNorm,
+      hasMissingBom: c.hasMissingBom,
       materials: c.materials.map((m) => ({
         id: m.id,
         materialCode: m.materialCodeSnapshot,
