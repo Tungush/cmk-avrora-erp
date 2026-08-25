@@ -125,25 +125,31 @@ export class SpreadsheetController {
         if (!sheet) throw new NotFoundException({ code: 'NOT_FOUND', message: `Sheet "${sheetName}" not found` });
 
         const skip = (page - 1) * pageSize;
-        const where: Record<string, unknown> = { sheetId: sheet.id };
-        if (query.includeEmpty !== 'true') where.isEmpty = false;
+        const includeEmpty = query.includeEmpty === 'true';
+        const search = (query.search ?? '').trim();
 
-        const [rows, total] = await Promise.all([
-          this.prisma.spreadsheetRow.findMany({
-            where,
-            skip,
-            take: pageSize,
-            orderBy: { rowNumber: 'asc' },
-            select: {
-              id: true,
-              rowNumber: true,
-              cells: true,
-              data: true,
-              isEmpty: true,
-            },
-          }),
-          this.prisma.spreadsheetRow.count({ where }),
+        // Поиск — по всему листу (cells целиком, приведёнными к тексту), а не
+        // по текущей странице: у Telecom 15 139 строк = 152 страницы, локальный
+        // фильтр по 100 загруженным строкам искать что-либо реально не давал.
+        const [rows, totalResult] = await Promise.all([
+          this.prisma.$queryRaw<Array<{ id: string; row_number: number; cells: unknown; data: unknown; is_empty: boolean }>>`
+            SELECT id, row_number, cells, data, is_empty
+            FROM spreadsheet_rows
+            WHERE sheet_id = ${sheet.id}::uuid
+              AND (${includeEmpty} OR is_empty = false)
+              AND (${search} = '' OR cells::text ILIKE '%' || ${search} || '%')
+            ORDER BY row_number ASC
+            LIMIT ${pageSize} OFFSET ${skip}
+          `,
+          this.prisma.$queryRaw<Array<{ count: bigint }>>`
+            SELECT COUNT(*) AS count
+            FROM spreadsheet_rows
+            WHERE sheet_id = ${sheet.id}::uuid
+              AND (${includeEmpty} OR is_empty = false)
+              AND (${search} = '' OR cells::text ILIKE '%' || ${search} || '%')
+          `,
         ]);
+        const total = Number(totalResult[0]?.count ?? 0);
 
         return {
           sheet: {
@@ -155,7 +161,13 @@ export class SpreadsheetController {
             colCount: sheet.colCount,
             rowCount: sheet.rowCount,
           },
-          data: rows,
+          data: rows.map((r) => ({
+            id: r.id,
+            rowNumber: r.row_number,
+            cells: r.cells,
+            data: r.data,
+            isEmpty: r.is_empty,
+          })),
           meta: { page, pageSize, total },
         };
       },

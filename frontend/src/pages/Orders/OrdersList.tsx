@@ -1,66 +1,62 @@
 import React, { useState } from 'react';
-import { Tabs, Stack, Text } from '@mantine/core';
-import { IconTable, IconFileSpreadsheet, IconFolder, IconInfoCircle } from '@tabler/icons-react';
+import { Tabs, Stack, Text, Select, Group } from '@mantine/core';
+import { IconTable, IconFileSpreadsheet } from '@tabler/icons-react';
 import { SpreadsheetTable } from '../../components/SpreadsheetTable';
-import { useSpreadsheetRows } from '../../hooks/useSpreadsheet';
+import { useSpreadsheetRows, useSpreadsheetSheets } from '../../hooks/useSpreadsheet';
 import { OrdersRegistry } from './OrdersRegistry';
-
-/** Excel-архив: исходные листы как есть — для сверки с оригиналом при переходе */
-const ORDER_SHEETS = [
-  { id: 'Telecom', label: 'Telecom', description: 'Заказы Telecom — 66 столбцов', icon: IconFileSpreadsheet },
-  { id: 'Др проекты', label: 'Др проекты', description: 'Прочие проекты — 141 столбец', icon: IconFolder },
-  { id: 'Инфо3', label: 'Инфо3', description: 'Сводная информация — 39 столбцов', icon: IconInfoCircle },
-] as const;
 
 function ExcelArchive() {
   const [activeSheet, setActiveSheet] = useState<string>('Telecom');
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
 
-  const current = ORDER_SHEETS.find((s) => s.id === activeSheet) || ORDER_SHEETS[0];
-  const { data, isLoading } = useSpreadsheetRows(activeSheet, { page, pageSize: 100 });
+  const { data: sheetsResponse } = useSpreadsheetSheets();
+  const sheets = (sheetsResponse?.data as Array<{ name: string; colCount: number; rowCount: number }>) || [];
+  const sheetOptions = sheets.map((s) => ({
+    value: s.name,
+    label: `${s.name} — ${s.colCount} стб., ${s.rowCount.toLocaleString('ru-RU')} стр.`,
+  }));
+
+  const { data, isLoading } = useSpreadsheetRows(activeSheet, { page, pageSize: 100, search });
 
   const headers = (data?.sheet?.headers as string[]) || [];
   const rows = data?.data || [];
 
   return (
-    <Tabs
-      value={activeSheet}
-      onChange={(value) => {
-        if (value) {
-          setActiveSheet(value);
-          setPage(1);
-        }
-      }}
-      variant="pills"
-      radius="md"
-      keepMounted={false}
-    >
-      <Tabs.List mb="md" style={{ flexWrap: 'wrap' }}>
-        {ORDER_SHEETS.map((sheet) => {
-          const Icon = sheet.icon;
-          return (
-            <Tabs.Tab key={sheet.id} value={sheet.id} leftSection={<Icon size={15} />}>
-              {sheet.label}
-            </Tabs.Tab>
-          );
-        })}
-      </Tabs.List>
+    <Stack gap="md" style={{ minWidth: 0 }}>
+      <Group justify="space-between" align="flex-end" wrap="wrap">
+        <Select
+          label="Лист исходного файла (все, как есть в 2025_План Производства.xlsx)"
+          data={sheetOptions}
+          value={activeSheet}
+          onChange={(value) => {
+            if (value) {
+              setActiveSheet(value);
+              setPage(1);
+              setSearch('');
+            }
+          }}
+          searchable
+          radius="md"
+          style={{ minWidth: 340, maxWidth: '100%' }}
+        />
+      </Group>
 
-      {ORDER_SHEETS.map((sheet) => (
-        <Tabs.Panel key={sheet.id} value={sheet.id}>
-          <SpreadsheetTable
-            sheetName={activeSheet}
-            title={`Excel-архив — ${current.label}`}
-            subtitle={current.description}
-            headers={headers}
-            rows={rows}
-            meta={data?.meta}
-            isLoading={isLoading}
-            onPageChange={setPage}
-          />
-        </Tabs.Panel>
-      ))}
-    </Tabs>
+      <SpreadsheetTable
+        sheetName={activeSheet}
+        title={`Excel-архив — ${activeSheet}`}
+        headers={headers}
+        rows={rows}
+        meta={data?.meta}
+        isLoading={isLoading}
+        onPageChange={setPage}
+        search={search}
+        onSearchChange={(v) => {
+          setSearch(v);
+          setPage(1);
+        }}
+      />
+    </Stack>
   );
 }
 

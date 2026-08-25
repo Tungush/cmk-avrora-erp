@@ -10,7 +10,7 @@ export function useSpreadsheetSheets() {
 
 export function useSpreadsheetRows(
   sheetName: string,
-  params?: { page?: number; pageSize?: number; includeEmpty?: boolean },
+  params?: { page?: number; pageSize?: number; includeEmpty?: boolean; search?: string },
 ) {
   return useQuery({
     queryKey: ['spreadsheet', 'rows', sheetName, params],

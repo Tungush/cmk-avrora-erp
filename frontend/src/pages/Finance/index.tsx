@@ -19,8 +19,9 @@ const FINANCE_SHEETS = [
 export function Finance() {
   const [activeSheet, setActiveSheet] = useState<string>('reconciliation');
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState('');
   const isSheetTab = activeSheet !== 'reconciliation';
-  const { data, isLoading } = useSpreadsheetRows(isSheetTab ? activeSheet : '', { page, pageSize: 100 });
+  const { data, isLoading } = useSpreadsheetRows(isSheetTab ? activeSheet : '', { page, pageSize: 100, search });
 
   return (
     <Tabs
@@ -29,6 +30,7 @@ export function Finance() {
         if (value) {
           setActiveSheet(value);
           setPage(1);
+          setSearch('');
         }
       }}
       variant="outline"
@@ -63,6 +65,11 @@ export function Finance() {
             meta={data?.meta}
             isLoading={isLoading}
             onPageChange={setPage}
+            search={search}
+            onSearchChange={(v) => {
+              setSearch(v);
+              setPage(1);
+            }}
           />
         </Tabs.Panel>
       ))}

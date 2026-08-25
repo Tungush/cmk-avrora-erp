@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Table,
   Group,
@@ -10,6 +10,7 @@ import {
   ScrollArea,
   Skeleton,
 } from '@mantine/core';
+import { useDebouncedValue } from '@mantine/hooks';
 import { IconSearch } from '@tabler/icons-react';
 
 interface SpreadsheetTableProps {
@@ -24,6 +25,9 @@ interface SpreadsheetTableProps {
   meta?: { page: number; pageSize: number; total: number };
   isLoading?: boolean;
   onPageChange?: (page: number) => void;
+  /** Текущий поисковый запрос — ищет по всему листу на сервере, не по загруженной странице. */
+  search?: string;
+  onSearchChange?: (value: string) => void;
   title?: string;
   subtitle?: string;
 }
@@ -46,10 +50,22 @@ export function SpreadsheetTable({
   meta,
   isLoading,
   onPageChange,
+  search = '',
+  onSearchChange,
   title,
   subtitle,
 }: SpreadsheetTableProps) {
-  const [filter, setFilter] = useState('');
+  const [inputValue, setInputValue] = useState(search);
+  const [debounced] = useDebouncedValue(inputValue, 300);
+
+  useEffect(() => {
+    setInputValue(search);
+  }, [search]);
+
+  useEffect(() => {
+    if (debounced !== search) onSearchChange?.(debounced);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debounced]);
 
   const displayHeaders = useMemo(() => {
     if (headers?.length) return headers;
@@ -57,20 +73,11 @@ export function SpreadsheetTable({
     return Array.from({ length: Math.max(maxCols, 1) }, (_, i) => `col_${i + 1}`);
   }, [headers, rows]);
 
-  const filteredRows = useMemo(() => {
-    if (!filter.trim()) return rows;
-    const q = filter.toLowerCase();
-    return rows.filter((r) => {
-      const cells = r.cells || [];
-      return cells.some((c) => c && c.toLowerCase().includes(q));
-    });
-  }, [rows, filter]);
-
   const totalPages = meta ? Math.ceil(meta.total / meta.pageSize) : 1;
   const tableWidth = ROWNUM_WIDTH + displayHeaders.length * COL_WIDTH;
 
   const rowsContent = useMemo(() => {
-    if (filteredRows.length === 0) {
+    if (rows.length === 0) {
       return (
         <Table.Tr>
           <Table.Td colSpan={displayHeaders.length + 1} p={64}>
@@ -82,7 +89,7 @@ export function SpreadsheetTable({
       );
     }
 
-    return filteredRows.map((row) => (
+    return rows.map((row) => (
       <Table.Tr key={row.id}>
         <Table.Td
           p={12}
@@ -123,7 +130,7 @@ export function SpreadsheetTable({
         })}
       </Table.Tr>
     ));
-  }, [filteredRows, displayHeaders]);
+  }, [rows, displayHeaders]);
 
   return (
     <Stack gap="md" h="100%" style={{ minWidth: 0 }}>
@@ -140,10 +147,10 @@ export function SpreadsheetTable({
           </Text>
         </Stack>
         <TextInput
-          placeholder="Фильтр по текущей странице..."
+          placeholder={`Поиск по всем ${(meta?.total ?? rows.length).toLocaleString('ru-RU')} строкам...`}
           leftSection={<IconSearch size={16} />}
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
           size="md"
           radius="xl"
           style={{ width: 320, maxWidth: '100%' }}
