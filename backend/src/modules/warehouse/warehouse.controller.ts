@@ -134,33 +134,67 @@ export class WarehouseController {
     );
   }
 
+  /**
+   * Журнал приходов: ручные приходы (material_stock_movements) и приходы
+   * из 1С-заливки по строкам закупа (material_batches, origin ONEC) —
+   * та же болезнь, что была у истории цены материала (см. комментарий
+   * выше): раньше экран смотрел только в первую таблицу и не видел вообще
+   * ничего из сегодняшней заливки. У ONEC-строк есть paymentDocumentId —
+   * настоящая ДО, «карточка прихода» открывается по ней (25.08.2026).
+   */
   @Get('receipts')
   @ApiOperation({ summary: 'Журнал приходов материалов' })
   async getReceipts(@Query() query: { search?: string; page?: string; pageSize?: string }) {
     const page = Number(query.page) || 1;
     const pageSize = Number(query.pageSize) || 50;
-    const where: any = { movementType: 'RECEIPT' };
-    if (query.search) {
-      where.OR = [
-        { material: { name: { contains: query.search, mode: 'insensitive' } } },
-        { material: { materialCode: { contains: query.search, mode: 'insensitive' } } },
-        { supplierName: { contains: query.search, mode: 'insensitive' } },
-        { documentNumber: { contains: query.search, mode: 'insensitive' } },
+    const search = query.search?.trim();
+    const movementWhere: any = { movementType: 'RECEIPT' };
+    const batchWhere: any = { origin: 'ONEC' };
+    if (search) {
+      movementWhere.OR = [
+        { material: { name: { contains: search, mode: 'insensitive' } } },
+        { material: { materialCode: { contains: search, mode: 'insensitive' } } },
+        { supplierName: { contains: search, mode: 'insensitive' } },
+        { documentNumber: { contains: search, mode: 'insensitive' } },
+      ];
+      batchWhere.OR = [
+        { material: { name: { contains: search, mode: 'insensitive' } } },
+        { material: { materialCode: { contains: search, mode: 'insensitive' } } },
+        { supplierName: { contains: search, mode: 'insensitive' } },
+        { documentNumber: { contains: search, mode: 'insensitive' } },
       ];
     }
     return runWithFallback(
       this.prisma,
       async () => {
-        const [data, total] = await Promise.all([
+        const [movements, batches] = await Promise.all([
           this.prisma.materialStockMovement.findMany({
-            where,
-            skip: (page - 1) * pageSize,
-            take: pageSize,
+            where: movementWhere,
             orderBy: [{ movementDate: 'desc' }, { createdAt: 'desc' }],
             include: { material: { select: { materialCode: true, name: true, unit: true, category: true } } },
+            take: 1000,
           }),
-          this.prisma.materialStockMovement.count({ where }),
+          this.prisma.materialBatch.findMany({
+            where: batchWhere,
+            orderBy: { receiptDate: 'desc' },
+            include: { material: { select: { materialCode: true, name: true, unit: true, category: true } } },
+            take: 1000,
+          }),
         ]);
+        const fromMovements = movements.map((m) => ({
+          id: m.id, movementDate: m.movementDate, qty: m.qty, unitPrice: m.unitPrice,
+          documentNumber: m.documentNumber, supplierName: m.supplierName, material: m.material,
+          origin: 'MOVEMENT' as const, paymentDocumentId: null,
+        }));
+        const fromBatches = batches.map((b) => ({
+          id: b.id, movementDate: b.receiptDate, qty: b.qtyReceived, unitPrice: b.unitPrice,
+          documentNumber: b.documentNumber, supplierName: b.supplierName, material: b.material,
+          origin: 'ONEC' as const, paymentDocumentId: b.paymentDocumentId,
+        }));
+        const all = [...fromMovements, ...fromBatches]
+          .sort((a, b) => new Date(b.movementDate).getTime() - new Date(a.movementDate).getTime());
+        const total = all.length;
+        const data = all.slice((page - 1) * pageSize, (page - 1) * pageSize + pageSize);
         return { data, meta: { page, pageSize, total } };
       },
       () => ({ data: [], meta: { page, pageSize, total: 0 } }),

@@ -8,6 +8,14 @@ export function usePaymentDocs(params?: Record<string, string | number>) {
   });
 }
 
+export function usePaymentDoc(id: string | null) {
+  return useQuery({
+    queryKey: ['payment-doc', id],
+    queryFn: () => financeApi.getPaymentDoc(id as string).then((res) => res.data),
+    enabled: Boolean(id),
+  });
+}
+
 export function useReceivables(params?: Record<string, string | boolean>) {
   return useQuery({
     queryKey: ['receivables', params],

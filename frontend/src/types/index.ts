@@ -121,6 +121,17 @@ export interface Order {
   onecStatus?: string | null;
   onecApprovalStatus?: string | null;
   onecSyncedAt?: string | null;
+  onecTotalAmount?: number | string | null;
+  onecPaidAmount?: number | string | null;
+  divisionCode?: string | null;
+  projectGroup?: string | null;
+  projectSite?: string | null;
+  clientAgreement?: string | null;
+  finalCustomer?: string | null;
+  customerOrderNum?: string | null;
+  /// Полный сырой ряд 1С {заголовок колонки: значение} — только если у роли
+  /// есть order.commercial:read, иначе бэкенд поле вырезает
+  rawColumns?: Record<string, string | null> | null;
   // Приём из инбокса и архив Excel-миграции
   acceptedAt?: string | null;
   isArchived?: boolean;
@@ -173,6 +184,17 @@ export interface PaymentDocument {
   status: string;
   category?: string;
   orderId?: string;
+  // Только в детальном ответе GET /payment-documents/:id
+  contractor?: { id: string; name: string };
+  order?: { id: string; orderNumber: string } | null;
+  batches?: Array<{
+    id: string;
+    qtyReceived: number;
+    unitPrice: number;
+    receiptDate: string;
+    priceAnomaly: boolean;
+    material: { id: string; materialCode: string; name: string; unit: string };
+  }>;
 }
 
 export interface Payment {

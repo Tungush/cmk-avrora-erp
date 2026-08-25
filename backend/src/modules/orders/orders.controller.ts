@@ -230,6 +230,15 @@ export class OrdersController {
         }
       }
     }
+
+    // rawColumns — полный сырой ряд 1С (суммы, договор, дата согласования);
+    // тот же список читает order.commercial, что и цены строк. Список
+    // (findAll выше) это уже вырезал, здесь была дыра — роль без прав на
+    // финансы получала все деньги заказа через один и тот же ответ.
+    if (!permissionsForRoles(user.roles).includes('order.commercial:read')) {
+      const { rawColumns, ...rest } = order as any;
+      return rest;
+    }
     return order;
   }
 

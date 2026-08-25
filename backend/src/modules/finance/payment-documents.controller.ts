@@ -172,7 +172,14 @@ export class PaymentDocumentsController {
   @Get(':id')
   @ApiOperation({ summary: 'Get payment document by ID' })
   async findOne(@Param('id') id: string) {
-    const doc = await this.prisma.paymentDocument.findUnique({ where: { id }, include: { contractor: true, order: true } });
+    const doc = await this.prisma.paymentDocument.findUnique({
+      where: { id },
+      include: {
+        contractor: true,
+        order: true,
+        batches: { include: { material: true }, orderBy: { receiptDate: 'desc' } },
+      },
+    });
     if (!doc) throw new NotFoundException({ code: 'NOT_FOUND', message: `Payment document ${id} not found` });
     return doc;
   }

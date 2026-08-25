@@ -9,6 +9,7 @@ import { useReceipts, usePostReceipt } from '../../hooks/useWarehouse';
 import { useMaterials } from '../../hooks/useCatalog';
 import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
+import { ReceiptRef } from '../../components/ReceiptCard/ReceiptCardProvider';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -110,7 +111,11 @@ export function MaterialReceipts() {
                         {p > 0 ? `${num(q * p)} ₸` : '—'}
                       </Table.Td>
                       <Table.Td>
-                        <Text size="xs" ff="monospace">{r.documentNumber ?? '—'}</Text>
+                        {r.paymentDocumentId ? (
+                          <ReceiptRef id={r.paymentDocumentId} number={r.documentNumber ?? '—'} size="xs" bold={false} />
+                        ) : (
+                          <Text size="xs" ff="monospace">{r.documentNumber ?? '—'}</Text>
+                        )}
                         {r.supplierName && <Text size="xs" c="dimmed" lineClamp={1}>{r.supplierName}</Text>}
                       </Table.Td>
                     </Table.Tr>

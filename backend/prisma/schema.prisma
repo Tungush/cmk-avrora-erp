@@ -535,6 +535,12 @@ model MaterialBatch {
   documentNumber   String? @map("document_number") @db.VarChar(50)
   sourceMovementId String? @unique @map("source_movement_id") @db.Uuid
 
+  /// Настоящая связь на ДО-источник (в отличие от documentNumber — тот
+  /// просто текст для отображения, без ссылочной целостности). Заполняется
+  /// при импорте партии из строки закупа 1С; у партий склада/вручную
+  /// заведённых — null, «карточки прихода» у них нет
+  paymentDocumentId String? @map("payment_document_id") @db.Uuid
+
   origin     BatchOrigin @default(LOCAL)
   externalId String?     @map("external_id") @db.VarChar(64)
 
@@ -552,13 +558,15 @@ model MaterialBatch {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  material     Material           @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  ownerOrder   Order?             @relation("TollingBatches", fields: [ownerOrderId], references: [id])
-  reservations BatchReservation[]
+  material       Material         @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  ownerOrder     Order?           @relation("TollingBatches", fields: [ownerOrderId], references: [id])
+  paymentDocument PaymentDocument? @relation(fields: [paymentDocumentId], references: [id])
+  reservations   BatchReservation[]
 
   @@index([materialId, receiptDate])
   @@index([materialId, priceAnomaly])
   @@index([ownerOrderId])
+  @@index([paymentDocumentId])
   @@map("material_batches")
 }
 
@@ -1009,9 +1017,10 @@ model PaymentDocument {
   status   PaymentDocStatus @default(UNPAID)
   orderId  String?          @map("order_id") @db.Uuid
 
-  contractor Customer  @relation(fields: [contractorId], references: [id])
-  order      Order?    @relation(fields: [orderId], references: [id])
+  contractor Customer        @relation(fields: [contractorId], references: [id])
+  order      Order?          @relation(fields: [orderId], references: [id])
   payments   Payment[]
+  batches    MaterialBatch[]
 
   @@map("payment_documents")
 }

@@ -428,6 +428,13 @@ async function main() {
       if (guessed) report.statusGuessed.set(h['Статус'], (report.statusGuessed.get(h['Статус']) ?? 0) + 1);
       const customerId = customerIdByName.get(h['Контрагент'].trim());
       const requestDate = dateOfHeader(h);
+      // 10 колонок, для которых уже есть готовое поле в Order — раньше их
+      // знала только живая HTTP-синхронизация с 1С (недоступна с этой
+      // машины), офлайн-CSV-импорт никогда их не читал. «ТипЗаказа» в
+      // этот orderType (ФЗ/ВЗ) НЕ мапим — проверено на реальных данных,
+      // значения ('', 'ЦМК') не похожи на ФЗ/ВЗ; сырое значение всё равно
+      // попадёт в rawColumns.
+      const plannedShipmentDate = parseRuDate(h['ПланВывоза']);
       const existedBefore = await prisma.order.findUnique({ where: { orderNumber }, select: { id: true } });
       const order = await prisma.order.upsert({
         where: { orderNumber },
@@ -440,10 +447,30 @@ async function main() {
           onecStatus: h['Статус'],
           onecTotalAmount: num(h['СуммаДокумента']),
           requestDate: requestDate ?? undefined,
+          divisionCode: h['Подразделение']?.trim() || undefined,
+          projectGroup: h['ГруппаПроектов']?.trim() || undefined,
+          projectSite: h['Проект']?.trim() || undefined,
+          region: h['Регион']?.trim() || undefined,
+          bitrixDealId: h['НомерЗаказаБитрикс']?.trim() || undefined,
+          plannedShipmentDate: plannedShipmentDate ?? undefined,
+          clientAgreement: h['Соглашение']?.trim() || undefined,
+          finalCustomer: h['КонечныйЗаказчик']?.trim() || undefined,
+          customerOrderNum: h['НомерЗаказаКлиента']?.trim() || undefined,
+          rawColumns: h as any,
         },
         update: {
           onecStatus: h['Статус'],
           onecTotalAmount: num(h['СуммаДокумента']),
+          divisionCode: h['Подразделение']?.trim() || undefined,
+          projectGroup: h['ГруппаПроектов']?.trim() || undefined,
+          projectSite: h['Проект']?.trim() || undefined,
+          region: h['Регион']?.trim() || undefined,
+          bitrixDealId: h['НомерЗаказаБитрикс']?.trim() || undefined,
+          plannedShipmentDate: plannedShipmentDate ?? undefined,
+          clientAgreement: h['Соглашение']?.trim() || undefined,
+          finalCustomer: h['КонечныйЗаказчик']?.trim() || undefined,
+          customerOrderNum: h['НомерЗаказаКлиента']?.trim() || undefined,
+          rawColumns: h as any,
         },
       });
       if (existedBefore) report.ordersUpdated += 1; else report.ordersCreated += 1;
@@ -579,6 +606,7 @@ async function main() {
           qtyRemaining: 0,
           supplierName: doc.customerName,
           documentNumber: doc.doNumber,
+          paymentDocumentId: doc.id,
           origin: 'ONEC',
           priceAnomaly: anomaly,
           anomalyFactor: anomaly ? anomalyFactor(price, others) : null,

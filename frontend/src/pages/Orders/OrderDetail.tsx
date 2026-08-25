@@ -14,6 +14,7 @@ import { getAllowedTransitions, STATE_TRANSITIONS, DERIVED_STATUSES } from '../.
 import { StatusBadge } from '../../components/StatusBadge';
 import { OrderCostingPanel } from '../../components/OrderCostingPanel';
 import { ArchivedHint, OrderCardFocus } from '../../components/OrderCard/OrderCardProvider';
+import { Collapse } from '../../components/motion';
 import {
   formatCurrency, formatDate, ORDER_STATUS_LABELS, STAGE_LABELS, STAGE_ORDER,
 } from '../../utils/formatters';
@@ -90,6 +91,38 @@ function Section({
       </Group>
       <Stack gap={6}>{children}</Stack>
     </Card>
+  );
+}
+
+/**
+ * Всё, что прислала 1С в заголовке заказа, дословно — не только те 10
+ * колонок, для которых у нас завелось отдельное поле. 23 из 44 колонок
+ * 1С-выгрузки не имеют своего места в схеме (Приоритет, Организация,
+ * НаправлениеДеятельности и т.д.) — заводить под каждую отдельную
+ * колонку смысла нет, но и терять эти данные не надо (решение
+ * пользователя 25.08.2026: «вот из чего должна состоять наша сделка»).
+ */
+function RawDataSection({ rawColumns }: { rawColumns: Record<string, string | null> }) {
+  const [opened, setOpened] = useState(false);
+  const entries = Object.entries(rawColumns).filter(([, v]) => v != null && String(v).trim() !== '');
+  return (
+    <Section
+      title="Все данные 1С"
+      extra={
+        <Button variant="subtle" size="xs" onClick={() => setOpened((v) => !v)}>
+          {opened ? 'Свернуть' : `Показать (${entries.length})`}
+        </Button>
+      }
+    >
+      <Collapse opened={opened}>
+        <Stack gap={6} pt={2}>
+          {entries.map(([k, v]) => (
+            <Row key={k} label={k} value={String(v)} />
+          ))}
+        </Stack>
+      </Collapse>
+      {!opened && <Text size="xs" c="dimmed">Полный сырой ряд из ЗаказыШапки.csv — {entries.length} заполненных полей</Text>}
+    </Section>
   );
 }
 
@@ -291,7 +324,12 @@ export function OrderDetail({
         <Row label="Тип заказа" value={ORDER_TYPE_LABELS[order.orderType] ?? order.orderType} />
         <Row label="Регион" value={order.region || null} />
         {o.projectGroup && <Row label="Группа проектов" value={o.projectGroup} />}
+        {o.divisionCode && <Row label="Подразделение" value={o.divisionCode} />}
+        {o.bitrixDealId && <Row label="Сделка в Битрикс" value={o.bitrixDealId} mono />}
+        {canCommercial && o.clientAgreement && <Row label="Соглашение" value={o.clientAgreement} />}
       </Section>
+
+      {canCommercial && o.rawColumns && <RawDataSection rawColumns={o.rawColumns} />}
 
       {/* ▼ Позиции — то, по чему заказ узнают глазами */}
       <Card withBorder radius="md" padding="md" id="card-lines">

@@ -42,6 +42,7 @@ export interface Receipt {
   comment: string | null;
   origin?: 'MOVEMENT' | 'LOCAL' | 'ONEC' | 'INVENTORY';
   priceAnomaly?: boolean;
+  paymentDocumentId?: string | null;
   material?: { materialCode: string; name: string; unit: string; category: string };
 }
 

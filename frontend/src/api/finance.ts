@@ -5,6 +5,9 @@ export const financeApi = {
   getPaymentDocs: (params?: Record<string, string | number>) =>
     api.get<PaginatedResponse<PaymentDocument>>('/payment-documents', { params }),
 
+  getPaymentDoc: (id: string) =>
+    api.get<PaymentDocument>(`/payment-documents/${id}`),
+
   createPaymentDoc: (body: Record<string, unknown>) =>
     api.post<PaymentDocument>('/payment-documents', body),
 

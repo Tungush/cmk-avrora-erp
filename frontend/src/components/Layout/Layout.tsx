@@ -6,6 +6,7 @@ import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { useAuthStore } from '../../store/auth';
 import { OrderCardProvider } from '../OrderCard/OrderCardProvider';
+import { ReceiptCardProvider } from '../ReceiptCard/ReceiptCardProvider';
 import { motion, useReducedMotion } from 'framer-motion';
 import { SPRING } from '../motion';
 
@@ -23,6 +24,7 @@ export function Layout() {
     // Провайдер обязан быть НАД AppShell: поиск живёт в шапке
     // и тоже открывает карточку заказа
     <OrderCardProvider>
+    <ReceiptCardProvider>
     <AppShell
       header={{ height: 64 }}
       navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
@@ -54,6 +56,7 @@ export function Layout() {
         </Box>
       </AppShell.Main>
     </AppShell>
+    </ReceiptCardProvider>
     </OrderCardProvider>
   );
 }
