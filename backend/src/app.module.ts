@@ -36,6 +36,7 @@ import { OneCSyncService } from './modules/integration/onec-sync.service';
 import { MaterialsController } from './modules/catalog/materials.controller';
 import { CustomersController } from './modules/catalog/customers.controller';
 import { OrdersController } from './modules/orders/orders.controller';
+import { OrdersDashboardController } from './modules/orders/orders-dashboard.controller';
 import { ContractorWorkController } from './modules/orders/contractor-work.controller';
 import { ProductionPlanController } from './modules/orders/production-plan.controller';
 import { MinStockController } from './modules/orders/min-stock.controller';
@@ -67,6 +68,7 @@ import { DealsController } from './modules/sales/deals.controller';
     BatchReservationsController,
     CustomersController,
     OrdersController,
+    OrdersDashboardController,
     ContractorWorkController,
     ProductionPlanController,
     OrderCostingsController,
