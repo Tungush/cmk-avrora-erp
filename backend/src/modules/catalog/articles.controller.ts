@@ -21,12 +21,20 @@ export class ArticlesController {
 
   @Get()
   @ApiOperation({ summary: 'List articles with search & pagination' })
-  async findAll(@Query() query: { search?: string; page?: string; pageSize?: string }) {
+  async findAll(@Query() query: { search?: string; page?: string; pageSize?: string; includeResale?: string }) {
     const page = Number(query.page) || 1;
     const pageSize = Number(query.pageSize) || 50;
     const skip = (page - 1) * pageSize;
 
     const where: any = {};
+    // «Изделия» — каталог продукции, а не сырья. isMaterialResale=true —
+    // это гайки/болты/метизы, у которых код совпал с кодом материала
+    // (найдено аудитом 25.08.2026) — реальная позиция заказа, но не
+    // изделие с составом и нормами, и в этом каталоге ей не место.
+    // Бейдж «сырьё, не изделие» без исключения из списка — недоделка.
+    if (query.includeResale !== 'true') {
+      where.isMaterialResale = false;
+    }
     if (query.search) {
       where.OR = [
         { articleCode: { contains: query.search, mode: 'insensitive' } },

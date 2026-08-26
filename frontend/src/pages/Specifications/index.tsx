@@ -638,7 +638,14 @@ export function Specifications() {
   // тоже обрезалось). Теперь список растёт по кнопке, честно показывая,
   // сколько всего и сколько ещё скрыто.
   const [visibleCount, setVisibleCount] = useState(30);
-  const { data: articlesData, isLoading: articlesLoading } = useArticles({ search, pageSize: visibleCount });
+  // «Изделия» — каталог продукции. Сырьё/метизы (isMaterialResale), у которых
+  // код совпал с кодом материала, по умолчанию из списка убраны — раньше
+  // они просто помечались бейджем и продолжали засорять список (жалоба
+  // пользователя 25.08.2026: «какого х у меня тут сырье ходит»)
+  const [showResale, setShowResale] = useState(false);
+  const { data: articlesData, isLoading: articlesLoading } = useArticles({
+    search, pageSize: visibleCount, includeResale: showResale,
+  });
   const articles = articlesData?.data ?? [];
   const articlesTotal = articlesData?.meta?.total ?? articles.length;
   const activeId = selectedId ?? articles[0]?.id ?? null;
@@ -695,9 +702,20 @@ export function Specifications() {
             size="sm"
             mb={4}
           />
-          <Text size="xs" c="dimmed" mb="sm">
-            {articlesLoading ? ' ' : `Показано ${articles.length} из ${articlesTotal}`}
-          </Text>
+          <Group justify="space-between" mb="sm" gap={4} wrap="nowrap">
+            <Text size="xs" c="dimmed">
+              {articlesLoading ? ' ' : `Показано ${articles.length} из ${articlesTotal}`}
+            </Text>
+            <Text
+              size="xs"
+              c="brand.7"
+              fw={600}
+              style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
+              onClick={() => { setShowResale((v) => !v); setVisibleCount(30); setSelectedId(null); }}
+            >
+              {showResale ? 'скрыть сырьё' : 'показать сырьё'}
+            </Text>
+          </Group>
           <ScrollArea h={isMobile ? 220 : 560} scrollbarSize={6}>
             <Stack gap={4}>
               {articlesLoading
