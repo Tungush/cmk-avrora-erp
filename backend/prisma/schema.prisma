@@ -633,6 +633,11 @@ model ContractorWork {
   /// Оценка часов для сдельного подряда, работающего в нашем цеху
   plannedHours Decimal?     @map("planned_hours") @db.Decimal(10, 3)
 
+  /// Заявка в Б24 (воронка «Заказ на Работы», 26.08.2026): там оформляют
+  /// заказ поставщику от А77; появление ДО подрядчика видно в «Закупках»
+  bitrixDealId String?   @map("bitrix_deal_id") @db.VarChar(30)
+  bitrixSentAt DateTime? @map("bitrix_sent_at")
+
   /// Решение отдать работу на сторону — управленческое, у него есть автор
   decidedById String?   @map("decided_by_id") @db.Uuid
   decidedAt   DateTime  @default(now()) @map("decided_at")
@@ -800,6 +805,7 @@ model BatchReservation {
   /// 30 дней без движения — резерв снимается сам, иначе через полгода весь
   /// металл окажется занят мёртвыми коммерческими предложениями
   expiresAt   DateTime @map("expires_at")
+
   createdAt   DateTime @default(now()) @map("created_at")
   createdById String?  @map("created_by_id") @db.Uuid
 
@@ -965,6 +971,7 @@ model Order {
   rawColumns           Json?                  @map("raw_columns")
   OrderCosting         OrderCosting[]
   BatchReservation     BatchReservation[]
+  purchaseRequests     PurchaseRequest[]
   tollingBatches       MaterialBatch[]        @relation("TollingBatches")
   contractorWorks      ContractorWork[]
 
@@ -1239,15 +1246,32 @@ model MinStockLevel {
 }
 
 // PurchaseRequest
+/// Заявка на закуп недостающего сырья (расширено 26.08.2026).
+/// Жизненный цикл: DRAFT — дефицит накоплен (из цеха или вручную);
+/// APPROVED — снабженец отправил пачку одной сделкой в Б24 (воронка
+/// снабжения), bitrixDealId заполнен; ORDERED — по воронке создан заказ
+/// поставщику в 1С; REJECTED — отклонена. Заявки копятся и уходят
+/// пачкой — «не из-за одного болта» (решение пользователя).
 model PurchaseRequest {
   id           String                @id @default(uuid()) @db.Uuid
   materialId   String                @map("material_id") @db.Uuid
   requestedQty Decimal               @map("requested_qty") @db.Decimal(14, 3)
+  unit         String?               @db.VarChar(10)
+  estimatedPrice Decimal?            @map("estimated_price") @db.Decimal(14, 2)
+  /// Заказ-источник дефицита (если заявка родилась из цеха)
+  orderId      String?               @map("order_id") @db.Uuid
+  note         String?               @db.Text
+  requestedById String?              @map("requested_by_id") @db.Uuid
   status       PurchaseRequestStatus @default(DRAFT)
+  bitrixDealId String?               @map("bitrix_deal_id") @db.VarChar(30)
+  bitrixSentAt DateTime?             @map("bitrix_sent_at")
   createdAt    DateTime              @default(now()) @map("created_at")
+  updatedAt    DateTime              @default(now()) @updatedAt @map("updated_at")
 
   material Material @relation(fields: [materialId], references: [id])
+  order    Order?   @relation(fields: [orderId], references: [id])
 
+  @@index([status])
   @@map("purchase_requests")
 }
 

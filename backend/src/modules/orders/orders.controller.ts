@@ -11,6 +11,7 @@ import {
   OrderStateMachine, OrderStateContext, deriveStatusFromStages,
 } from '../../services/order-state-machine.service';
 import { IntegrationService } from '../../services/integration.service';
+import { MaterialBatchService } from '../../services/material-batch.service';
 import {
   stageShapeError, allocateActualHours, resolveTrackingMode, DEFAULT_STAGE_TRACKING_THRESHOLD,
 } from '../../common/production-stages';
@@ -46,6 +47,7 @@ export class OrdersController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly integration: IntegrationService,
+    private readonly batches: MaterialBatchService,
   ) {}
 
   /**
@@ -441,6 +443,18 @@ export class OrdersController {
    * ORDER: смешивать нельзя, иначе прогресс заказа считается по двум разным
    * основаниям и расходится сам с собой.
    */
+  /**
+   * Обеспеченность заказа сырьём — read-only, до начала работ (26.08.2026).
+   * Цех видит «хватает / не хватает N позиций» на карточке заказа в очереди.
+   */
+  @Get(':id/material-availability')
+  @ApiOperation({ summary: 'Хватает ли сырья на заказ (по партиям, с учётом чужих резервов)' })
+  async materialAvailability(@Param('id') id: string) {
+    const order = await this.prisma.order.findUnique({ where: { id }, select: { id: true } });
+    if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${id} not found` });
+    return this.batches.orderMaterialAvailability(id);
+  }
+
   @Patch(':id/production-stages/:code')
   @Roles('shop_foreman', 'planner', 'admin')
   @ApiOperation({ summary: 'Отметить вид работ по заказу (резка / сборка / покраска)' })

@@ -6,6 +6,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, UserPayload } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../services/prisma.service';
+import { BitrixClientService } from '../../services/bitrix-client.service';
 import { runWithFallback } from '../../common/fallback';
 
 const RATE_TYPES = new Set(['PER_HOUR', 'PER_UNIT', 'PER_KG', 'PER_TON', 'FIXED']);
@@ -33,7 +34,64 @@ const dbUserId = (u?: UserPayload) =>
 @ApiBearerAuth()
 @Controller()
 export class ContractorWorkController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly bitrix: BitrixClientService,
+  ) {}
+
+  /**
+   * Заявка на подряд → сделка в воронке Б24 «Заказ на Работы» (26.08.2026).
+   * По воронке в Б24 оформят заказ поставщику от А77; когда он появится в
+   * 1С — увидим его в «Закупках», сверка с актами уже работает по БИН.
+   * Влияние на себестоимость строить не нужно: доля подряда уже вычитает
+   * штатные трудочасы, деньги подрядчика уже входят в расчёт (23.08.2026).
+   */
+  @Post('contractor-work/:id/send-to-bitrix')
+  @Roles('shop_foreman', 'planner', 'sales_manager', 'procurement', 'admin')
+  @ApiOperation({ summary: 'Отправить заявку на подряд в Б24 (воронка «Заказ на Работы»)' })
+  async sendToBitrix(@Param('id') id: string) {
+    const work = await this.prisma.contractorWork.findUnique({
+      where: { id },
+      include: {
+        order: { select: { orderNumber: true } },
+        contractor: { select: { name: true } },
+      },
+    });
+    if (!work) throw new NotFoundException({ code: 'NOT_FOUND', message: `Contractor work ${id} not found` });
+    if (work.bitrixDealId) {
+      throw new BadRequestException({
+        code: 'ALREADY_SENT',
+        message: `Заявка уже в Б24 — сделка №${work.bitrixDealId}`,
+      });
+    }
+
+    const STAGE_RU: Record<string, string> = {
+      CUTTING: 'Резка', ASSEMBLY: 'Сборка / сварка / обшивка', PAINTING: 'Зачистка / покраска',
+    };
+    let dealId: string;
+    try {
+      dealId = await this.bitrix.createWorksDeal({
+        orderNumber: work.order.orderNumber,
+        stageLabel: STAGE_RU[work.routingStage] ?? work.routingStage,
+        sharePct: Math.round(Number(work.share) * 100),
+        estimatedAmount: work.plannedHours != null && work.rateType === 'PER_HOUR'
+          ? Number(work.plannedHours) * Number(work.rate)
+          : work.rateType === 'FIXED' ? Number(work.rate) : null,
+        workLocation: work.workLocation,
+        contractorName: work.contractor?.name ?? null,
+      });
+    } catch (e) {
+      throw new BadRequestException({
+        code: 'BITRIX_SEND_FAILED',
+        message: e instanceof Error ? e.message : 'Не удалось отправить в Б24',
+      });
+    }
+
+    return this.prisma.contractorWork.update({
+      where: { id },
+      data: { bitrixDealId: dealId, bitrixSentAt: new Date() },
+    });
+  }
 
   @Get('contractors')
   @ApiOperation({ summary: 'Справочник подрядчиков' })

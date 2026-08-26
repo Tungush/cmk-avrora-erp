@@ -302,6 +302,68 @@ function DoneSheet({
 }
 
 /**
+ * Обеспеченность заказа сырьём — грузится лениво при раскрытии карточки
+ * (26.08.2026). Считается по живым партиям минус чужие резервы; если
+ * не хватает — кнопка кладёт дефицит в очередь заявок на закуп, откуда
+ * снабженец отправляет накопленное в Б24 одной сделкой.
+ */
+function MaterialAvailability({ orderId }: { orderId: string }) {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ['order-availability', orderId],
+    queryFn: () => api.get(`/orders/${orderId}/material-availability`).then((r) => r.data),
+    staleTime: 60_000,
+  });
+  const toQueue = useMutation({
+    mutationFn: () => api.post(`/purchase-requests/from-order/${orderId}`).then((r) => r.data),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['purchase-requests'] });
+      notifications.show({
+        title: 'В очереди на закуп',
+        message: res.message ?? `Добавлено позиций: ${res.created}, дополнено: ${res.updated}`,
+        color: 'success',
+      });
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Не удалось', message: e?.response?.data?.error?.message ?? 'Ошибка', color: 'danger',
+    }),
+  });
+
+  if (isLoading || !data) return <Skeleton height={30} radius="sm" />;
+  if (data.checkedMaterials === 0) {
+    return <Text size="xs" c="dimmed">Состав изделий не заведён — обеспеченность не посчитать</Text>;
+  }
+  if (data.ok) {
+    return (
+      <Badge color="teal" variant="light" radius="xl" leftSection={<IconCheck size={11} />}>
+        сырья хватает ({data.checkedMaterials} матер.)
+      </Badge>
+    );
+  }
+  return (
+    <Group gap="xs" wrap="wrap">
+      <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={11} />}>
+        не хватает {data.shortages.length} позиций
+      </Badge>
+      <Button
+        size="compact-xs"
+        variant="light"
+        color="orange"
+        loading={toQueue.isPending}
+        onClick={(e) => { e.stopPropagation(); toQueue.mutate(); }}
+      >
+        В заявку на закуп
+      </Button>
+      <Text size="xs" c="dimmed" w="100%">
+        {data.shortages.slice(0, 4).map((sh: any) =>
+          `${sh.materialCode} — ${sh.shortage} ${sh.unit}`).join(' · ')}
+        {data.shortages.length > 4 ? ` · ещё ${data.shortages.length - 4}` : ''}
+      </Text>
+    </Group>
+  );
+}
+
+/**
  * Цех: заказы, ждущие моей работы (упрощено 26.08.2026).
  *
  * Мастер один раз выбирает свой вид работ — дальше видит колонку карточек
@@ -560,6 +622,7 @@ export function ShopFloor() {
             <Collapse opened={Boolean(expanded && canEdit && mine)}>
               {mine && (
               <Stack gap="sm" pt="sm" onClick={(e) => e.stopPropagation()}>
+                <MaterialAvailability orderId={o.id} />
                 {mine.contractorWorks.length > 0 && (
                   <Alert color="orange" variant="light" p="xs" radius="md" icon={<IconTruck size={16} />}>
                     <Text size="sm">

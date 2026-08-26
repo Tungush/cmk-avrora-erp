@@ -14,6 +14,7 @@ import { getAllowedTransitions, STATE_TRANSITIONS, DERIVED_STATUSES } from '../.
 import { StatusBadge } from '../../components/StatusBadge';
 import { OrderCostingPanel } from '../../components/OrderCostingPanel';
 import { ArchivedHint, OrderCardFocus } from '../../components/OrderCard/OrderCardProvider';
+import { RequestNomenclatureModal } from '../Specifications/NomenclaturePanel';
 import { Collapse } from '../../components/motion';
 import {
   formatCurrency, formatDate, ORDER_STATUS_LABELS, STAGE_LABELS, STAGE_ORDER,
@@ -219,6 +220,10 @@ export function OrderDetail({
   const can = useAuthStore((s) => s.can);
   const [comment, setComment] = useState('');
   const [costLineId, setCostLineId] = useState<string | null>(null);
+  // Заявка на номенклатуру подаётся ИЗ СДЕЛКИ (26.08.2026): позиция без
+  // артикула видна прямо здесь, производственник вписывает проф. название
+  // и отправляет в 1С — сервис ждёт сигнала nomenclature.created
+  const [nomenclatureFor, setNomenclatureFor] = useState<string | null>(null);
   const scrolled = useRef(false);
 
   // Открыли из цеха — прокрутить к этапам, из финансов — к деньгам.
@@ -357,6 +362,19 @@ export function OrderDetail({
                       <Text size="xs" c="dimmed" lineClamp={1}>
                         {l.article?.name ?? l.productNameRaw ?? 'без артикула'}
                       </Text>
+                      {!l.articleId && (
+                        <Group gap={6} mt={2}>
+                          <Badge size="xs" color="orange" variant="light">нет в справочнике</Badge>
+                          {canProduction && (
+                            <Text
+                              size="xs" c="brand.7" fw={600} style={{ cursor: 'pointer' }}
+                              onClick={() => setNomenclatureFor(l.productNameRaw ?? l.articleCodeRaw ?? '')}
+                            >
+                              заявка в 1С
+                            </Text>
+                          )}
+                        </Group>
+                      )}
                     </Table.Td>
                     <Table.Td ff="monospace" ta="right">{Number(l.qty)} {l.unit}</Table.Td>
                     {canCommercial && (
@@ -511,6 +529,11 @@ export function OrderDetail({
       </Card>
 
       <Box />
+      <RequestNomenclatureModal
+        opened={nomenclatureFor !== null}
+        onClose={() => setNomenclatureFor(null)}
+        initialName={nomenclatureFor ?? ''}
+      />
     </Stack>
   );
 }

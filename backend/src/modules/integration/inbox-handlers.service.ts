@@ -65,10 +65,37 @@ export class InboxHandlersService {
         return this.onReceiptPosted(payload);
       case 'stock.snapshot':
         return this.onStockSnapshot(payload);
+      case 'purchase_order.posted':
+        return this.onPurchaseOrderPosted(payload);
       default:
         this.logger.warn(`Неизвестный тип входящего сообщения: ${type}`);
         return 'IGNORED';
     }
+  }
+
+  /**
+   * 1С провела заказ поставщику (26.08.2026): по воронке снабжения или
+   * «Заказ на Работы» в Б24 оформили закуп/подряд. Отмечаем заявки на
+   * закуп по совпадению материала как ORDERED (best-effort: свой id 1С
+   * через воронку не проносит, ручной перевод остаётся). Сам документ
+   * появится в «Закупках» со следующей выгрузкой или live-синхронизацией.
+   */
+  private async onPurchaseOrderPosted(p: Record<string, any>): Promise<'OK' | 'IGNORED'> {
+    const items: Array<{ item_code?: string; item?: string }> = Array.isArray(p.items) ? p.items : [];
+    if (items.length === 0) return 'IGNORED';
+    const codes = items.map((i) => i.item_code).filter(Boolean) as string[];
+    if (codes.length === 0) return 'IGNORED';
+    const materials = await this.prisma.material.findMany({
+      where: { materialCode: { in: codes } },
+      select: { id: true },
+    });
+    if (materials.length === 0) return 'IGNORED';
+    const { count } = await this.prisma.purchaseRequest.updateMany({
+      where: { materialId: { in: materials.map((m) => m.id) }, status: 'APPROVED' },
+      data: { status: 'ORDERED' },
+    });
+    this.logger.log(`purchase_order.posted: заявок переведено в ORDERED — ${count}`);
+    return 'OK';
   }
 
   /**

@@ -82,6 +82,26 @@ export function ContractorWork() {
     refetchInterval: 60_000,
   });
 
+  // Заявка на подряд в Б24 (воронка «Заказ на Работы», 26.08.2026):
+  // там оформят заказ поставщику от А77
+  const sendB24 = useMutation({
+    mutationFn: (id: string) =>
+      api.post(`/contractor-work/${id}/send-to-bitrix`).then((r) => r.data),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['contractor-work-all'] });
+      notifications.show({
+        title: 'Заявка ушла в Б24',
+        message: `Сделка №${res.bitrixDealId} в воронке «Заказ на Работы»`,
+        color: 'success',
+      });
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Не отправлено',
+      message: e?.response?.data?.error?.message ?? 'Ошибка отправки в Б24',
+      color: 'danger',
+    }),
+  });
+
   const accept = useMutation({
     mutationFn: (input: { id: string; actualQty: number }) =>
       ordersApi.acceptContractorWork(input.id, { actualQty: input.actualQty }),
@@ -237,21 +257,41 @@ export function ContractorWork() {
                       {w.amount != null ? formatCurrency(w.amount) : '—'}
                     </Table.Td>
                     <Table.Td>
-                      {w.isAccepted ? (
-                        <Tooltip label={`принято ${formatDate(w.acceptedAt)}`}>
-                          <Badge color="teal" variant="light" radius="xl">принято</Badge>
-                        </Tooltip>
-                      ) : canAccept ? (
-                        <Button
-                          size="compact-sm"
-                          variant="light"
-                          onClick={() => { setAccepting(w); setQty(''); }}
-                        >
-                          Принять
-                        </Button>
-                      ) : (
-                        <Badge color="gray" variant="light" radius="xl">в работе</Badge>
-                      )}
+                      <Group gap={6} wrap="nowrap">
+                        {w.isAccepted ? (
+                          <Tooltip label={`принято ${formatDate(w.acceptedAt)}`}>
+                            <Badge color="teal" variant="light" radius="xl">принято</Badge>
+                          </Tooltip>
+                        ) : canAccept ? (
+                          <Button
+                            size="compact-sm"
+                            variant="light"
+                            onClick={() => { setAccepting(w); setQty(''); }}
+                          >
+                            Принять
+                          </Button>
+                        ) : (
+                          <Badge color="gray" variant="light" radius="xl">в работе</Badge>
+                        )}
+                        {(w as any).bitrixDealId ? (
+                          <Tooltip label="Заявка в Б24 (Заказ на Работы)">
+                            <Badge color="blue" variant="light" radius="xl" size="sm">
+                              Б24 №{(w as any).bitrixDealId}
+                            </Badge>
+                          </Tooltip>
+                        ) : !w.isAccepted && (
+                          <Tooltip label="Отправить заявку в Б24 — воронка «Заказ на Работы», там оформят заказ поставщику от А77">
+                            <Button
+                              size="compact-sm"
+                              variant="default"
+                              loading={sendB24.isPending && sendB24.variables === w.id}
+                              onClick={() => sendB24.mutate(w.id)}
+                            >
+                              В Б24
+                            </Button>
+                          </Tooltip>
+                        )}
+                      </Group>
                     </Table.Td>
                   </Table.Tr>
                 ))}

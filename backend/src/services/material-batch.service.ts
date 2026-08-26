@@ -290,6 +290,92 @@ export class MaterialBatchService {
 
   /** Последняя закупочная по партиям — для подписи и для цены дефицита.
    *  Только свои партии: нулевая цена давальческих — не закупочная цена. */
+  /**
+   * Обеспеченность заказа сырьём — read-only, ничего не создаёт (26.08.2026).
+   *
+   * Раньше «хватает / не хватает» существовало только как побочный эффект
+   * создания версии калькуляции. Цеху нужен ответ до начала работ, без
+   * записи в базу. Потребность — BOM всех позиций × количество, с
+   * СУММИРОВАНИЕМ по материалу (в BOM один материал может стоять в
+   * нескольких операциях — без суммирования один болт давал бы N строк
+   * дефицита). Покрытие — живые партии (qtyRemaining > 0, без карантина
+   * цен) минус ACTIVE-резервы чужих заказов.
+   */
+  async orderMaterialAvailability(orderId: string) {
+    const lines = await this.prisma.orderLine.findMany({
+      where: { orderId, articleId: { not: null } },
+      select: {
+        qty: true,
+        article: {
+          select: {
+            isMaterialResale: true,
+            bomItems: { select: { materialId: true, qtyPerUnit: true } },
+          },
+        },
+      },
+    });
+
+    // Потребность по материалам: Σ (qtyPerUnit × qty позиции)
+    const need = new Map<string, number>();
+    for (const l of lines) {
+      if (!l.article || l.article.isMaterialResale) continue;
+      for (const b of l.article.bomItems) {
+        need.set(b.materialId, (need.get(b.materialId) ?? 0) + Number(b.qtyPerUnit) * Number(l.qty));
+      }
+    }
+    if (need.size === 0) {
+      return { ok: true, checkedMaterials: 0, shortages: [], note: 'У позиций заказа нет состава — проверять нечего' };
+    }
+
+    const materialIds = [...need.keys()];
+    const [batches, reservations, materials] = await Promise.all([
+      this.prisma.materialBatch.findMany({
+        where: { materialId: { in: materialIds }, qtyRemaining: { gt: 0 }, priceAnomaly: false },
+        select: { id: true, materialId: true, qtyRemaining: true },
+      }),
+      this.prisma.batchReservation.findMany({
+        where: { status: 'ACTIVE', batch: { materialId: { in: materialIds } } },
+        select: { batchId: true, orderId: true, qty: true, batch: { select: { materialId: true } } },
+      }),
+      this.prisma.material.findMany({
+        where: { id: { in: materialIds } },
+        select: { id: true, materialCode: true, name: true, unit: true, purchasePrice: true, lastPurchasePrice: true },
+      }),
+    ]);
+
+    const availableByMaterial = new Map<string, number>();
+    for (const b of batches) {
+      const reservedByOthers = reservations
+        .filter((r) => r.batchId === b.id && r.orderId !== orderId)
+        .reduce((s, r) => s + Number(r.qty), 0);
+      const free = Math.max(0, Number(b.qtyRemaining) - reservedByOthers);
+      availableByMaterial.set(b.materialId, (availableByMaterial.get(b.materialId) ?? 0) + free);
+    }
+
+    const matById = new Map(materials.map((m) => [m.id, m]));
+    const shortages: Array<{
+      materialId: string; materialCode: string; name: string; unit: string;
+      need: number; available: number; shortage: number; estimatedPrice: number;
+    }> = [];
+    for (const [materialId, needQty] of need) {
+      const available = availableByMaterial.get(materialId) ?? 0;
+      if (available + 1e-9 >= needQty) continue;
+      const m = matById.get(materialId);
+      shortages.push({
+        materialId,
+        materialCode: m?.materialCode ?? '—',
+        name: m?.name ?? '—',
+        unit: m?.unit ?? 'шт',
+        need: Math.round(needQty * 1000) / 1000,
+        available: Math.round(available * 1000) / 1000,
+        shortage: Math.round((needQty - available) * 1000) / 1000,
+        estimatedPrice: Number(m?.lastPurchasePrice ?? m?.purchasePrice ?? 0),
+      });
+    }
+    shortages.sort((a, b) => b.shortage * b.estimatedPrice - a.shortage * a.estimatedPrice);
+    return { ok: shortages.length === 0, checkedMaterials: need.size, shortages };
+  }
+
   async lastPurchaseOf(materialId: string) {
     const rows = (await this.batchesOf(materialId, true)).filter((b) => b.batchType !== 'TOLLING');
     return lastPurchasePriceOf(this.toBatchLike(rows).filter((b) => !b.priceAnomaly));

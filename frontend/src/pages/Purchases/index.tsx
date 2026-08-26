@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Tabs, Stack, Text } from '@mantine/core';
-import { IconChartBar, IconFileInvoice } from '@tabler/icons-react';
+import { IconChartBar, IconFileInvoice, IconShoppingCartPlus } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { PurchasesDashboard } from './PurchasesDashboard';
 import { PurchasesRegistry } from './PurchasesRegistry';
+import { PurchaseQueue } from './PurchaseQueue';
 
 /**
  * «Закупки» — заказы поставщику из 1С (26.08.2026).
@@ -41,6 +42,7 @@ export function Purchases() {
         <Tabs.List mb="md">
           <Tabs.Tab value="dashboard" leftSection={<IconChartBar size={15} />}>Дашборд</Tabs.Tab>
           <Tabs.Tab value="registry" leftSection={<IconFileInvoice size={15} />}>Все заказы поставщику</Tabs.Tab>
+          <Tabs.Tab value="queue" leftSection={<IconShoppingCartPlus size={15} />}>На закуп</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="dashboard">
@@ -48,6 +50,9 @@ export function Purchases() {
         </Tabs.Panel>
         <Tabs.Panel value="registry">
           <PurchasesRegistry filters={filters} onFiltersChange={setFilters} />
+        </Tabs.Panel>
+        <Tabs.Panel value="queue">
+          <PurchaseQueue />
         </Tabs.Panel>
       </Tabs>
     </Stack>

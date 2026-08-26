@@ -18,7 +18,7 @@ import {
 import { useAuthStore } from '../../store/auth';
 import { useLiveCostUpdates } from '../../hooks/useLiveEvents';
 import { BomPanel } from './BomPanel';
-import { RequestNomenclatureModal, NomenclatureRequestsButton } from './NomenclaturePanel';
+import { NomenclatureRequestsButton } from './NomenclaturePanel';
 import type { CostingPreviewResponse, RoutingStageCode, RoutingStageRow } from '../../api/routing';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
@@ -631,7 +631,6 @@ export function Specifications() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [historyOpened, setHistoryOpened] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('routing');
-  const [requestOpened, setRequestOpened] = useState(false);
 
   // Раньше жёсткий pageSize:30 без способа увидеть остальное — из 2315
   // артикулов было видно 30 (1,3%), и поиск это не спасало (найденное
@@ -684,12 +683,6 @@ export function Specifications() {
         <HistoryModal articleId={activeId} opened={historyOpened} onClose={() => setHistoryOpened(false)} />
       )}
 
-      <RequestNomenclatureModal
-        opened={requestOpened}
-        onClose={() => setRequestOpened(false)}
-        initialName={search}
-      />
-
       <Group align="flex-start" gap="md" wrap={isMobile ? 'wrap' : 'nowrap'} style={{ minWidth: 0 }}>
         {/* Список артикулов */}
         <Card withBorder radius="md" padding="sm" w={isMobile ? '100%' : 280} style={{ flexShrink: 0 }}>
@@ -737,9 +730,8 @@ export function Specifications() {
               {!articlesLoading && articles.length === 0 && (
                 <Stack gap="xs" py="md" align="center">
                   <Text size="sm" c="dimmed" ta="center">Артикула нет в справочнике</Text>
-                  <Button size="xs" variant="light" onClick={() => setRequestOpened(true)}>
-                    Запросить номенклатуру
-                  </Button>
+                  {/* Заявка на номенклатуру подаётся из карточки сделки —
+                      у позиции без артикула (решение 26.08.2026) */}
                 </Stack>
               )}
               {!articlesLoading && articles.length < articlesTotal && (
