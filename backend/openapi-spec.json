@@ -2312,19 +2312,10 @@
         ]
       }
     },
-    "/api/v1/contractor-work/{id}/send-to-bitrix": {
+    "/api/v1/contractors": {
       "post": {
-        "operationId": "ContractorWorkController_sendToBitrix",
-        "parameters": [
-          {
-            "name": "id",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "operationId": "ContractorWorkController_createContractor",
+        "parameters": [],
         "responses": {
           "201": {
             "description": ""
@@ -2335,13 +2326,11 @@
             "bearer": []
           }
         ],
-        "summary": "Отправить заявку на подряд в Б24 (воронка «Заказ на Работы»)",
+        "summary": "Завести подрядчика",
         "tags": [
           "Contractor Work"
         ]
-      }
-    },
-    "/api/v1/contractors": {
+      },
       "get": {
         "operationId": "ContractorWorkController_contractors",
         "parameters": [],
@@ -2502,6 +2491,244 @@
         "summary": "Убрать подряд — объём возвращается штату по норме",
         "tags": [
           "Contractor Work"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests": {
+      "get": {
+        "operationId": "ContractorRequestsController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Заявки на подряд: что отдано, что разнесено, что висит",
+        "tags": [
+          "Contractor Requests"
+        ]
+      },
+      "post": {
+        "operationId": "ContractorRequestsController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Завести заявку на подряд (заказ и подрядчик ещё не известны)",
+        "tags": [
+          "Contractor Requests"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests/{id}": {
+      "get": {
+        "operationId": "ContractorRequestsController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Заявка на подряд со строками разнесения и сверкой с актами 1С",
+        "tags": [
+          "Contractor Requests"
+        ]
+      },
+      "patch": {
+        "operationId": "ContractorRequestsController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Проставить подрядчика и ставку — их назвали в Б24",
+        "tags": [
+          "Contractor Requests"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests/send-to-bitrix": {
+      "post": {
+        "operationId": "ContractorRequestsController_sendToBitrix",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отправить выбранные заявки одной сделкой в Б24 (воронка «Заказ на Работы»)",
+        "tags": [
+          "Contractor Requests"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests/{id}/allocate": {
+      "post": {
+        "operationId": "ContractorRequestsController_allocate",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Разнести часть заявки на заказ",
+        "tags": [
+          "Contractor Requests"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests/{id}/allocations/{workId}": {
+      "delete": {
+        "operationId": "ContractorRequestsController_removeAllocation",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "workId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Снять ошибочное разнесение (пропорции пересчитаются)",
+        "tags": [
+          "Contractor Requests"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests/{id}/accept": {
+      "post": {
+        "operationId": "ContractorRequestsController_accept",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Принять работу по заявке (замораживает сумму акта)",
+        "tags": [
+          "Contractor Requests"
+        ]
+      }
+    },
+    "/api/v1/contractor-requests/{id}/cancel": {
+      "post": {
+        "operationId": "ContractorRequestsController_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отменить заявку (нельзя, если уже разнесена)",
+        "tags": [
+          "Contractor Requests"
         ]
       }
     },

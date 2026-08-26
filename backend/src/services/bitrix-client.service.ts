@@ -109,32 +109,58 @@ export class BitrixClientService {
   }
 
   /**
-   * Заявка на подряд → сделка в воронке «Заказ на Работы» (26.08.2026).
-   * По ней в Б24 оформляют заказ поставщику от А77; появление ДО
-   * подрядчика мы увидим в «Закупках», сверка с актами — по БИН.
+   * Пачка заявок на подряд → ОДНА сделка в воронке «Заказ на Работы»
+   * (26.08.2026). По ней в Б24 подбирают подрядчика, называют ставку и
+   * оформляют заказ поставщику от А77; появление ДО подрядчика мы увидим
+   * в «Закупках», сверка с актами — по БИН.
+   *
+   * Дверь в Б24 одна: штучная отправка строки подряда убрана вместе с
+   * полями ContractorWork.bitrixDealId/bitrixSentAt — иначе через месяц
+   * никто не вспомнит, откуда ушла сделка.
    */
-  async createWorksDeal(input: {
-    orderNumber: string;
-    stageLabel: string;
-    sharePct: number;
-    estimatedAmount: number | null;
-    workLocation: string;
-    contractorName?: string | null;
+  async createWorksRequestDeal(input: {
+    title: string;
+    lines: Array<{
+      number: string;
+      stageLabel: string;
+      description: string;
+      qty: number | null;
+      unit: string;
+      rate: number | null;
+      estimate: number | null;
+      atOurShop: boolean;
+      contractorName?: string | null;
+    }>;
+    totalEstimate: number;
+    requestedBy?: string | null;
   }): Promise<string> {
     if (!B24_WEBHOOK_URL) {
       throw new Error('B24_WEBHOOK_URL не задан — заявка не отправлена. Настройте вебхук Битрикс24.');
     }
+    const comments = [
+      ...input.lines.map((l) => [
+        `${l.number} · ${l.stageLabel} — ${l.description}`,
+        l.qty != null ? `объём ${l.qty} ${l.unit}` : null,
+        l.rate != null ? `ставка ${Math.round(l.rate).toLocaleString('ru-RU')} ₸/${l.unit}` : 'ставка не назначена',
+        l.estimate ? `~${Math.round(l.estimate).toLocaleString('ru-RU')} ₸` : null,
+        l.atOurShop ? 'работы в нашем цеху' : 'на площадке подрядчика',
+        l.contractorName ? `подрядчик: ${l.contractorName}` : 'подрядчик не выбран — подобрать',
+      ].filter(Boolean).join(' · ')),
+      '',
+      input.totalEstimate > 0
+        ? `Оценка итого: ${Math.round(input.totalEstimate).toLocaleString('ru-RU')} ₸`
+        : 'Оценка не задана — назвать цену при подборе подрядчика',
+      'Оформить заказ поставщику от А77.',
+      input.requestedBy ? `Заявку сформировал: ${input.requestedBy}` : '',
+    ].filter(Boolean).join('\n');
+
     const fields: Record<string, unknown> = {
-      TITLE: `Подряд: ${input.orderNumber} · ${input.stageLabel} (${input.sharePct} %)`,
-      COMMENTS: [
-        `Заказ: ${input.orderNumber}`,
-        `Вид работ: ${input.stageLabel}, доля подряда ${input.sharePct} %`,
-        `Где: ${input.workLocation === 'OUR_SHOP' ? 'в нашем цеху' : 'на площадке подрядчика'}`,
-        input.contractorName ? `Подрядчик: ${input.contractorName}` : 'Подрядчик не выбран — подобрать',
-        'Оформить заказ поставщику от А77.',
-      ].join('\n'),
+      TITLE: input.title,
+      COMMENTS: comments,
       ASSIGNED_BY_ID: B24_OPERATOR_ID,
-      ...(input.estimatedAmount ? { OPPORTUNITY: Math.round(input.estimatedAmount), CURRENCY_ID: 'KZT' } : {}),
+      ...(input.totalEstimate > 0
+        ? { OPPORTUNITY: Math.round(input.totalEstimate), CURRENCY_ID: 'KZT' }
+        : {}),
     };
     if (B24_WORKS_CATEGORY_ID) fields.CATEGORY_ID = B24_WORKS_CATEGORY_ID;
     return this.createDeal(fields);

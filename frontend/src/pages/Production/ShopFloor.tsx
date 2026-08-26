@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Card, Stack, Group, Text, Badge, Skeleton, TextInput, Button, Drawer,
+  Card, Stack, Group, Text, Badge, Skeleton, TextInput, Button, Drawer, Alert,
   NumberInput, Select, Switch, Divider, ThemeIcon, ActionIcon, Progress, Box,
+  SegmentedControl,
 } from '@mantine/core';
 import {
   IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots,
@@ -40,13 +41,34 @@ interface ShopFloorOrder {
   totalProducts: number;
   resaleCount: number;
 }
+interface OpenRequest {
+  id: string;
+  number: string;
+  routingStage: string;
+  description: string;
+  contractorName: string | null;
+  rateType: string;
+  unit: string;
+  allocatedQty: number;
+  targetQty: number | null;
+  remainingQty: number | null;
+  isAccepted: boolean;
+}
 interface ShopFloorResponse {
   orders: ShopFloorOrder[];
   total: number;
   totalProducts: number;
   doneProducts: number;
   waitingProducts: number;
+  /** Заявки на подряд, ждущие разнесения. К заказу заранее не привязаны —
+      мастер сам говорит, сколько из партии ушло на этот заказ */
+  openRequests: OpenRequest[];
 }
+
+/** Вид работ в подписи заявки: мастер его не выбирает, но узнать должен */
+const STAGE_SHORT: Record<string, string> = {
+  CUTTING: 'резка', ASSEMBLY: 'сборка', PAINTING: 'покраска',
+};
 
 const RATE_TYPE_LABELS: Record<string, string> = {
   PER_HOUR: 'за час', PER_UNIT: 'за штуку', PER_KG: 'за кг',
@@ -59,16 +81,23 @@ const RATE_TYPE_LABELS: Record<string, string> = {
  * а «не ввёл часы» означает «как по норме», а не пропуск данных.
  */
 function DetailsSheet({
-  order, product, opened, onClose,
+  order, product, requests, opened, onClose,
 }: {
   order: ShopFloorOrder | null;
   product: ProductRow | null;
+  requests: OpenRequest[];
   opened: boolean;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const [hours, setHours] = useState<number | string>('');
   const [outsourced, setOutsourced] = useState(false);
+  // Главный случай — «по заявке»: работа уже отдана партией, мастер лишь
+  // говорит, сколько из неё ушло на этот заказ. Разовый подряд остаётся
+  // вторым вариантом для «договорились на месте»
+  const [mode, setMode] = useState<'request' | 'adhoc'>('request');
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [reqQty, setReqQty] = useState<number | string>('');
   const [contractorId, setContractorId] = useState<string | null>(null);
   const [rate, setRate] = useState<number | string>('');
   const [rateType, setRateType] = useState<string>('PER_UNIT');
@@ -77,15 +106,28 @@ function DetailsSheet({
   const { data: contractors } = useQuery({
     queryKey: ['contractors'],
     queryFn: () => ordersApi.contractors().then((r) => r.data),
-    enabled: opened,
+    enabled: opened && outsourced && mode === 'adhoc',
   });
+
+  const chosen = requests.find((r) => r.id === requestId) ?? null;
 
   const save = useMutation({
     mutationFn: async () => {
       if (!order || !product) return null;
-      if (outsourced) {
-        // Молча пропустить подряд нельзя: мастер увидел бы зелёное «Изготовлено»
+      let allocated: any = null;
+      // Подряд заводится ДО отметки: иначе вид работ на миг окажется
+      // полностью штатным и себестоимость дрогнет
+      if (outsourced && mode === 'request') {
+        // Молча пропустить нельзя: мастер увидел бы зелёное «Изготовлено»
         // и был уверен, что работа записана на подрядчика
+        if (!requestId) throw new Error('Выберите заявку на подряд или переключитесь на «разово»');
+        if (!(Number(reqQty) > 0)) throw new Error('Укажите, сколько из заявки ушло на этот заказ');
+        const r = await api.post(`/contractor-requests/${requestId}/allocate`, {
+          orderId: order.id,
+          qty: Number(reqQty),
+        });
+        allocated = r.data;
+      } else if (outsourced) {
         if (!contractorId) throw new Error('Выберите подрядчика или выключите «Делал не наш цех»');
         if (!(Number(rate) > 0)) throw new Error('Укажите ставку подрядчика — иначе работа встанет в 0 ₸');
         // Цех больше не выбирает операцию, а деньгам подрядчика нужен адрес
@@ -106,18 +148,27 @@ function DetailsSheet({
         orderLineId: product.id,
         ...(Number(hours) > 0 ? { actualHours: Number(hours) } : {}),
       });
-      return res.data;
+      return { stage: res.data, allocated };
     },
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['shop-floor'] });
+      const a = res?.allocated;
       notifications.show({
         title: 'Изготовлено',
-        message: product?.articleName ?? '',
+        // Подтверждение словами: мастер должен видеть последствие, а не
+        // просто галочку — «штат по этим работам больше не считается»
+        message: a
+          ? `Записано: ${a.qty} ${a.unit} из ${chosen?.number ?? 'заявки'} на заказ ${a.orderNumber}.`
+            + ` Штат по «${a.stageLabel}» на этом заказе больше не считается.`
+            + (a.recalculatedRows > 1 ? ` Пересчитано разнесение по ${a.recalculatedRows} заказам.` : '')
+          : product?.articleName ?? '',
         color: 'success',
         icon: <IconCheck size={16} />,
+        autoClose: a ? 9000 : 4000,
       });
       onClose();
       setHours(''); setOutsourced(false); setContractorId(null); setRate('');
+      setRequestId(null); setReqQty('');
     },
     onError: (e: any) => notifications.show({
       title: 'Не сохранено',
@@ -181,38 +232,99 @@ function DetailsSheet({
         {outsourced && (
           <Card withBorder radius="md" padding="sm" bg="var(--mantine-color-default-hover)">
             <Stack gap="sm">
-              <Select
-                label="Подрядчик"
-                placeholder="выберите"
-                data={(contractors ?? []).map((c: any) => ({ value: c.id, label: c.name }))}
-                value={contractorId}
-                onChange={setContractorId}
+              <SegmentedControl
+                fullWidth
                 size="md"
-                searchable
+                value={mode}
+                onChange={(v) => setMode(v as 'request' | 'adhoc')}
+                data={[
+                  { value: 'request', label: 'По заявке на подряд' },
+                  { value: 'adhoc', label: 'Разово' },
+                ]}
               />
-              <Group grow>
-                <NumberInput
-                  label="Ставка"
-                  value={rate}
-                  onChange={setRate}
-                  min={0}
-                  size="md"
-                  suffix={` ₸ ${RATE_TYPE_LABELS[rateType] ?? ''}`}
-                />
-                <Select
-                  label="Тип ставки"
-                  data={Object.entries(RATE_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-                  value={rateType}
-                  onChange={(v) => setRateType(v ?? 'PER_UNIT')}
-                  size="md"
-                />
-              </Group>
-              <Switch
-                label="Работали у нас в цеху"
-                description={atOurShop ? 'часы займут мощность участка' : 'на своей площадке — мощность не занимают'}
-                checked={atOurShop}
-                onChange={(e) => setAtOurShop(e.currentTarget.checked)}
-              />
+
+              {mode === 'request' ? (
+                requests.length === 0 ? (
+                  <Alert color="gray" variant="light" p="xs" radius="md">
+                    <Text size="sm">
+                      Открытых заявок нет. Заявка заводится на экране «Подряд» — там же
+                      её отправляют в Б24. Если работу отдали без заявки, выберите «Разово».
+                    </Text>
+                  </Alert>
+                ) : (
+                  <>
+                    <Select
+                      label="Заявка на подряд"
+                      placeholder="выберите"
+                      size="md"
+                      searchable
+                      data={requests.map((r) => ({
+                        value: r.id,
+                        label: `${r.number} · ${STAGE_SHORT[r.routingStage] ?? r.routingStage}`
+                          + ` · ${r.contractorName ?? 'подрядчик не выбран'}`,
+                      }))}
+                      value={requestId}
+                      onChange={setRequestId}
+                    />
+                    {chosen && (
+                      <Text size="sm" c="dimmed">
+                        {chosen.description}
+                        {chosen.remainingQty != null && (
+                          <> · осталось разнести <Text span fw={700} ff="monospace">
+                            {chosen.remainingQty} {chosen.unit}
+                          </Text>{chosen.targetQty != null ? ` из ${chosen.targetQty}` : ''}</>
+                        )}
+                      </Text>
+                    )}
+                    {/* Мастер вводит одно число. Ставок и сумм ему не показываем
+                        вовсе: деньги — на экране «Подряд», у того, кто их платит */}
+                    <NumberInput
+                      label={`Сколько ушло на этот заказ${chosen ? ` (${chosen.unit})` : ''}`}
+                      value={reqQty}
+                      onChange={setReqQty}
+                      min={0}
+                      decimalScale={3}
+                      size="md"
+                      max={chosen?.remainingQty ?? undefined}
+                    />
+                  </>
+                )
+              ) : (
+                <>
+                  <Select
+                    label="Подрядчик"
+                    placeholder="выберите"
+                    data={(contractors ?? []).map((c: any) => ({ value: c.id, label: c.name }))}
+                    value={contractorId}
+                    onChange={setContractorId}
+                    size="md"
+                    searchable
+                  />
+                  <Group grow>
+                    <NumberInput
+                      label="Ставка"
+                      value={rate}
+                      onChange={setRate}
+                      min={0}
+                      size="md"
+                      suffix={` ₸ ${RATE_TYPE_LABELS[rateType] ?? ''}`}
+                    />
+                    <Select
+                      label="Тип ставки"
+                      data={Object.entries(RATE_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+                      value={rateType}
+                      onChange={(v) => setRateType(v ?? 'PER_UNIT')}
+                      size="md"
+                    />
+                  </Group>
+                  <Switch
+                    label="Работали у нас в цеху"
+                    description={atOurShop ? 'часы займут мощность участка' : 'на своей площадке — мощность не занимают'}
+                    checked={atOurShop}
+                    onChange={(e) => setAtOurShop(e.currentTarget.checked)}
+                  />
+                </>
+              )}
             </Stack>
           </Card>
         )}
@@ -508,6 +620,7 @@ export function ShopFloor() {
       <DetailsSheet
         order={sheet?.order ?? null}
         product={sheet?.product ?? null}
+        requests={data.openRequests ?? []}
         opened={sheet !== null}
         onClose={() => setSheet(null)}
       />

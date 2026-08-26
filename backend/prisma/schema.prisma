@@ -232,20 +232,31 @@ enum PurchaseRequestStatus {
   REJECTED
 }
 
+/// Заявка на подряд: путь от «надо покрасить» до «разнесено по заказам».
+/// Статус нужен только для сортировки очереди — правда о разнесении живёт
+/// в числах (Σ объёма строк против принятого), иначе он начнёт врать первым.
+enum ContractorRequestStatus {
+  DRAFT
+  SENT
+  ACCEPTED
+  ALLOCATED
+  CANCELLED
+}
+
 // ------------------------------------------------------
 // Models
 // ------------------------------------------------------
 
 // 3.1 Articles
 model Article {
-  id            String  @id @default(uuid()) @db.Uuid
-  articleCode   String  @unique @map("article_code") @db.VarChar(20)
-  legacyCode    String? @map("legacy_code") @db.VarChar(20)
-  name          String  @db.Text
-  weightKg      Decimal @default(0) @map("weight_kg") @db.Decimal(10, 3)
-  series        String? @db.VarChar(10)
-  description   String? @db.Text
-  approvedPrice Decimal @default(0) @map("approved_price") @db.Decimal(14, 2)
+  id               String  @id @default(uuid()) @db.Uuid
+  articleCode      String  @unique @map("article_code") @db.VarChar(20)
+  legacyCode       String? @map("legacy_code") @db.VarChar(20)
+  name             String  @db.Text
+  weightKg         Decimal @default(0) @map("weight_kg") @db.Decimal(10, 3)
+  series           String? @db.VarChar(10)
+  description      String? @db.Text
+  approvedPrice    Decimal @default(0) @map("approved_price") @db.Decimal(14, 2)
   /// Прямая продажа сырья без изготовления — не изделие с пустым составом,
   /// а отдельный тип позиции (решение 25.08.2026, аудит нашёл 1002 таких
   /// карточек: articleCode совпадает с кодом материала в справочнике).
@@ -354,7 +365,7 @@ model WorkCenter {
   capacityPerDay Decimal      @default(0) @map("capacity_per_day") @db.Decimal(8, 2)
   isActive       Boolean      @default(true) @map("is_active")
 
-  operations       RoutingOperation[]
+  operations RoutingOperation[]
 
   @@map("work_centers")
 }
@@ -408,27 +419,27 @@ model RoutingOperationHistory {
 /// Версионируемые коэффициенты вместо констант в ячейках строки 1
 /// «Спецификации 2022»: логистика 3 %, вода/газ/эл. 1 %, НДС 12 %, маржа 10 %.
 model CostingConfig {
-  id              String    @id @default(uuid()) @db.Uuid
-  validFrom       DateTime  @map("valid_from") @db.Date
-  validTo         DateTime? @map("valid_to") @db.Date
-  hourlyRate      Decimal   @map("hourly_rate") @db.Decimal(12, 2)
+  id         String    @id @default(uuid()) @db.Uuid
+  validFrom  DateTime  @map("valid_from") @db.Date
+  validTo    DateTime? @map("valid_to") @db.Date
+  hourlyRate Decimal   @map("hourly_rate") @db.Decimal(12, 2)
 
   /// Своя ставка на каждый передел (запрос пользователя 26.08.2026:
   /// «каждому пункту свою цену»). null — передел берёт общую hourlyRate,
   /// поэтому старые конфиги продолжают считаться как раньше.
   /// Порядок применения: ставка участка (WorkCenter) → ставка передела →
   /// общая ставка.
-  rateCutting     Decimal?  @map("rate_cutting") @db.Decimal(12, 2)
-  rateAssembly    Decimal?  @map("rate_assembly") @db.Decimal(12, 2)
-  ratePainting    Decimal?  @map("rate_painting") @db.Decimal(12, 2)
+  rateCutting  Decimal? @map("rate_cutting") @db.Decimal(12, 2)
+  rateAssembly Decimal? @map("rate_assembly") @db.Decimal(12, 2)
+  ratePainting Decimal? @map("rate_painting") @db.Decimal(12, 2)
 
-  logisticsPct    Decimal   @map("logistics_pct") @db.Decimal(6, 4)
-  utilitiesPct    Decimal   @map("utilities_pct") @db.Decimal(6, 4)
-  vatPct          Decimal   @map("vat_pct") @db.Decimal(6, 4)
-  marginPct       Decimal   @map("margin_pct") @db.Decimal(6, 4)
-  paymentTermDays Int       @default(30) @map("payment_term_days")
-  weldingFactor   Decimal   @default(0.02) @map("welding_factor") @db.Decimal(6, 4)
-  createdById     String?   @map("created_by_id") @db.Uuid
+  logisticsPct    Decimal @map("logistics_pct") @db.Decimal(6, 4)
+  utilitiesPct    Decimal @map("utilities_pct") @db.Decimal(6, 4)
+  vatPct          Decimal @map("vat_pct") @db.Decimal(6, 4)
+  marginPct       Decimal @map("margin_pct") @db.Decimal(6, 4)
+  paymentTermDays Int     @default(30) @map("payment_term_days")
+  weldingFactor   Decimal @default(0.02) @map("welding_factor") @db.Decimal(6, 4)
+  createdById     String? @map("created_by_id") @db.Uuid
 
   /// 09 §3.2: маржинальность считается от цены, а не как наценка на себестоимость
   marginMode             MarginMode    @default(MARGIN) @map("margin_mode")
@@ -569,10 +580,10 @@ model MaterialBatch {
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  material       Material         @relation(fields: [materialId], references: [id], onDelete: Cascade)
-  ownerOrder     Order?           @relation("TollingBatches", fields: [ownerOrderId], references: [id])
-  paymentDocument PaymentDocument? @relation(fields: [paymentDocumentId], references: [id])
-  reservations   BatchReservation[]
+  material        Material           @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  ownerOrder      Order?             @relation("TollingBatches", fields: [ownerOrderId], references: [id])
+  paymentDocument PaymentDocument?   @relation(fields: [paymentDocumentId], references: [id])
+  reservations    BatchReservation[]
 
   @@index([materialId, receiptDate])
   @@index([materialId, priceAnomaly])
@@ -596,6 +607,7 @@ model Contractor {
 
   costingLabors OrderCostingLabor[]
   works         ContractorWork[]
+  requests      ContractorRequest[]
   supplierActs  SupplierDocument[]
 
   @@map("contractors")
@@ -633,29 +645,84 @@ model ContractorWork {
   /// Оценка часов для сдельного подряда, работающего в нашем цеху
   plannedHours Decimal?     @map("planned_hours") @db.Decimal(10, 3)
 
-  /// Заявка в Б24 (воронка «Заказ на Работы», 26.08.2026): там оформляют
-  /// заказ поставщику от А77; появление ДО подрядчика видно в «Закупках»
-  bitrixDealId String?   @map("bitrix_deal_id") @db.VarChar(30)
-  bitrixSentAt DateTime? @map("bitrix_sent_at")
+  /// Из какой заявки на подряд разнесена строка. NULL — разовый подряд,
+  /// заведённый прямо на заказе. В Б24 ходит заявка, а не строка: дверь
+  /// туда одна, иначе через месяц не вспомнить, откуда ушла сделка
+  requestId String? @map("request_id") @db.Uuid
 
   /// Решение отдать работу на сторону — управленческое, у него есть автор
-  decidedById String?   @map("decided_by_id") @db.Uuid
-  decidedAt   DateTime  @default(now()) @map("decided_at")
-  reason      String?   @db.Text
+  decidedById  String?   @map("decided_by_id") @db.Uuid
+  decidedAt    DateTime  @default(now()) @map("decided_at")
+  reason       String?   @db.Text
   /// Кто закрыл работу в цеху
-  acceptedById String?  @map("accepted_by_id") @db.Uuid
+  acceptedById String?   @map("accepted_by_id") @db.Uuid
   acceptedAt   DateTime? @map("accepted_at")
 
   contractDocId String? @map("contract_doc_id") @db.Uuid
   note          String? @db.Text
 
-  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderLine  OrderLine? @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
-  contractor Contractor @relation(fields: [contractorId], references: [id])
+  order      Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderLine  OrderLine?         @relation(fields: [orderLineId], references: [id], onDelete: Cascade)
+  contractor Contractor         @relation(fields: [contractorId], references: [id])
+  /// SetNull, а не Cascade: строка — это уже деньги внутри калькуляции,
+  /// и удаление заявки не имеет права молча вынуть подряд из себестоимости
+  request    ContractorRequest? @relation(fields: [requestId], references: [id], onDelete: SetNull)
 
   @@index([orderId, routingStage])
   @@index([contractorId, decidedAt])
+  @@index([requestId])
   @@map("contractor_works")
+}
+
+/// Заявка на подряд (26.08.2026): работа отдаётся на сторону ПАРТИЕЙ,
+/// до того как известно, по каким заказам она разойдётся — «увезли красить
+/// балки», а какие из них чьи, выяснится в цеху.
+///
+/// Почему это не строка ContractorWork: там orderId, contractorId и rate —
+/// NOT NULL, а у заявки до Б24 нет ни подрядчика, ни ставки, ни заказа.
+/// Обязательность там и есть страховка от двойного счёта: партия физически
+/// не может лежать в той же таблице, что и деньги заказа.
+model ContractorRequest {
+  id           String       @id @default(uuid()) @db.Uuid
+  /// Человеческий номер ПОДР-001: им заявку зовут в цеху и в Б24
+  number       String       @unique @db.VarChar(20)
+  /// Без вида работ разнесение не знает, из какого передела вычитать штат
+  routingStage RoutingStage @map("routing_stage")
+  description  String       @db.Text
+
+  rateType        RateType @default(PER_UNIT) @map("rate_type")
+  plannedQty      Decimal? @map("planned_qty") @db.Decimal(12, 3)
+  /// NULL до торга: ставку назовут в Б24
+  rate            Decimal? @db.Decimal(14, 2)
+  /// Оценка суммы для сделки Б24 и для ставки FIXED
+  estimatedAmount Decimal? @map("estimated_amount") @db.Decimal(14, 2)
+
+  /// NULL до Б24: подрядчика ещё подбирают
+  contractorId String?      @map("contractor_id") @db.Uuid
+  workLocation WorkLocation @default(CONTRACTOR_SITE) @map("work_location")
+  /// Оценка часов на всю партию, если работают у нас; делится при разнесении
+  plannedHours Decimal?     @map("planned_hours") @db.Decimal(10, 3)
+
+  status       ContractorRequestStatus @default(DRAFT)
+  bitrixDealId String?                 @map("bitrix_deal_id") @db.VarChar(30)
+  bitrixSentAt DateTime?               @map("bitrix_sent_at")
+
+  /// Приёмка партии целиком: сумма акта замораживается и делится по строкам
+  actualQty    Decimal?  @map("actual_qty") @db.Decimal(12, 3)
+  actualAmount Decimal?  @map("actual_amount") @db.Decimal(14, 2)
+  acceptedAt   DateTime? @map("accepted_at")
+  acceptedById String?   @map("accepted_by_id") @db.Uuid
+
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  note        String?  @db.Text
+
+  contractor Contractor?      @relation(fields: [contractorId], references: [id])
+  works      ContractorWork[]
+
+  @@index([status, routingStage])
+  @@map("contractor_requests")
 }
 
 /// Калькуляция позиции заказа как версионируемый документ (09 §3.1).
@@ -804,7 +871,7 @@ model BatchReservation {
 
   /// 30 дней без движения — резерв снимается сам, иначе через полгода весь
   /// металл окажется занят мёртвыми коммерческими предложениями
-  expiresAt   DateTime @map("expires_at")
+  expiresAt DateTime @map("expires_at")
 
   createdAt   DateTime @default(now()) @map("created_at")
   createdById String?  @map("created_by_id") @db.Uuid
@@ -966,14 +1033,14 @@ model Order {
   onecSyncedAt       DateTime? @map("onec_synced_at")
 
   // Full fidelity import from Google Sheets
-  sourceSheet          String?                @map("source_sheet") @db.VarChar(100)
-  sourceRowNumber      Int?                   @map("source_row_number")
-  rawColumns           Json?                  @map("raw_columns")
-  OrderCosting         OrderCosting[]
-  BatchReservation     BatchReservation[]
-  purchaseRequests     PurchaseRequest[]
-  tollingBatches       MaterialBatch[]        @relation("TollingBatches")
-  contractorWorks      ContractorWork[]
+  sourceSheet      String?            @map("source_sheet") @db.VarChar(100)
+  sourceRowNumber  Int?               @map("source_row_number")
+  rawColumns       Json?              @map("raw_columns")
+  OrderCosting     OrderCosting[]
+  BatchReservation BatchReservation[]
+  purchaseRequests PurchaseRequest[]
+  tollingBatches   MaterialBatch[]    @relation("TollingBatches")
+  contractorWorks  ContractorWork[]
 
   @@index([sourceSheet])
   @@index([status, isArchived])
@@ -1008,8 +1075,8 @@ model OrderLine {
   productNameRaw  String? @map("product_name_raw") @db.Text
   rawColumns      Json?   @map("raw_columns")
 
-  order            Order                  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  article          Article?               @relation(fields: [articleId], references: [id])
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  article          Article?          @relation(fields: [articleId], references: [id])
   productionStages ProductionStage[]
   contractorWorks  ContractorWork[]
   costings         OrderCosting[]
@@ -1055,8 +1122,8 @@ model PaymentDocument {
   /// Единственная ниточка от закупа к заказу клиента (17 из 306)
   salesOrderNumber  String?   @map("sales_order_number") @db.VarChar(30)
 
-  contractor Customer        @relation(fields: [contractorId], references: [id])
-  order      Order?          @relation(fields: [orderId], references: [id])
+  contractor Customer              @relation(fields: [contractorId], references: [id])
+  order      Order?                @relation(fields: [orderId], references: [id])
   payments   Payment[]
   batches    MaterialBatch[]
   lines      PaymentDocumentLine[]
@@ -1184,11 +1251,11 @@ model Deal {
   /// Прогноз спроса до формального заказа в 1С (лист «Планируемое без
   /// заявок» — 396 строк, ₸415 млн, вели руками в Excel). managerName —
   /// текстом, не Employee: именных учёток не заводим (решение 24.08.2026).
-  siteCode             String?  @map("site_code") @db.VarChar(50)
-  region               String?  @db.VarChar(50)
-  managerName          String?  @map("manager_name") @db.VarChar(100)
-  plannedDispatchMonth String?  @map("planned_dispatch_month") @db.VarChar(20)
-  hasFormalRequest     Boolean  @default(false) @map("has_formal_request")
+  siteCode             String? @map("site_code") @db.VarChar(50)
+  region               String? @db.VarChar(50)
+  managerName          String? @map("manager_name") @db.VarChar(100)
+  plannedDispatchMonth String? @map("planned_dispatch_month") @db.VarChar(20)
+  hasFormalRequest     Boolean @default(false) @map("has_formal_request")
 
   customer Customer  @relation(fields: [customerId], references: [id], onDelete: Restrict)
   article  Article?  @relation(fields: [articleId], references: [id], onDelete: SetNull)
@@ -1253,20 +1320,20 @@ model MinStockLevel {
 /// поставщику в 1С; REJECTED — отклонена. Заявки копятся и уходят
 /// пачкой — «не из-за одного болта» (решение пользователя).
 model PurchaseRequest {
-  id           String                @id @default(uuid()) @db.Uuid
-  materialId   String                @map("material_id") @db.Uuid
-  requestedQty Decimal               @map("requested_qty") @db.Decimal(14, 3)
-  unit         String?               @db.VarChar(10)
-  estimatedPrice Decimal?            @map("estimated_price") @db.Decimal(14, 2)
+  id             String                @id @default(uuid()) @db.Uuid
+  materialId     String                @map("material_id") @db.Uuid
+  requestedQty   Decimal               @map("requested_qty") @db.Decimal(14, 3)
+  unit           String?               @db.VarChar(10)
+  estimatedPrice Decimal?              @map("estimated_price") @db.Decimal(14, 2)
   /// Заказ-источник дефицита (если заявка родилась из цеха)
-  orderId      String?               @map("order_id") @db.Uuid
-  note         String?               @db.Text
-  requestedById String?              @map("requested_by_id") @db.Uuid
-  status       PurchaseRequestStatus @default(DRAFT)
-  bitrixDealId String?               @map("bitrix_deal_id") @db.VarChar(30)
-  bitrixSentAt DateTime?             @map("bitrix_sent_at")
-  createdAt    DateTime              @default(now()) @map("created_at")
-  updatedAt    DateTime              @default(now()) @updatedAt @map("updated_at")
+  orderId        String?               @map("order_id") @db.Uuid
+  note           String?               @db.Text
+  requestedById  String?               @map("requested_by_id") @db.Uuid
+  status         PurchaseRequestStatus @default(DRAFT)
+  bitrixDealId   String?               @map("bitrix_deal_id") @db.VarChar(30)
+  bitrixSentAt   DateTime?             @map("bitrix_sent_at")
+  createdAt      DateTime              @default(now()) @map("created_at")
+  updatedAt      DateTime              @default(now()) @updatedAt @map("updated_at")
 
   material Material @relation(fields: [materialId], references: [id])
   order    Order?   @relation(fields: [orderId], references: [id])
@@ -1556,4 +1623,3 @@ model AuditLogEntry {
 
   @@map("audit_log")
 }
-

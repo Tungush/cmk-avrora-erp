@@ -91,6 +91,24 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
   }
 
   const hasReconciliation = (work?.reconciliation?.length ?? 0) > 0;
+
+  /**
+   * Подряд разнесли позже, чем считали калькуляцию (26.08.2026).
+   *
+   * Автопересчёта при разнесении нет намеренно: цена заказа менялась бы
+   * молча, без человека, а расчёт умеет падать INVALID_SHARES — тогда цех
+   * не смог бы отметить изделие. Но и тишина здесь врёт: в согласованной
+   * версии сидят старые деньги подряда. Показываем и даём кнопку.
+   */
+  const activeVersion = versions?.data?.find((v: any) => v.id === activeId) ?? latest;
+  const lastContractorTouch = (work?.data ?? []).reduce((max: number, w: any) => {
+    const t = new Date(w.acceptedAt ?? w.decidedAt).getTime();
+    return Number.isFinite(t) && t > max ? t : max;
+  }, 0);
+  const costingIsStale = Boolean(
+    activeVersion?.calculatedAt
+    && lastContractorTouch > new Date(activeVersion.calculatedAt).getTime(),
+  );
   // marginPct в БД хранится долей (0.35), а не процентом
   const marginPctDisplay = detail ? detail.marginPct * (detail.marginPct <= 1 ? 100 : 1) : 0;
 
@@ -144,6 +162,18 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                   {marginPctDisplay.toFixed(1)}%
                 </Text>
               </Stack>
+              {costingIsStale && (
+                <Tooltip label="Подряд разнесён или принят позже этого расчёта — деньги подрядчика в нём старые">
+                  <Badge
+                    color="orange"
+                    variant="filled"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => build.mutate()}
+                  >
+                    калькуляция устарела — пересчитать
+                  </Badge>
+                </Tooltip>
+              )}
               {detail.hasShortage && (
                 <Badge color="red" variant="light">есть дефицит материалов</Badge>
               )}

@@ -6,7 +6,6 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser, UserPayload } from '../../common/decorators/current-user.decorator';
 import { PrismaService } from '../../services/prisma.service';
-import { BitrixClientService } from '../../services/bitrix-client.service';
 import { runWithFallback } from '../../common/fallback';
 
 const RATE_TYPES = new Set(['PER_HOUR', 'PER_UNIT', 'PER_KG', 'PER_TON', 'FIXED']);
@@ -34,62 +33,49 @@ const dbUserId = (u?: UserPayload) =>
 @ApiBearerAuth()
 @Controller()
 export class ContractorWorkController {
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly bitrix: BitrixClientService,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * Заявка на подряд → сделка в воронке Б24 «Заказ на Работы» (26.08.2026).
-   * По воронке в Б24 оформят заказ поставщику от А77; когда он появится в
-   * 1С — увидим его в «Закупках», сверка с актами уже работает по БИН.
-   * Влияние на себестоимость строить не нужно: доля подряда уже вычитает
-   * штатные трудочасы, деньги подрядчика уже входят в расчёт (23.08.2026).
+   * Завести подрядчика (26.08.2026). Раньше справочник был только на
+   * чтение: подрядчика подобрали в Б24 — записать его было некуда,
+   * и весь поток заявок упирался в это.
    */
-  @Post('contractor-work/:id/send-to-bitrix')
-  @Roles('shop_foreman', 'planner', 'sales_manager', 'procurement', 'admin')
-  @ApiOperation({ summary: 'Отправить заявку на подряд в Б24 (воронка «Заказ на Работы»)' })
-  async sendToBitrix(@Param('id') id: string) {
-    const work = await this.prisma.contractorWork.findUnique({
-      where: { id },
-      include: {
-        order: { select: { orderNumber: true } },
-        contractor: { select: { name: true } },
+  @Post('contractors')
+  @Roles('procurement', 'planner', 'sales_manager', 'admin')
+  @ApiOperation({ summary: 'Завести подрядчика' })
+  async createContractor(@Body() body: {
+    name: string; binIin?: string;
+    defaultRateType?: string; defaultRate?: number;
+    defaultWorkLocation?: 'OUR_SHOP' | 'CONTRACTOR_SITE'; notes?: string;
+  }) {
+    const name = body.name?.trim();
+    if (!name) {
+      throw new BadRequestException({ code: 'NAME_REQUIRED', message: 'Укажите название подрядчика' });
+    }
+    const rateType = body.defaultRateType ?? 'PER_UNIT';
+    if (!RATE_TYPES.has(rateType)) {
+      throw new BadRequestException({ code: 'INVALID_RATE_TYPE', message: `Неизвестный тип ставки: ${rateType}` });
+    }
+    const binIin = body.binIin?.trim() || null;
+    if (binIin) {
+      // БИН — единственная связь с актами 1С: дубль сломал бы сверку
+      const dup = await this.prisma.contractor.findUnique({ where: { binIin } });
+      if (dup) {
+        throw new BadRequestException({
+          code: 'BIN_TAKEN',
+          message: `БИН ${binIin} уже у подрядчика «${dup.name}»`,
+        });
+      }
+    }
+    return this.prisma.contractor.create({
+      data: {
+        name,
+        binIin,
+        defaultRateType: rateType as any,
+        defaultRate: Number(body.defaultRate) > 0 ? body.defaultRate : 0,
+        defaultWorkLocation: (body.defaultWorkLocation ?? 'CONTRACTOR_SITE') as any,
+        notes: body.notes?.trim() || null,
       },
-    });
-    if (!work) throw new NotFoundException({ code: 'NOT_FOUND', message: `Contractor work ${id} not found` });
-    if (work.bitrixDealId) {
-      throw new BadRequestException({
-        code: 'ALREADY_SENT',
-        message: `Заявка уже в Б24 — сделка №${work.bitrixDealId}`,
-      });
-    }
-
-    const STAGE_RU: Record<string, string> = {
-      CUTTING: 'Резка', ASSEMBLY: 'Сборка / сварка / обшивка', PAINTING: 'Зачистка / покраска',
-    };
-    let dealId: string;
-    try {
-      dealId = await this.bitrix.createWorksDeal({
-        orderNumber: work.order.orderNumber,
-        stageLabel: STAGE_RU[work.routingStage] ?? work.routingStage,
-        sharePct: Math.round(Number(work.share) * 100),
-        estimatedAmount: work.plannedHours != null && work.rateType === 'PER_HOUR'
-          ? Number(work.plannedHours) * Number(work.rate)
-          : work.rateType === 'FIXED' ? Number(work.rate) : null,
-        workLocation: work.workLocation,
-        contractorName: work.contractor?.name ?? null,
-      });
-    } catch (e) {
-      throw new BadRequestException({
-        code: 'BITRIX_SEND_FAILED',
-        message: e instanceof Error ? e.message : 'Не удалось отправить в Б24',
-      });
-    }
-
-    return this.prisma.contractorWork.update({
-      where: { id },
-      data: { bitrixDealId: dealId, bitrixSentAt: new Date() },
     });
   }
 
@@ -124,21 +110,29 @@ export class ContractorWorkController {
       include: {
         contractor: { select: { id: true, name: true, binIin: true } },
         order: { select: { id: true, orderNumber: true, status: true, plannedShipmentDate: true } },
+        request: { select: { id: true, number: true } },
       },
       orderBy: [{ acceptedAt: { sort: 'asc', nulls: 'first' } }, { decidedAt: 'desc' }],
       take: 300,
     });
 
     const rows = works.map((w) => {
+      // FIXED — сумма за объём, а не цена единицы: умножение на actualQty
+      // раздувало долг подрядчику ровно во столько раз, сколько единиц
+      // разнесено (та же ветка, что в accept ниже)
       const amount = w.actualAmount != null
         ? Number(w.actualAmount)
-        : w.actualQty != null
-          ? Number(w.actualQty) * Number(w.rate)
-          : null;
+        : w.rateType === 'FIXED'
+          ? Number(w.rate)
+          : w.actualQty != null
+            ? Number(w.actualQty) * Number(w.rate)
+            : null;
       return {
         id: w.id,
         order: w.order,
         contractor: w.contractor,
+        // Разовый подряд или строка из заявки — видно, откуда взялась
+        request: w.request,
         routingStage: w.routingStage,
         share: Number(w.share),
         rateType: w.rateType,
@@ -181,6 +175,8 @@ export class ContractorWorkController {
     /** Сколько мы должны подрядчику: принятая сумма, иначе расчёт по объёму */
     const amountOf = (w: (typeof works)[number]) => {
       if (w.actualAmount != null) return Number(w.actualAmount);
+      // FIXED — сумма за объём целиком, объёмом её умножать нельзя
+      if (w.rateType === 'FIXED') return Number(w.rate);
       if (w.actualQty != null) return Number(w.actualQty) * Number(w.rate);
       return 0;
     };
@@ -289,25 +285,10 @@ export class ContractorWorkController {
     // строки, и заказ-уровневые, поэтому проверка только внутри своего
     // уровня пропускала пару «на заказ 100 % + на позицию 100 %», после
     // которой позиция вообще переставала считаться (INVALID_SHARES → 500).
-    const siblings = await this.prisma.contractorWork.findMany({
-      where: {
-        orderId,
-        routingStage: stage as any,
-        ...(body.orderLineId
-          ? { OR: [{ orderLineId: body.orderLineId }, { orderLineId: null }] }
-          : {}),
-        NOT: { contractorId: body.contractorId },
-      },
-    });
-    const taken = siblings.reduce((s, w) => s + Number(w.share), 0);
-    if (taken + share > 1.0001) {
-      const scope = body.orderLineId ? 'на переделе этой позиции' : 'на переделе';
-      throw new BadRequestException({
-        code: 'SHARE_OVERFLOW',
-        message: `Уже отдано ${Math.round(taken * 100)} % ${scope}, свободно ${Math.round((1 - taken) * 100)} %`,
-      });
-    }
-
+    // Заменяемую строку ищем ДО проверки долей: из знаменателя должна
+    // выпадать ровно она. Исключение «все строки этого подрядчика»
+    // пропускало пару «на заказ 100 % + на позицию 100 %» одного и того же
+    // подрядчика — ту самую, от которой защищает комментарий выше
     const existing = await this.prisma.contractorWork.findFirst({
       where: {
         orderId,
@@ -316,6 +297,32 @@ export class ContractorWorkController {
         contractorId: body.contractorId,
       },
     });
+
+    const allSiblings = await this.prisma.contractorWork.findMany({
+      where: { orderId, routingStage: stage as any },
+      select: { id: true, share: true, orderLineId: true },
+    });
+    const siblings = allSiblings.filter((w) => w.id !== existing?.id);
+    const orderLevel = siblings.filter((w) => w.orderLineId === null)
+      .reduce((sum, w) => sum + Number(w.share), 0);
+    const byLine = new Map<string, number>();
+    for (const w of siblings) {
+      if (w.orderLineId === null) continue;
+      byLine.set(w.orderLineId, (byLine.get(w.orderLineId) ?? 0) + Number(w.share));
+    }
+    // Доли складываются внутри позиции: три позиции по 50 % — это законные
+    // 50 % на каждой, а не «уже отдано 150 %»
+    const taken = body.orderLineId
+      ? orderLevel + (byLine.get(body.orderLineId) ?? 0)
+      : orderLevel + Math.max(0, ...[...byLine.values()], 0);
+    if (taken + share > 1.0001) {
+      const scope = body.orderLineId ? 'на этих работах по позиции' : 'на этих работах по заказу';
+      throw new BadRequestException({
+        code: 'SHARE_OVERFLOW',
+        message: `Уже отдано ${Math.round(taken * 100)} % ${scope}`
+          + `, свободно ${Math.round(Math.max(0, 1 - taken) * 100)} %`,
+      });
+    }
 
     const data = {
       share,
@@ -353,8 +360,19 @@ export class ContractorWorkController {
     @Body() body: { actualQty: number; actualWorkers?: number; actualAmount?: number; note?: string },
     @CurrentUser() user: UserPayload,
   ) {
-    const work = await this.prisma.contractorWork.findUnique({ where: { id } });
+    const work = await this.prisma.contractorWork.findUnique({
+      where: { id }, include: { request: { select: { number: true } } },
+    });
     if (!work) throw new NotFoundException({ code: 'NOT_FOUND', message: `Работа ${id} не найдена` });
+    // Строка заявки — часть партии: её сумма выводится из акта заявки
+    // раскладкой по объёму. Принять её отдельно значило бы порвать
+    // инвариант «сумма строк = сумма акта» без единого сигнала наружу
+    if (work.requestId) {
+      throw new BadRequestException({
+        code: 'BELONGS_TO_REQUEST',
+        message: `Строка разнесена из заявки ${work.request?.number ?? ''} — акт принимают на самой заявке`,
+      });
+    }
     if (!(Number(body.actualQty) >= 0)) {
       throw new BadRequestException({ code: 'INVALID_QTY', message: 'Объём не может быть отрицательным' });
     }
@@ -381,8 +399,18 @@ export class ContractorWorkController {
   @Roles('shop_foreman', 'planner', 'admin')
   @ApiOperation({ summary: 'Убрать подряд — объём возвращается штату по норме' })
   async remove(@Param('id') id: string) {
-    const work = await this.prisma.contractorWork.findUnique({ where: { id } });
+    const work = await this.prisma.contractorWork.findUnique({
+      where: { id }, include: { request: { select: { number: true } } },
+    });
     if (!work) throw new NotFoundException({ code: 'NOT_FOUND', message: `Работа ${id} не найдена` });
+    // Удаление в обход заявки оставило бы её суммы неперераспределёнными
+    if (work.requestId) {
+      throw new BadRequestException({
+        code: 'BELONGS_TO_REQUEST',
+        message: `Строка разнесена из заявки ${work.request?.number ?? ''} — снимайте разнесение там,`
+          + ' иначе суммы по остальным заказам не пересчитаются',
+      });
+    }
     await this.prisma.contractorWork.delete({ where: { id } });
     return { deleted: true };
   }

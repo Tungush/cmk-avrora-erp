@@ -1,12 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
-  Stack, Text, Group, Card, Badge, ThemeIcon, SimpleGrid, Anchor,
+  Stack, Text, Group, Card, Badge, ThemeIcon, SimpleGrid, Anchor, Alert,
 } from '@mantine/core';
 import {
   IconTruck, IconCalendarClock, IconClipboardList, IconInbox,
-  IconTarget, IconPackage, IconHammer,
+  IconTarget, IconPackage, IconHammer, IconAlertTriangle,
 } from '@tabler/icons-react';
+import api from '../api/client';
+import { formatCurrency } from '../utils/formatters';
 import { useAuthStore } from '../store/auth';
 import { RoleWidgets } from '../components/RoleWidgets';
 import { ShopFloor } from './Production/ShopFloor';
@@ -24,13 +27,46 @@ import { ROLE_LABELS } from '../utils/roles';
 const SHARED_LOGIN_ROLE_THRESHOLD = 3;
 
 const HUB_TASKS = [
-  { to: '/production/kanban', icon: IconHammer, color: 'orange', title: 'Отметить этап цеха', subtitle: 'Резка, сборка, покраска — по заказу' },
+  { to: '/production/kanban', icon: IconHammer, color: 'orange', title: 'Отметить изготовление', subtitle: 'Что готово по изделиям заказа' },
   { to: '/orders/inbox', icon: IconInbox, color: 'blue', title: 'Заказы из 1С', subtitle: 'Принять новые в производство' },
-  { to: '/production/contractors', icon: IconTruck, color: 'grape', title: 'Подряд', subtitle: 'Отдать работы, принять факт' },
+  { to: '/production/contractors', icon: IconTruck, color: 'grape', title: 'Подряд', subtitle: 'Заявки в Б24, разнесение по заказам' },
   { to: '/sales/pipeline', icon: IconTarget, color: 'success', title: 'Прогноз спроса', subtitle: 'Объекты и сделки до формального заказа' },
   { to: '/warehouse?tab=batches', icon: IconPackage, color: 'yellow', title: 'Партии и резервы', subtitle: 'Карантин цен, истекающие резервы' },
   { to: '/production', icon: IconCalendarClock, color: 'gray', title: 'План по неделям', subtitle: 'Загрузка цеха вперёд' },
 ];
+
+/**
+ * Принято по акту, но не разнесено ни на один заказ (26.08.2026).
+ *
+ * Самая опасная точка подряда: деньги реальны и уже оплачиваются, но не
+ * сидят ни в одной себестоимости — подряд занижен, а штат на этих работах
+ * при этом считается по норме на все 100 %. Тишины здесь быть не должно,
+ * поэтому это цифра на первом экране дня, а не строка в глубине раздела.
+ */
+function UnallocatedContractorAlert() {
+  const { data } = useQuery({
+    queryKey: ['contractor-requests', 'unallocated'],
+    queryFn: () => api.get('/contractor-requests').then((r) => r.data),
+    refetchInterval: 120_000,
+  });
+  const u = data?.unallocated;
+  if (!u || u.requests === 0) return null;
+  return (
+    <Anchor component={Link} to="/production/contractors" underline="never" c="inherit">
+      <Alert color="danger" variant="light" radius="md" icon={<IconAlertTriangle size={18} />}>
+        <Text size="sm" fw={600}>
+          Подряд не разнесён: {u.requests}{' '}
+          {u.requests === 1 ? 'заявка' : u.requests < 5 ? 'заявки' : 'заявок'}
+          {u.amount > 0 ? ` на ${formatCurrency(u.amount)}` : ''}
+        </Text>
+        <Text size="xs" c="dimmed">
+          Работа принята и оплачивается, но не попала ни в один заказ — штат
+          на этих работах пока считается по норме целиком
+        </Text>
+      </Alert>
+    </Anchor>
+  );
+}
 
 function TaskHub() {
   return (
@@ -41,6 +77,7 @@ function TaskHub() {
         </Text>
         <Text fw={700} size="xl">Что заполняем сегодня</Text>
       </Stack>
+      <UnallocatedContractorAlert />
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md">
         <Stagger>
           {HUB_TASKS.map((task) => (

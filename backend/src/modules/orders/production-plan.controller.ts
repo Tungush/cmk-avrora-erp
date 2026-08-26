@@ -6,6 +6,7 @@ import { runWithFallback } from '../../common/fallback';
 import { getMockProductionPlan } from '../../common/mock-data';
 
 import { STAGE_STEPS, stepKey, stageShapeError } from '../../common/production-stages';
+import { RATE_UNITS } from '../../common/contractor-requests';
 
 const round3 = (n: number) => Math.round(n * 1000) / 1000;
 
@@ -176,15 +177,48 @@ export class ProductionPlanController {
 
         const totalProducts = rows.reduce((s, r) => s + r.totalProducts, 0);
         const doneProducts = rows.reduce((s, r) => s + r.doneCount, 0);
+
+        // Открытые заявки на подряд — на уровне ответа, а не заказа:
+        // привязать заявку к заказу заранее нельзя, в этом вся её суть.
+        // Мастер разносит её сам: «из ПОДР-007 на этот заказ ушло 3,2 т»
+        const requests = await this.prisma.contractorRequest.findMany({
+          where: { status: { in: ['SENT', 'ACCEPTED', 'ALLOCATED'] }, contractorId: { not: null } },
+          orderBy: { createdAt: 'desc' },
+          take: 50,
+          include: {
+            contractor: { select: { name: true } },
+            works: { select: { actualQty: true } },
+          },
+        });
+        const openRequests = requests.map((r) => {
+          const allocated = r.works.reduce((s, w) => s + Number(w.actualQty ?? 0), 0);
+          const target = r.actualQty != null ? Number(r.actualQty) : (r.plannedQty != null ? Number(r.plannedQty) : null);
+          return {
+            id: r.id,
+            number: r.number,
+            routingStage: r.routingStage,
+            description: r.description,
+            contractorName: r.contractor?.name ?? null,
+            rateType: r.rateType,
+            unit: RATE_UNITS[r.rateType] ?? '',
+            allocatedQty: round3(allocated),
+            targetQty: target,
+            remainingQty: target != null ? round3(Math.max(0, target - allocated)) : null,
+            isAccepted: r.acceptedAt != null,
+          };
+        // Разнесённая до конца заявка мастеру больше не нужна
+        }).filter((r) => r.remainingQty == null || r.remainingQty > 0);
+
         return {
           orders: rows,
           total: rows.length,
           totalProducts,
           doneProducts,
           waitingProducts: totalProducts - doneProducts,
+          openRequests,
         };
       },
-      () => ({ orders: [], total: 0, totalProducts: 0, doneProducts: 0, waitingProducts: 0 }),
+      () => ({ orders: [], total: 0, totalProducts: 0, doneProducts: 0, waitingProducts: 0, openRequests: [] }),
     );
   }
 

@@ -195,10 +195,11 @@ export class OrderCostingService {
         total = lines.reduce((s, l) => s + Number(l.qty), 0);
         mine = Number(lines.find((l) => l.id === thisLineId)!.qty);
       }
-      result.set(
-        stage,
-        total > 0 ? round4(mine / total) : round4(1 / lines.length),
-      );
+      // Долю НЕ округляем: она чистый множитель, и её единственный
+      // потребитель (labor.ts) округляет уже деньги. round4 здесь давал
+      // сумму долей 1,0002 на шести позициях — подряд в 30 000 ₸
+      // превращался в 30 006 ₸, и так на каждом заказ-уровневом подряде
+      result.set(stage, total > 0 ? mine / total : 1 / lines.length);
     }
     return result;
   }

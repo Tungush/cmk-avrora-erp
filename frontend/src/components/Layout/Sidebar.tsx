@@ -10,7 +10,7 @@ import {
   IconBuildingBank,
   IconRuler2,
   IconTruckDelivery,
-  IconHammer,
+  IconHammer, IconTruck,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { LogoLockup } from '../Brand';
@@ -31,6 +31,10 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     { to: '/', icon: IconClipboardList, label: 'Моя работа', module: 'work' },
     { to: '/orders', icon: IconShoppingCart, label: 'Заказы', module: 'orders' },
     { to: '/production/kanban', icon: IconHammer, label: 'Цех', module: 'production' },
+    // Подряд стал самостоятельным потоком (26.08.2026): заявка партией →
+    // пачкой в Б24 → разнесение по заказам. До сих пор попасть сюда можно
+    // было только с плитки «Моей работы», хотя это прямые деньги наружу
+    { to: '/production/contractors', icon: IconTruck, label: 'Подряд', module: 'production' },
     { to: '/specs', icon: IconRuler2, label: 'Изделия', module: 'specs' },
     { to: '/warehouse', icon: IconPackage, label: 'Материалы', module: 'materials' },
     { to: '/purchases', icon: IconTruckDelivery, label: 'Закупки', module: 'purchases' },

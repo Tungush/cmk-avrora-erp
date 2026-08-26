@@ -38,6 +38,7 @@ import { CustomersController } from './modules/catalog/customers.controller';
 import { OrdersController } from './modules/orders/orders.controller';
 import { OrdersDashboardController } from './modules/orders/orders-dashboard.controller';
 import { ContractorWorkController } from './modules/orders/contractor-work.controller';
+import { ContractorRequestsController } from './modules/orders/contractor-requests.controller';
 import { ProductionPlanController } from './modules/orders/production-plan.controller';
 import { MinStockController } from './modules/orders/min-stock.controller';
 import { WarehouseController } from './modules/warehouse/warehouse.controller';
@@ -70,6 +71,7 @@ import { DealsController } from './modules/sales/deals.controller';
     OrdersController,
     OrdersDashboardController,
     ContractorWorkController,
+    ContractorRequestsController,
     ProductionPlanController,
     OrderCostingsController,
     MinStockController,
