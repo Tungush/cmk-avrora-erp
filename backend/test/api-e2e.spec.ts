@@ -115,9 +115,11 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
         status: 'DRAFT',
         orderLines: { create: [{ articleId, qty: 5, reservedQty: 5, unit: 'шт' }] },
       },
+      include: { orderLines: true },
     });
 
     const orderId = createdOrder.id;
+    const lineId = createdOrder.orderLines[0].id;
     expect(createdOrder.status).toBe('DRAFT');
 
     // RBAC Check 1: Shop Foreman tries to transition status -> MUST BE REJECTED 403
@@ -134,12 +136,12 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .send({ toStatus: 'CONFIRMED' })
       .expect(200);
 
-    // 5. Мастер начинает работу. CUTTING — это передел внутри PRODUCTION,
-    // а не код этапа: кодов после миграции 8 → 3 всего три (09 §2.1)
+    // 5. Мастер начинает работу над изделием. Видов работ цех больше не
+    //    отмечает (26.08.2026) — отметка адресуется позиции заказа
     await request(app.getHttpServer())
       .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
       .set('Authorization', `Bearer ${tokens.foreman}`)
-      .send({ status: 'in_progress', routingStage: 'CUTTING' })
+      .send({ status: 'in_progress', orderLineId: lineId })
       .expect(200);
 
     // 6. Статус в «в производстве» никто не двигает: заказ занял его сам,
@@ -151,22 +153,16 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .expect(200);
     expect(afterStart.body.status).toBe('IN_PRODUCTION');
 
-    // 7. Мастер закрывает три вида работ (26.08.2026 — «Чертежи» и «Закуп»
-    //    убраны: цех отмечает только своё)
-    const steps: Array<{ code: string; routingStage: string | null }> = [
-      { code: 'PRODUCTION', routingStage: 'CUTTING' },
-      { code: 'PRODUCTION', routingStage: 'ASSEMBLY' },
-      { code: 'PRODUCTION', routingStage: 'PAINTING' },
-    ];
-    for (const step of steps) {
-      await request(app.getHttpServer())
-        .patch(`/api/v1/orders/${orderId}/production-stages/${step.code}`)
-        .set('Authorization', `Bearer ${tokens.foreman}`)
-        .send({ status: 'done', routingStage: step.routingStage })
-        .expect(200);
-    }
+    // 7. Мастер отмечает изделие изготовленным. В заказе одна позиция —
+    //    её и достаточно, чтобы заказ был готов
+    await request(app.getHttpServer())
+      .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ status: 'done', orderLineId: lineId })
+      .expect(200);
 
-    // Производство без вида работ и старая веха — отклоняются
+    // Отметка без позиции и старая веха «Закуп» — отклоняются: без изделия
+    // непонятно, что именно изготовлено
     await request(app.getHttpServer())
       .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
       .set('Authorization', `Bearer ${tokens.foreman}`)
@@ -175,10 +171,10 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
     await request(app.getHttpServer())
       .patch(`/api/v1/orders/${orderId}/production-stages/SUPPLY`)
       .set('Authorization', `Bearer ${tokens.foreman}`)
-      .send({ status: 'done', routingStage: 'CUTTING' })
+      .send({ status: 'done', orderLineId: lineId })
       .expect(400);
 
-    // 8. «Готов к отгрузке» тоже проставился сам — все три вида работ закрыты.
+    // 8. «Готов к отгрузке» проставился сам — все изделия заказа изготовлены.
     //    Складу больше не нужно повторять работу мастера вручную.
     const afterStages = await request(app.getHttpServer())
       .get(`/api/v1/orders/${orderId}`)

@@ -17,14 +17,10 @@ import { ArchivedHint, OrderCardFocus } from '../../components/OrderCard/OrderCa
 import { RequestNomenclatureModal } from '../Specifications/NomenclaturePanel';
 import { Collapse } from '../../components/motion';
 import {
-  formatCurrency, formatDate, ORDER_STATUS_LABELS, STAGE_LABELS, STAGE_ORDER,
+  formatCurrency, formatDate, ORDER_STATUS_LABELS,
 } from '../../utils/formatters';
 
 const ORDER_TYPE_LABELS: Record<string, string> = { FZ: 'ФЗ', VZ: 'ВЗ' };
-
-/** Ключ шага так, как его отдаёт бэкенд: «PRODUCTION:CUTTING» либо «DESIGN» */
-const stepKey = (code: string, routingStage?: string | null) =>
-  routingStage ? `${code}:${routingStage}` : code;
 
 /** Пусто — это «нет данных», а не ноль. Ноль читается как факт и врёт */
 const orDash = (v: React.ReactNode, empty: boolean) =>
@@ -140,32 +136,37 @@ function LockedSection({ title, roleName }: { title: string; roleName: string })
 }
 
 /**
- * Где сейчас заказ: пять шагов от чертежа до покраски.
+ * Где сейчас заказ: что уже изготовлено (26.08.2026).
  *
- * Данные приходили в ответе API с самого начала и выбрасывались — из-за
- * этого карточка отвечала на вопрос «что это за заказ» и молчала о том,
- * «что с ним происходит», хотя за этим в неё идут мастер, снабженец
- * и плановик (решение 23.08.2026).
+ * Раньше здесь был таймлайн видов работ — резка / сборка / покраска. Цех
+ * их больше не отмечает: он показывает, что готово конкретное изделие,
+ * поэтому и карточка отвечает тем же — списком изделий, а не операций.
+ * Сырьё и ТМЦ в списке не участвуют: завод их не изготавливает.
  */
-function StagesSection({ stages }: { stages: any[] }) {
-  const byKey = new Map<string, any[]>();
+function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
+  const statusByLine = new Map<string, any>();
   for (const s of stages) {
-    const k = stepKey(s.stageCode, s.routingStage);
-    byKey.set(k, [...(byKey.get(k) ?? []), s]);
+    if (!s.orderLineId) continue;
+    const prev = statusByLine.get(s.orderLineId);
+    // DONE важнее IN_PROGRESS: одна закрывающая отметка решает
+    if (s.status === 'DONE' || !prev) statusByLine.set(s.orderLineId, s);
   }
 
-  const steps = STAGE_ORDER.map((key) => {
-    const rows = byKey.get(key) ?? [];
-    const status = rows.length === 0
-      ? 'NOT_STARTED'
-      : rows.every((r) => r.status === 'DONE')
-        ? 'DONE'
-        : rows.some((r) => r.status === 'DONE' || r.status === 'IN_PROGRESS')
-          ? 'IN_PROGRESS'
-          : 'NOT_STARTED';
-    const hours = rows.reduce((s, r) => s + Number(r.actualHours ?? 0), 0);
-    const done = rows.find((r) => r.completedAt)?.completedAt ?? null;
-    return { key, label: STAGE_LABELS[key] ?? key, status, hours, completedAt: done };
+  const products = lines.filter((l) => l.article && !l.article.isMaterialResale);
+  const resaleCount = lines.length - products.length;
+
+  const steps = products.map((l) => {
+    const st = statusByLine.get(l.id);
+    return {
+      id: l.id,
+      code: l.article?.articleCode ?? '—',
+      name: l.article?.name ?? l.description ?? '—',
+      qty: Number(l.qty ?? 0),
+      unit: l.unit ?? 'шт',
+      status: st?.status ?? 'NOT_STARTED',
+      hours: st?.actualHours != null ? Number(st.actualHours) : null,
+      completedAt: st?.completedAt ?? null,
+    };
   });
 
   const doneCount = steps.filter((s) => s.status === 'DONE').length;
@@ -173,40 +174,60 @@ function StagesSection({ stages }: { stages: any[] }) {
 
   return (
     <Section
-      title="Где сейчас"
+      title="Что изготовлено"
       id="card-stages"
-      extra={
+      extra={steps.length > 0 ? (
         <Group gap="xs">
           <Progress value={(doneCount / steps.length) * 100} w={80} size="sm" radius="xl"
             color={doneCount === steps.length ? 'teal' : 'brand'} />
           <Text size="xs" ff="monospace" c="dimmed">{doneCount}/{steps.length}</Text>
         </Group>
-      }
+      ) : undefined}
     >
-      <Timeline active={active === -1 ? steps.length : active} bulletSize={22} lineWidth={2} mt={4}>
-        {steps.map((s) => (
-          <Timeline.Item
-            key={s.key}
-            title={<Text size="sm" fw={s.status === 'IN_PROGRESS' ? 700 : 500}>{s.label}</Text>}
-            color={s.status === 'DONE' ? 'teal' : s.status === 'IN_PROGRESS' ? 'brand' : 'gray'}
-            bullet={
-              s.status === 'DONE' ? <IconCheck size={12} />
-                : s.status === 'IN_PROGRESS' ? <IconPlayerPlay size={12} />
-                  : <IconCircle size={10} />
-            }
-          >
-            <Group gap="sm">
-              <Text size="xs" c="dimmed">
-                {s.status === 'DONE' ? 'закрыт' : s.status === 'IN_PROGRESS' ? 'в работе' : 'не начат'}
-                {s.completedAt ? ` · ${formatDate(s.completedAt)}` : ''}
-              </Text>
-              {s.hours > 0 && (
-                <Text size="xs" c="dimmed" ff="monospace">{s.hours} ч факт</Text>
-              )}
-            </Group>
-          </Timeline.Item>
-        ))}
-      </Timeline>
+      {steps.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          Изготавливать нечего — в заказе только сырьё и ТМЦ
+          {resaleCount > 0 ? ` (${resaleCount} позиций)` : ''}
+        </Text>
+      ) : (
+        <>
+          <Timeline active={active === -1 ? steps.length : active} bulletSize={22} lineWidth={2} mt={4}>
+            {steps.map((s) => (
+              <Timeline.Item
+                key={s.id}
+                title={
+                  <Group gap={6} wrap="nowrap">
+                    <Text size="sm" ff="monospace" fw={700} c="brand.7">{s.code}</Text>
+                    <Text size="sm" fw={s.status === 'IN_PROGRESS' ? 700 : 500} lineClamp={1}>{s.name}</Text>
+                  </Group>
+                }
+                color={s.status === 'DONE' ? 'teal' : s.status === 'IN_PROGRESS' ? 'brand' : 'gray'}
+                bullet={
+                  s.status === 'DONE' ? <IconCheck size={12} />
+                    : s.status === 'IN_PROGRESS' ? <IconPlayerPlay size={12} />
+                      : <IconCircle size={10} />
+                }
+              >
+                <Group gap="sm">
+                  <Text size="xs" c="dimmed">
+                    {s.qty.toLocaleString('ru-RU')} {s.unit} ·{' '}
+                    {s.status === 'DONE' ? 'изготовлено' : s.status === 'IN_PROGRESS' ? 'в работе' : 'не начато'}
+                    {s.completedAt ? ` · ${formatDate(s.completedAt)}` : ''}
+                  </Text>
+                  {s.hours != null && s.hours > 0 && (
+                    <Text size="xs" c="dimmed" ff="monospace">{s.hours} ч факт</Text>
+                  )}
+                </Group>
+              </Timeline.Item>
+            ))}
+          </Timeline>
+          {resaleCount > 0 && (
+            <Text size="xs" c="dimmed" mt="sm">
+              Ещё {resaleCount} позиций — сырьё и ТМЦ, их не изготавливают
+            </Text>
+          )}
+        </>
+      )}
     </Section>
   );
 }
@@ -397,7 +418,7 @@ export function OrderDetail({
 
       {/* ▼ Где сейчас — этапы цеха */}
       {canProduction ? (
-        <StagesSection stages={stages} />
+        <StagesSection stages={stages} lines={lines} />
       ) : (
         <LockedSection title="Где сейчас" roleName={roleName} />
       )}

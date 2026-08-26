@@ -10,9 +10,11 @@ describe('Order State Machine Unit Tests', () => {
     currentStatus: OrderStatus.DRAFT,
     lines: [{ qty: 10, reservedQty: 10, articleCode: 'ART-001' }],
     customerBinIin: '123456789012',
+    // Цех отмечает готовность изделия, а не операции (26.08.2026):
+    // одна строка на позицию заказа, routingStage не заполняется
+    productLineIds: ['l1', 'l2', 'l3'],
     productionStages: [
-      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'in_progress' },
-      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'not_started' },
+      { stageCode: 'PRODUCTION', routingStage: null, orderLineId: 'l1', status: 'in_progress' },
     ],
     finishedGoodsShipped: true,
     balanceDue: 0,
@@ -52,14 +54,10 @@ describe('Order State Machine Unit Tests', () => {
     expect(audit.after.status).toBe(OrderStatus.IN_PRODUCTION);
   });
 
-  it('Happy Path: IN_PRODUCTION -> READY_TO_SHIP when all stages are done', () => {
-    const doneStages = [
-      { stageCode: 'DESIGN', routingStage: null, status: 'done' },
-      { stageCode: 'SUPPLY', routingStage: null, status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'done' },
-    ];
+  it('Happy Path: IN_PRODUCTION -> READY_TO_SHIP когда изготовлены все изделия', () => {
+    const doneStages = ['l1', 'l2', 'l3'].map((orderLineId) => ({
+      stageCode: 'PRODUCTION', routingStage: null, orderLineId, status: 'done',
+    }));
     const ctx = { ...baseContext, currentStatus: OrderStatus.IN_PRODUCTION, productionStages: doneStages };
     const audit = OrderStateMachine.transition(ctx, {
       targetStatus: OrderStatus.READY_TO_SHIP,
@@ -77,46 +75,44 @@ describe('Order State Machine Unit Tests', () => {
         userId: 'usr-3',
         userRole: 'shop_foreman',
       })
-    ).toThrow(/закрыто \d+ из 3 этапов/);
+    ).toThrow(/изготовлено \d+ из 3 изделий/);
   });
 
-  // Режим LINE: шаг закрыт, только когда отмечены ВСЕ позиции заказа.
-  // Иначе одна отмеченная позиция из трёх закрывала шаг целиком.
-  it('в режиме LINE одна отмеченная позиция не закрывает шаг', () => {
-    const allFiveButOneLine = [
-      { stageCode: 'DESIGN', routingStage: null, orderLineId: 'l1', status: 'done' },
-      { stageCode: 'SUPPLY', routingStage: null, orderLineId: 'l1', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', orderLineId: 'l1', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', orderLineId: 'l1', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', orderLineId: 'l1', status: 'done' },
+  // Готовность заказа считается по изделиям: одна изготовленная позиция
+  // из трёх не делает заказ готовым, сколько бы отметок на неё ни легло
+  it('одно изготовленное изделие из трёх не закрывает заказ', () => {
+    const oneLineDone = [
+      { stageCode: 'PRODUCTION', routingStage: null, orderLineId: 'l1', status: 'done' },
     ];
-    // Одна позиция из трёх — заказ не готов
-    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, allFiveButOneLine, 3)).toBeNull();
-    // Тот же набор при единственной позиции — готов
-    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, allFiveButOneLine, 1))
+    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, oneLineDone, ['l1', 'l2', 'l3'])).toBeNull();
+    // То же изделие при единственной позиции — заказ готов
+    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, oneLineDone, ['l1']))
       .toBe(OrderStatus.READY_TO_SHIP);
   });
 
+  // Заказ из одного сырья: изделий нет — готовым по цеху он не становится,
+  // иначе перепродажа болтов «изготавливалась» бы сама собой
+  it('заказ без изделий не уходит в «готов к отгрузке»', () => {
+    const stages = [{ stageCode: 'PRODUCTION', routingStage: null, orderLineId: 'l9', status: 'done' }];
+    expect(deriveStatusFromStages(OrderStatus.IN_PRODUCTION, stages, [])).toBeNull();
+  });
+
   it('вывод статуса не трогает отгруженный и закрытый заказ', () => {
-    const done = [
-      { stageCode: 'DESIGN', routingStage: null, status: 'done' },
-      { stageCode: 'SUPPLY', routingStage: null, status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'ASSEMBLY', status: 'done' },
-      { stageCode: 'PRODUCTION', routingStage: 'PAINTING', status: 'done' },
-    ];
-    expect(deriveStatusFromStages(OrderStatus.SHIPPED, done)).toBeNull();
-    expect(deriveStatusFromStages(OrderStatus.CLOSED, done)).toBeNull();
-    expect(deriveStatusFromStages(OrderStatus.NEW, done)).toBeNull();
+    const done = [{ stageCode: 'PRODUCTION', routingStage: null, orderLineId: 'l1', status: 'done' }];
+    expect(deriveStatusFromStages(OrderStatus.SHIPPED, done, ['l1'])).toBeNull();
+    expect(deriveStatusFromStages(OrderStatus.CLOSED, done, ['l1'])).toBeNull();
+    expect(deriveStatusFromStages(OrderStatus.NEW, done, ['l1'])).toBeNull();
   });
 
   // Строки этапов создаются лениво: раньше `every(done)` по одной отметке
-  // «резка готова» пропускал заказ вперёд, минуя сборку и покраску
-  it('одна отметка «готово» не считается «все этапы закрыты»', () => {
+  // пропускал заказ вперёд, минуя остальные изделия
+  it('одна отметка «изготовлено» не закрывает заказ', () => {
     const ctx = {
       ...baseContext,
       currentStatus: OrderStatus.IN_PRODUCTION,
-      productionStages: [{ stageCode: 'PRODUCTION', routingStage: 'CUTTING', status: 'done' }],
+      productionStages: [
+        { stageCode: 'PRODUCTION', routingStage: null, orderLineId: 'l1', status: 'done' },
+      ],
     };
     expect(() =>
       OrderStateMachine.transition(ctx, {
@@ -124,7 +120,7 @@ describe('Order State Machine Unit Tests', () => {
         userId: 'usr-3',
         userRole: 'shop_foreman',
       })
-    ).toThrow(/закрыто 1 из 3 этапов/);
+    ).toThrow(/изготовлено 1 из 3 изделий/);
   });
 
   it('Happy Path: READY_TO_SHIP -> SHIPPED', () => {

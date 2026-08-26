@@ -19,15 +19,15 @@ export const DERIVED_STATUSES: OrderStatus[] = [OrderStatus.IN_PRODUCTION, Order
 export function deriveStatusFromStages(
   current: OrderStatus,
   stages: Array<{ stageCode: string; routingStage?: string | null; orderLineId?: string | null; status: string }>,
-  /** В режиме LINE шаг закрыт, только когда отмечены ВСЕ позиции заказа */
-  expectedLines = 1,
+  /** Позиции-изделия заказа: заказ готов, когда изготовлены все они */
+  productLineIds: string[] = [],
 ): OrderStatus | null {
   const inCorridor = current === OrderStatus.CONFIRMED
     || current === OrderStatus.IN_PRODUCTION
     || current === OrderStatus.READY_TO_SHIP;
   if (!inCorridor) return null;
 
-  const { allDone, anyStarted } = stageProgress(stages, expectedLines);
+  const { allDone, anyStarted } = stageProgress(stages, productLineIds);
   const next = allDone
     ? OrderStatus.READY_TO_SHIP
     : anyStarted
@@ -44,7 +44,9 @@ export interface OrderStateContext {
   customerBinIin?: string | null;
   /// routingStage заполнен только у PRODUCTION: без него три передела
   /// неразличимы, и «все этапы готовы» считается по неполному списку
-  productionStages: { stageCode: string; routingStage?: string | null; status: string }[];
+  productionStages: { stageCode: string; routingStage?: string | null; orderLineId?: string | null; status: string }[];
+  /** Позиции-изделия заказа (без сырья и ТМЦ) — мера готовности по цеху */
+  productLineIds?: string[];
   finishedGoodsShipped: boolean;
   balanceDue: number;
   hasAcceptanceAct: boolean;
@@ -149,13 +151,13 @@ export class OrderStateMachine {
         if (targetStatus !== OrderStatus.READY_TO_SHIP) {
           throw new BusinessGuardError(`Invalid transition from IN_PRODUCTION to ${targetStatus}`, 'INVALID_TRANSITION');
         }
-        // Мерой служат все пять шагов, а не только отмеченные: строки этапов
-        // создаются лениво, и `every(done)` по ним пропускал заказ с одной
-        // отметкой «резка готова» вперёд, минуя сборку и покраску
-        const progress = stageProgress(context.productionStages);
+        // Мерой служит список изделий заказа, а не отметки: строки этапов
+        // создаются лениво, и `every(done)` по ним пропускал бы заказ
+        // с одной отметкой вперёд, минуя остальные изделия
+        const progress = stageProgress(context.productionStages, context.productLineIds ?? []);
         if (!progress.allDone) {
           throw new BusinessGuardError(
-            `Нельзя в «готов к отгрузке»: закрыто ${progress.doneCount} из ${progress.totalSteps} этапов`,
+            `Нельзя в «готов к отгрузке»: изготовлено ${progress.doneCount} из ${progress.totalSteps} изделий`,
             'UNFINISHED_PRODUCTION_STAGES',
           );
         }

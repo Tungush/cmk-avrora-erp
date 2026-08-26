@@ -22,3 +22,7 @@ npm-debug.log*
 
 # Prisma generated client (пересобирается локально из schema.prisma)
 prisma/generated/
+.vercel
+
+# Слепки данных для отката (локальные, в репозиторий не идут)
+backend/backups/

@@ -86,26 +86,13 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
 };
 
 /**
- * Этапы заказа = три вида работ цеха (26.08.2026, «Чертежи» и «Закуп»
- * убраны отовсюду — это не работа цеха, и они блокировали готовность).
- * Ключ — «PRODUCTION:CUTTING», как его отдаёт бэкенд.
+ * Виды работ остались только там, где считаются деньги: нормы,
+ * ставки часа и подряд (26.08.2026). Цех операции больше не отмечает —
+ * он показывает, что изготовлено конкретное изделие, поэтому списка
+ * этапов заказа (STAGE_ORDER / STAGE_SHORT) больше нет.
  */
-export const STAGE_LABELS: Record<string, string> = {
-  PRODUCTION: 'Производство',
-  'PRODUCTION:CUTTING': 'Резка',
-  'PRODUCTION:ASSEMBLY': 'Сборка / сварка / обшивка',
-  'PRODUCTION:PAINTING': 'Зачистка / покраска',
-};
-
-export const STAGE_ORDER = [
-  'PRODUCTION:CUTTING',
-  'PRODUCTION:ASSEMBLY',
-  'PRODUCTION:PAINTING',
-];
-
-/** Короткие метки для полосы этапов — два символа читаются на любой ширине */
-export const STAGE_SHORT: Record<string, string> = {
-  'PRODUCTION:CUTTING': 'РЗ',
-  'PRODUCTION:ASSEMBLY': 'СВ',
-  'PRODUCTION:PAINTING': 'ПК',
+export const ROUTING_STAGE_LABELS: Record<string, string> = {
+  CUTTING: 'Резка',
+  ASSEMBLY: 'Сборка / сварка / обшивка',
+  PAINTING: 'Зачистка / покраска',
 };

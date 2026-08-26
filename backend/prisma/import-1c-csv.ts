@@ -354,7 +354,7 @@ async function main() {
   const report = {
     customersCreated: 0, customersMatched: 0,
     ordersCreated: 0, ordersUpdated: 0,
-    linesCreated: 0, linesSkippedZeroQty: 0, linesUnresolvedCollision: 0,
+    linesCreated: 0, linesReplaced: 0, linesSkippedZeroQty: 0, linesUnresolvedCollision: 0,
     articlesCreated: [] as string[],
     materialResaleCreated: 0,
     docsCreated: 0, docsUpdated: 0,
@@ -497,6 +497,23 @@ async function main() {
     }
 
     console.log('\n===== ПОЗИЦИИ ЗАКАЗОВ КЛИЕНТА =====');
+    // Импорт обязан быть повторяемым. Раньше строки просто создавались:
+    // второй прогон по той же выгрузке удваивал каждую позицию заказа —
+    // 26.08.2026 в базе нашлось 3626 строк вместо 1812, то есть удвоенными
+    // оказались количества, суммы и себестоимость всех 381 заказов.
+    // Позиции заказа целиком принадлежат документу 1С, поэтому перед
+    // загрузкой они у затронутых заказов сносятся и создаются заново.
+    const touchedOrderIds = [...new Set(
+      clientLines
+        .map((l) => orderIdByHeader.get(clientLineToHeader.get(l) as any))
+        .filter(Boolean),
+    )] as string[];
+    if (touchedOrderIds.length > 0) {
+      const wiped = await prisma.orderLine.deleteMany({ where: { orderId: { in: touchedOrderIds } } });
+      report.linesReplaced = wiped.count;
+      console.log(`Сняты прежние позиции затронутых заказов: ${wiped.count}`);
+    }
+
     for (const l of clientLines) {
       const header = clientLineToHeader.get(l);
       if (!header) { report.linesUnresolvedCollision += 1; continue; }
@@ -807,7 +824,7 @@ async function main() {
       for (const names of mergedDuplicates) console.log(`  · ${names.join('  ==  ')}`);
     }
     console.log(`Заказы клиента: создано ${report.ordersCreated}, обновлено ${report.ordersUpdated}`);
-    console.log(`Позиции: ${report.linesCreated} (не разнесено из-за коллизии номера года: ${report.linesUnresolvedCollision})`);
+    console.log(`Позиции: ${report.linesCreated} (снято прежних: ${report.linesReplaced}, не разнесено из-за коллизии номера года: ${report.linesUnresolvedCollision})`);
     console.log(`Заказы поставщику (ДО): создано ${report.docsCreated}, обновлено ${report.docsUpdated}`);
     console.log(`Исторические партии закупа: ${report.batchesCreated}, в карантине: ${report.batchAnomalies}`);
     if (report.articlesCreated.length) {

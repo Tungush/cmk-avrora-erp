@@ -1,18 +1,20 @@
 /**
- * Этапы заказа = три вида работ цеха (решение 26.08.2026).
+ * Отметка производства: по ИЗДЕЛИЯМ, а не по видам работ (26.08.2026).
  *
- * Раньше шагов было пять: «Чертежи» и «Закуп» стояли перед производством
- * и входили в знаменатель готовности — цех физически не мог довести заказ
- * до «готов к отгрузке», не отметив чужую работу КБ и снабжения, а счётчик
- * «где стоит работа» всегда показывал «Чертежи». Пользователь: «не хочу,
- * чтобы пользователь тратил время на указание, что он конкретно делал —
- * мне надо, чтобы показал, сделал ли он изготовление на самом деле».
- * DESIGN/SUPPLY убраны отовсюду; enum в БД не тронут (данных по ним 0,
- * а гонять миграцию кириллических enum ради пустых значений незачем) —
- * эти коды просто больше не принимаются.
+ * Было пять шагов, потом три вида работ — но цеху и это лишнее: мастер
+ * должен показать, что конкретное изделие изготовлено, а не расписывать,
+ * какую операцию он делал (запрос пользователя: «уберём этапы работ,
+ * просто покажем, что сделано по конкретной готовой продукции»).
  *
- * Нижний уровень — тот же справочник RoutingStage, по которому считается
- * себестоимость: галочка мастера и калькуляция говорят на одном языке.
+ * Виды работ (CUTTING/ASSEMBLY/PAINTING) НЕ исчезли из системы — они
+ * остались там, где действительно нужны: нормы труда, ставка часа по
+ * каждому виду работ, подряд. Себестоимость от отметок цеха не зависит
+ * вообще (проверено: order-costing.service.ts не читает ProductionStage),
+ * поэтому убрать их из отметки безопасно.
+ *
+ * Сырьё и ТМЦ (Article.isMaterialResale) в производство не попадают:
+ * завод их не изготавливает, а перепродаёт. В активных заказах это
+ * 378 позиций из 1942 — пятая часть очереди цеха была мусором.
  */
 
 export type OrderStageCodeValue = 'PRODUCTION';
@@ -25,7 +27,11 @@ export interface StageStep {
   label: string;
 }
 
-/** Порядок прохождения заказа: три вида работ */
+/**
+ * Виды работ — справочник для НОРМ и СТАВОК, не для отметки цеха.
+ * Мастер их не выбирает; они нужны калькуляции (норма чел×часы на вид
+ * работ) и подряду (какую работу отдали на сторону).
+ */
 export const STAGE_STEPS: StageStep[] = [
   { code: 'PRODUCTION', routingStage: 'CUTTING', key: 'PRODUCTION:CUTTING', label: 'Резка' },
   { code: 'PRODUCTION', routingStage: 'ASSEMBLY', key: 'PRODUCTION:ASSEMBLY', label: 'Сборка / сварка / обшивка' },
@@ -41,76 +47,49 @@ export function stepKey(code: string, routingStage?: string | null): string {
 }
 
 /**
- * Этап всегда PRODUCTION с обязательным переделом. Старые коды DESIGN/SUPPLY
- * отклоняются: чертежи и закуп — не работа цеха (26.08.2026).
+ * Отметка изделия: этап всегда PRODUCTION, вид работ НЕ обязателен —
+ * мастер отмечает «изделие изготовлено» целиком. Вид работ принимается,
+ * если его всё же прислали (совместимость и возможные частичные отметки).
  */
 export function stageShapeError(code: string, routingStage?: string | null): string | null {
   if (!ORDER_STAGE_CODES.includes(code as OrderStageCodeValue)) {
     return `Неизвестный этап: ${code}. Допустимо: ${ORDER_STAGE_CODES.join(', ')}`;
   }
-  if (!routingStage) {
-    return `Нужен вид работ: ${ROUTING_STAGES.join(', ')}`;
-  }
-  if (!ROUTING_STAGES.includes(routingStage as RoutingStageValue)) {
+  if (routingStage && !ROUTING_STAGES.includes(routingStage as RoutingStageValue)) {
     return `Неизвестный вид работ: ${routingStage}. Допустимо: ${ROUTING_STAGES.join(', ')}`;
   }
   return null;
 }
 
 /**
- * Режим отметки по числу позиций (§2.2). Половина заказов — до трёх позиций,
- * там одна галочка на заказ идеальна; но 28 % содержат 11 и больше, и для них
- * «резка по заказу целиком» ничего не значит.
- */
-/** Значение по умолчанию, если CostingConfig недоступен */
-/**
- * Готовность заказа по этапам (решение 23.08.2026: статус выводится из
- * отметок, а не двигается отдельно).
+ * Готовность заказа = сколько его ИЗДЕЛИЙ изготовлено (26.08.2026).
  *
- * Считать по существующим строкам нельзя: они создаются лениво, только
- * когда мастер отметил шаг. Заказ с одной отметкой «резка готова» дал бы
- * `every(done) === true` — и уехал бы в «готов к отгрузке», хотя сборка
- * и покраска даже не начинались. Поэтому мерой служит полный список
- * из трёх видов работ, а не то, что успело попасть в базу.
+ * Мерой служит список изделий заказа, а не отметки в базе: строки этапов
+ * создаются лениво, и `every(done)` по ним пропускал бы заказ с одной
+ * отметкой вперёд, минуя остальные изделия. Сырьё и ТМЦ в список не
+ * входят — их не изготавливают.
  */
 export function stageProgress(
-  rows: Array<{ stageCode: string; routingStage?: string | null; orderLineId?: string | null; status: string }>,
-  /**
-   * Сколько позиций должно быть отмечено, чтобы шаг считался закрытым.
-   * В режиме ORDER это всегда 1 (одна запись на заказ), в режиме LINE —
-   * число позиций заказа. Без этого числа «все позиции готовы» неотличимо
-   * от «готова та единственная, которую успели отметить».
-   */
-  expectedLines = 1,
+  rows: Array<{ orderLineId?: string | null; status: string }>,
+  /** Позиции-изделия заказа (без сырья и ТМЦ). Пусто — считать нечего */
+  productLineIds: string[] = [],
 ): { allDone: boolean; anyStarted: boolean; doneCount: number; totalSteps: number } {
-  const byKey = new Map<string, Array<{ status: string; lineId: string | null }>>();
-  for (const r of rows) {
-    const key = stepKey(r.stageCode, r.routingStage);
-    byKey.set(key, [
-      ...(byKey.get(key) ?? []),
-      { status: r.status.toLowerCase(), lineId: r.orderLineId ?? null },
-    ]);
-  }
-
-  const needed = Math.max(1, expectedLines);
-  let doneCount = 0;
+  const doneLines = new Set<string>();
   let anyStarted = false;
-  for (const step of STAGE_STEPS) {
-    const entries = byKey.get(step.key) ?? [];
-    // Считаем РАЗНЫЕ позиции: пять отметок по одной позиции — это одна
-    // закрытая позиция, а не пять
-    const doneLines = new Set(
-      entries.filter((e) => e.status === 'done').map((e) => e.lineId ?? '∅'),
-    );
-    if (doneLines.size >= needed && entries.every((e) => e.status === 'done')) doneCount++;
-    if (entries.some((e) => e.status === 'done' || e.status === 'in_progress')) anyStarted = true;
+  for (const r of rows) {
+    const st = r.status.toLowerCase();
+    if (st === 'done' || st === 'in_progress') anyStarted = true;
+    if (st === 'done' && r.orderLineId) doneLines.add(r.orderLineId);
   }
 
+  const needed = productLineIds.length;
+  const doneCount = productLineIds.filter((id) => doneLines.has(id)).length;
   return {
-    allDone: doneCount === STAGE_STEPS.length,
+    // Заказ без изделий (только сырьё) готовым по цеху не становится
+    allDone: needed > 0 && doneCount === needed,
     anyStarted,
     doneCount,
-    totalSteps: STAGE_STEPS.length,
+    totalSteps: needed,
   };
 }
 

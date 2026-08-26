@@ -342,8 +342,13 @@ export class DashboardsController {
             select: {
               id: true,
               plannedShipmentDate: true,
-              orderLines: { select: { qty: true, articleId: true } },
-              productionStages: { select: { stageCode: true, routingStage: true, status: true } },
+              orderLines: {
+                select: {
+                  id: true, qty: true, articleId: true,
+                  article: { select: { isMaterialResale: true } },
+                },
+              },
+              productionStages: { select: { orderLineId: true, status: true } },
             },
           }),
           this.prisma.workCenter.findMany({ select: { capacityPerDay: true } }),
@@ -362,7 +367,6 @@ export class DashboardsController {
         for (const n of norms) {
           normByArticleStage.set(`${n.articleId}:${n.stage}`, Number(n.workers) * Number(n.hoursPerUnit));
         }
-        const articlesWithNorms = new Set(norms.map((n) => n.articleId));
 
         const byStage: Record<string, number> = {};
         for (const stage of ROUTING_STAGES) byStage[stage] = 0;
@@ -370,21 +374,30 @@ export class DashboardsController {
         let linesWithoutNorm = 0;
         let linesTotal = 0;
 
+        // Цех отмечает готовность изделия целиком, а не по переделам
+        // (26.08.2026), поэтому из остатка вычитаются изготовленные позиции,
+        // а не закрытые операции. Сырьё и ТМЦ мощность не занимают вовсе.
         for (const o of orders) {
-          const doneStages = new Set(
-            o.productionStages.filter((s) => s.status === 'DONE').map((s) => s.routingStage),
+          const doneLines = new Set(
+            o.productionStages
+              .filter((s) => s.status === 'DONE' && s.orderLineId)
+              .map((s) => s.orderLineId as string),
           );
-          for (const stage of ROUTING_STAGES) {
-            if (doneStages.has(stage)) continue; // передел уже закрыт — часов больше не требует
-            for (const line of o.orderLines) {
-              linesTotal += 1;
-              if (!line.articleId) continue;
+          for (const line of o.orderLines) {
+            if (line.article?.isMaterialResale) continue;
+            if (doneLines.has(line.id)) continue; // изделие изготовлено
+            linesTotal += 1;
+            if (!line.articleId) { linesWithoutNorm += 1; continue; }
+            let lineHours = 0;
+            for (const stage of ROUTING_STAGES) {
               const perUnit = normByArticleStage.get(`${line.articleId}:${stage}`);
-              if (perUnit == null) { linesWithoutNorm += 1; continue; }
+              if (perUnit == null) continue;
               const hours = perUnit * Number(line.qty);
-              requiredHours += hours;
+              lineHours += hours;
               byStage[stage] += hours;
             }
+            if (lineHours === 0) { linesWithoutNorm += 1; continue; }
+            requiredHours += lineHours;
           }
         }
 

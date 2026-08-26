@@ -42,8 +42,11 @@ describe('Проверка формы этапа', () => {
     expect(stageShapeError('PRODUCTION', 'ASSEMBLY')).toBeNull();
   });
 
-  it('производство без передела отклоняется', () => {
-    expect(stageShapeError('PRODUCTION', null)).toMatch(/Нужен вид работ/);
+  // Цех отмечает готовность изделия, а не операцию (26.08.2026): отметка
+  // приходит как PRODUCTION без передела — и это нормальная форма
+  it('производство без передела — валидно: так отмечает цех', () => {
+    expect(stageShapeError('PRODUCTION', null)).toBeNull();
+    expect(stageShapeError('PRODUCTION', undefined)).toBeNull();
   });
 
   it('«Снабжение / Резка» отклоняется — SUPPLY больше не существует', () => {

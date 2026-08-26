@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Card, Stack, Group, Text, Badge, Skeleton, Box, TextInput, Button, Drawer,
-  NumberInput, Select, Switch, Divider, Progress, ThemeIcon, Alert, ActionIcon,
+  Card, Stack, Group, Text, Badge, Skeleton, TextInput, Button, Drawer,
+  NumberInput, Select, Switch, Divider, ThemeIcon, ActionIcon, Progress, Box,
 } from '@mantine/core';
 import {
   IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots,
@@ -12,78 +12,57 @@ import api from '../../api/client';
 import { ordersApi } from '../../api/orders';
 import { useAuthStore } from '../../store/auth';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { Stagger, Collapse } from '../../components/motion';
+import { Stagger } from '../../components/motion';
 import { formatDate } from '../../utils/formatters';
 
-interface ContractorWorkBrief {
+interface ProductRow {
   id: string;
-  contractorId: string;
-  contractorName: string;
-  share: number;
-  rateType: string;
-  rate: number;
-  isAccepted: boolean;
-  actualQty: number | null;
-}
-interface StageState {
-  code: string;
-  routingStage: string | null;
-  key: string;
-  label: string;
+  lineNo: number;
+  isDuplicateCode: boolean;
+  articleCode: string;
+  articleName: string;
+  qty: number;
+  unit: string;
   status: string;
-  lineCount: number;
-  normHours: number | null;
+  normHours: number;
   actualHours: number | null;
-  contractorWorks: ContractorWorkBrief[];
-  staffShare: number;
+  contractors: Array<{ name: string; sharePct: number; isAccepted: boolean }>;
 }
-interface ShopFloorRow {
+interface ShopFloorOrder {
   id: string;
   orderNumber: string;
   customerName: string | null;
+  status: string;
   plannedShipmentDate: string | null;
   overdueDays: number;
-  qty: number;
-  articles: string[];
-  stages: StageState[];
+  products: ProductRow[];
   doneCount: number;
-  totalStages: number;
-  currentStage: string | null;
-  stageTrackingMode: 'ORDER' | 'LINE';
+  totalProducts: number;
+  resaleCount: number;
 }
 interface ShopFloorResponse {
-  orders: ShopFloorRow[];
-  byStage: Array<{ key: string; code: string; routingStage: string | null; label: string; count: number }>;
+  orders: ShopFloorOrder[];
   total: number;
+  totalProducts: number;
+  doneProducts: number;
+  waitingProducts: number;
 }
-
-/** Передел мастера запоминается: это контекст смены, а не фильтр */
-const MY_STAGE_KEY = 'cmk.shopfloor.myStage';
-
-const MY_STAGES = [
-  { key: 'PRODUCTION:CUTTING', label: 'Резка' },
-  { key: 'PRODUCTION:ASSEMBLY', label: 'Сборка / сварка' },
-  { key: 'PRODUCTION:PAINTING', label: 'Покраска' },
-];
 
 const RATE_TYPE_LABELS: Record<string, string> = {
   PER_HOUR: 'за час', PER_UNIT: 'за штуку', PER_KG: 'за кг',
   PER_TON: 'за тонну', FIXED: 'фиксированная',
 };
-const RATE_UNITS: Record<string, string> = {
-  PER_HOUR: 'ч', PER_UNIT: 'шт', PER_KG: 'кг', PER_TON: 'т', FIXED: '—',
-};
 
 /**
- * Лист «Готово» (решение 23.08.2026). Обычный случай — одно касание:
- * часы не спрашиваются, потому что «не ввёл» означает «как в спецификации»,
- * а не пропуск данных. Оба блока ниже — необязательные отклонения.
+ * Отклонения по изделию — часы по факту и «делал не наш цех» (26.08.2026).
+ * За «⋯», а не на главном пути: обычный случай — один тап «Изготовлено»,
+ * а «не ввёл часы» означает «как по норме», а не пропуск данных.
  */
-function DoneSheet({
-  order, stage, opened, onClose,
+function DetailsSheet({
+  order, product, opened, onClose,
 }: {
-  order: ShopFloorRow | null;
-  stage: StageState | null;
+  order: ShopFloorOrder | null;
+  product: ProductRow | null;
   opened: boolean;
   onClose: () => void;
 }) {
@@ -91,11 +70,9 @@ function DoneSheet({
   const [hours, setHours] = useState<number | string>('');
   const [outsourced, setOutsourced] = useState(false);
   const [contractorId, setContractorId] = useState<string | null>(null);
-  const [share, setShare] = useState(100);
   const [rate, setRate] = useState<number | string>('');
-  const [rateType, setRateType] = useState<string>('PER_HOUR');
-  const [atOurShop, setAtOurShop] = useState(true);
-  const [volume, setVolume] = useState<number | string>('');
+  const [rateType, setRateType] = useState<string>('PER_UNIT');
+  const [atOurShop, setAtOurShop] = useState(false);
 
   const { data: contractors } = useQuery({
     queryKey: ['contractors'],
@@ -103,78 +80,55 @@ function DoneSheet({
     enabled: opened,
   });
 
-  // Сброс при каждом открытии: лист не должен помнить прошлый заказ
-  useEffect(() => {
-    if (!opened) return;
-    setHours('');
-    setOutsourced(false);
-    setContractorId(null);
-    setShare(100);
-    setVolume('');
-  }, [opened, order?.id, stage?.key]);
-
-  // Ставка и место работ подставляются из карточки подрядчика
-  useEffect(() => {
-    const c = contractors?.find((x) => x.id === contractorId);
-    if (!c) return;
-    setRate(Number(c.defaultRate) || '');
-    setRateType(c.defaultRateType);
-    setAtOurShop(c.defaultWorkLocation === 'OUR_SHOP');
-  }, [contractorId, contractors]);
-
   const save = useMutation({
     mutationFn: async () => {
-      if (!order || !stage) return;
-      // Подряд заводится до отметки: иначе готовый этап на миг окажется
-      // полностью штатным и себестоимость дрогнет
-      if (outsourced && stage.routingStage) {
-        // Молча пропустить подряд нельзя: мастер увидел бы зелёное «Готово»
+      if (!order || !product) return null;
+      if (outsourced) {
+        // Молча пропустить подряд нельзя: мастер увидел бы зелёное «Изготовлено»
         // и был уверен, что работа записана на подрядчика
-        if (!contractorId) {
-          throw new Error('Выберите подрядчика или выключите «Делал не наш цех»');
-        }
-        if (!(Number(rate) > 0)) {
-          throw new Error('Укажите ставку подрядчика — иначе работа встанет в 0 ₸');
-        }
-        await ordersApi.assignContractor(order.id, stage.routingStage, {
+        if (!contractorId) throw new Error('Выберите подрядчика или выключите «Делал не наш цех»');
+        if (!(Number(rate) > 0)) throw new Error('Укажите ставку подрядчика — иначе работа встанет в 0 ₸');
+        // Цех больше не выбирает операцию, а деньгам подрядчика нужен адрес
+        // в расчёте — пишем на сборку, самый ёмкий вид работ
+        await ordersApi.assignContractor(order.id, 'ASSEMBLY', {
           contractorId,
-          share: share / 100,
-          rateType,
+          share: 1,
           rate: Number(rate),
+          rateType,
           workLocation: atOurShop ? 'OUR_SHOP' : 'CONTRACTOR_SITE',
-          ...(Number(volume) > 0 && rateType !== 'PER_HOUR' && atOurShop
-            ? { plannedHours: Number(volume) }
+          ...(atOurShop && rateType !== 'PER_HOUR' && product.normHours > 0
+            ? { plannedHours: product.normHours }
             : {}),
         });
       }
-      await ordersApi.updateStage(order.id, stage.code, {
+      const res = await ordersApi.updateStage(order.id, 'PRODUCTION', {
         status: 'done',
-        routingStage: stage.routingStage,
+        orderLineId: product.id,
         ...(Number(hours) > 0 ? { actualHours: Number(hours) } : {}),
       });
+      return res.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['shop-floor'] });
       notifications.show({
-        title: 'Готово',
-        message: `${stage?.label} по заказу ${order?.orderNumber} закрыт`,
+        title: 'Изготовлено',
+        message: product?.articleName ?? '',
         color: 'success',
         icon: <IconCheck size={16} />,
       });
       onClose();
+      setHours(''); setOutsourced(false); setContractorId(null); setRate('');
     },
     onError: (e: any) => notifications.show({
       title: 'Не сохранено',
-      message: e?.response?.data?.error?.message ?? e?.response?.data?.message ?? e?.message ?? 'Ошибка',
+      message: e?.response?.data?.error?.message ?? e?.message ?? 'Ошибка',
       color: 'danger',
       icon: <IconAlertTriangle size={16} />,
     }),
   });
 
-  if (!order || !stage) return null;
-  const normText = stage.normHours != null && stage.normHours > 0
-    ? `${stage.normHours} ч по норме`
-    : 'нормы не заведены';
+  if (!order || !product) return null;
+  const normText = product.normHours > 0 ? `${product.normHours} ч по норме` : 'нормы не заведены';
 
   return (
     <Drawer
@@ -182,10 +136,14 @@ function DoneSheet({
       onClose={onClose}
       position="bottom"
       size="auto"
-      title={<Text fw={700}>{stage.label} · {order.orderNumber}</Text>}
       padding="md"
+      title={<Text fw={700}>{product.articleName}</Text>}
     >
       <Stack gap="md" pb="md">
+        <Text size="sm" c="dimmed">
+          {order.orderNumber} · {product.articleCode} · {product.qty.toLocaleString('ru-RU')} {product.unit}
+        </Text>
+
         <Button
           size="xl"
           leftSection={<IconCheck size={22} />}
@@ -193,7 +151,7 @@ function DoneSheet({
           onClick={() => save.mutate()}
           fullWidth
         >
-          Готово
+          Изготовлено
         </Button>
         <Text size="xs" c="dimmed" ta="center">
           Часы можно не вводить — тогда считается по спецификации ({normText})
@@ -204,7 +162,7 @@ function DoneSheet({
         <NumberInput
           label="Часов по факту"
           description={normText}
-          placeholder={stage.normHours != null && stage.normHours > 0 ? String(stage.normHours) : 'сколько вышло'}
+          placeholder={product.normHours > 0 ? String(product.normHours) : 'сколько вышло'}
           value={hours}
           onChange={setHours}
           min={0}
@@ -212,89 +170,51 @@ function DoneSheet({
           size="md"
         />
 
-        {stage.routingStage && (
-          <>
-            <Switch
-              size="md"
-              label="Делал не наш цех"
-              description="подряд возьмёт свою долю, остальное останется штату"
-              checked={outsourced}
-              onChange={(e) => setOutsourced(e.currentTarget.checked)}
-            />
+        <Switch
+          size="md"
+          label="Делал не наш цех"
+          description="подряд возьмёт работу на себя, штатные часы уменьшатся"
+          checked={outsourced}
+          onChange={(e) => setOutsourced(e.currentTarget.checked)}
+        />
 
-            {outsourced && (
-              <Card withBorder radius="md" padding="sm" bg="var(--mantine-color-default-hover)">
-                <Stack gap="sm">
-                  <Select
-                    label="Подрядчик"
-                    placeholder="выберите"
-                    data={(contractors ?? []).map((c) => ({ value: c.id, label: c.name }))}
-                    value={contractorId}
-                    onChange={setContractorId}
-                    size="md"
-                    searchable
-                  />
-                  <Group grow>
-                    <NumberInput
-                      label="Ставка"
-                      value={rate}
-                      onChange={setRate}
-                      min={0}
-                      size="md"
-                      suffix={` ₸ ${RATE_TYPE_LABELS[rateType] ?? ''}`}
-                    />
-                    <Select
-                      label="Тип ставки"
-                      data={Object.entries(RATE_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-                      value={rateType}
-                      onChange={(v) => setRateType(v ?? 'PER_HOUR')}
-                      size="md"
-                    />
-                  </Group>
-
-                  <Box>
-                    <Text size="sm" fw={500} mb={4}>Сколько работы взял подрядчик</Text>
-                    <Group gap="xs">
-                      {[25, 50, 75, 100].map((p) => (
-                        <Button
-                          key={p}
-                          variant={share === p ? 'filled' : 'default'}
-                          size="sm"
-                          onClick={() => setShare(p)}
-                        >
-                          {p === 100 ? 'весь' : `${p} %`}
-                        </Button>
-                      ))}
-                    </Group>
-                    {share < 100 && (
-                      <Text size="xs" c="dimmed" mt={4}>
-                        Остальные {100 - share} % — штат по норме, вводить не нужно
-                      </Text>
-                    )}
-                  </Box>
-
-                  <Switch
-                    label="Работали у нас в цеху"
-                    description={atOurShop ? 'часы займут мощность участка' : 'на своей площадке — мощность не занимают'}
-                    checked={atOurShop}
-                    onChange={(e) => setAtOurShop(e.currentTarget.checked)}
-                  />
-
-                  {atOurShop && rateType !== 'PER_HOUR' && (
-                    <NumberInput
-                      label="Оценка часов"
-                      description="сдельная ставка часов не содержит, а участок они занимают"
-                      value={volume}
-                      onChange={setVolume}
-                      min={0}
-                      size="md"
-                      suffix=" ч"
-                    />
-                  )}
-                </Stack>
-              </Card>
-            )}
-          </>
+        {outsourced && (
+          <Card withBorder radius="md" padding="sm" bg="var(--mantine-color-default-hover)">
+            <Stack gap="sm">
+              <Select
+                label="Подрядчик"
+                placeholder="выберите"
+                data={(contractors ?? []).map((c: any) => ({ value: c.id, label: c.name }))}
+                value={contractorId}
+                onChange={setContractorId}
+                size="md"
+                searchable
+              />
+              <Group grow>
+                <NumberInput
+                  label="Ставка"
+                  value={rate}
+                  onChange={setRate}
+                  min={0}
+                  size="md"
+                  suffix={` ₸ ${RATE_TYPE_LABELS[rateType] ?? ''}`}
+                />
+                <Select
+                  label="Тип ставки"
+                  data={Object.entries(RATE_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
+                  value={rateType}
+                  onChange={(v) => setRateType(v ?? 'PER_UNIT')}
+                  size="md"
+                />
+              </Group>
+              <Switch
+                label="Работали у нас в цеху"
+                description={atOurShop ? 'часы займут мощность участка' : 'на своей площадке — мощность не занимают'}
+                checked={atOurShop}
+                onChange={(e) => setAtOurShop(e.currentTarget.checked)}
+              />
+            </Stack>
+          </Card>
         )}
       </Stack>
     </Drawer>
@@ -302,10 +222,9 @@ function DoneSheet({
 }
 
 /**
- * Обеспеченность заказа сырьём — грузится лениво при раскрытии карточки
- * (26.08.2026). Считается по живым партиям минус чужие резервы; если
- * не хватает — кнопка кладёт дефицит в очередь заявок на закуп, откуда
- * снабженец отправляет накопленное в Б24 одной сделкой.
+ * Обеспеченность заказа сырьём (26.08.2026). Считается по живым партиям
+ * минус чужие резервы; если не хватает — кнопка кладёт дефицит в очередь
+ * заявок, откуда снабженец отправляет накопленное в Б24 одной сделкой.
  */
 function MaterialAvailability({ orderId }: { orderId: string }) {
   const qc = useQueryClient();
@@ -329,19 +248,19 @@ function MaterialAvailability({ orderId }: { orderId: string }) {
     }),
   });
 
-  if (isLoading || !data) return <Skeleton height={30} radius="sm" />;
-  if (data.checkedMaterials === 0) {
-    return <Text size="xs" c="dimmed">Состав изделий не заведён — обеспеченность не посчитать</Text>;
+  if (isLoading) return <Skeleton height={22} width={180} radius="xl" />;
+  if (!data || data.checkedMaterials === 0) {
+    return <Text size="xs" c="dimmed">состав изделий не заведён</Text>;
   }
   if (data.ok) {
     return (
       <Badge color="teal" variant="light" radius="xl" leftSection={<IconCheck size={11} />}>
-        сырья хватает ({data.checkedMaterials} матер.)
+        сырья хватает
       </Badge>
     );
   }
   return (
-    <Group gap="xs" wrap="wrap">
+    <Group gap="xs" wrap="nowrap">
       <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={11} />}>
         не хватает {data.shortages.length} позиций
       </Badge>
@@ -350,102 +269,65 @@ function MaterialAvailability({ orderId }: { orderId: string }) {
         variant="light"
         color="orange"
         loading={toQueue.isPending}
-        onClick={(e) => { e.stopPropagation(); toQueue.mutate(); }}
+        onClick={() => toQueue.mutate()}
       >
         В заявку на закуп
       </Button>
-      <Text size="xs" c="dimmed" w="100%">
-        {data.shortages.slice(0, 4).map((sh: any) =>
-          `${sh.materialCode} — ${sh.shortage} ${sh.unit}`).join(' · ')}
-        {data.shortages.length > 4 ? ` · ещё ${data.shortages.length - 4}` : ''}
-      </Text>
     </Group>
   );
 }
 
 /**
- * Цех: заказы, ждущие моей работы (упрощено 26.08.2026).
+ * Цех: список изделий, которые надо изготовить (26.08.2026).
  *
- * Мастер один раз выбирает свой вид работ — дальше видит колонку карточек
- * с кнопкой «Готово» прямо на каждой. Нормальный путь — ОДИН тап: пользователь
- * показывает, что изготовление сделано, и всё. Часы не спрашиваются («не
- * ввёл» = «по норме»); часы по факту и подряд — за кнопкой «⋯». Кнопки
- * «Начал» больше нет: заказ сам встаёт «в работу» после первого закрытого
- * вида работ, отдельного действия это не стоит.
+ * Видов работ здесь больше нет — мастер не выбирает «свои работы» и не
+ * закрывает операции, он показывает, что конкретное изделие сделано.
+ * Сырьё и ТМЦ в очередь не попадают вовсе: завод их не изготавливает,
+ * а перепродаёт — это была пятая часть прежнего списка (378 строк из 1942).
  */
 export function ShopFloor() {
   const qc = useQueryClient();
   const hasRole = useAuthStore((s) => s.hasRole);
   const canEdit = hasRole(['shop_foreman', 'planner', 'admin']);
 
-  const [myStage, setMyStage] = useState<string | null>(
-    () => localStorage.getItem(MY_STAGE_KEY),
-  );
   const [search, setSearch] = useState('');
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [sheet, setSheet] = useState<{ order: ShopFloorRow; stage: StageState } | null>(null);
-  // Ошибочное «Готово» надо уметь снять: без этого карточка исчезает
+  // Ошибочное «Изготовлено» надо уметь снять: без этого строка исчезает
   // из очереди навсегда и исправить отметку неоткуда
   const [showDone, setShowDone] = useState(false);
-
-  useEffect(() => {
-    if (myStage) localStorage.setItem(MY_STAGE_KEY, myStage);
-    else localStorage.removeItem(MY_STAGE_KEY);
-  }, [myStage]);
+  const [sheet, setSheet] = useState<{ order: ShopFloorOrder; product: ProductRow } | null>(null);
 
   const { data, isLoading } = useQuery({
-    queryKey: ['shop-floor'],
-    queryFn: () => api.get<ShopFloorResponse>('/production-plan/shop-floor').then((r) => r.data),
+    queryKey: ['shop-floor', search],
+    queryFn: () => api.get<ShopFloorResponse>('/production-plan/shop-floor', {
+      params: search ? { search } : undefined,
+    }).then((r) => r.data),
     refetchInterval: 60_000,
   });
 
-  // «Снять готовность» — единственный путь исправить ошибочное «Готово»
-  const undo = useMutation({
-    mutationFn: (input: { orderId: string; stage: StageState }) =>
-      ordersApi.updateStage(input.orderId, input.stage.code, {
-        status: 'in_progress',
-        routingStage: input.stage.routingStage,
-      }).then((r) => r.data),
-    onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['shop-floor'] });
-      notifications.show({
-        title: 'Готовность снята',
-        message: `${v.stage.label} — снова в работе`,
-        color: 'warning',
-        icon: <IconArrowBackUp size={16} />,
-      });
-    },
-    onError: (e: any) => notifications.show({
-      title: 'Ошибка',
-      message: e?.response?.data?.error?.message ?? 'Не удалось отметить',
-      color: 'danger',
-    }),
-  });
-
-  // Главное действие цеха: один тап — «изготовлено». Когда закрыт последний
-  // вид работ, бэкенд сам переводит заказ в «готов к отгрузке» и ставит
-  // в очередь сигнал 1С на оформление «Производства без заказа»
-  const done = useMutation({
-    mutationFn: (input: { orderId: string; stage: StageState }) =>
-      ordersApi.updateStage(input.orderId, input.stage.code, {
-        status: 'done',
-        routingStage: input.stage.routingStage,
+  // Единственное действие цеха: изделие сделано / отметка снята. Когда
+  // готовы все изделия заказа, бэкенд сам переводит его в «готов к отгрузке»
+  // и ставит в очередь сигнал 1С на «Производство без заказа»
+  const mark = useMutation({
+    mutationFn: (v: { orderId: string; productId: string; done: boolean }) =>
+      ordersApi.updateStage(v.orderId, 'PRODUCTION', {
+        status: v.done ? 'done' : 'in_progress',
+        orderLineId: v.productId,
       }).then((r) => r.data),
     onSuccess: (res: any, v) => {
       qc.invalidateQueries({ queryKey: ['shop-floor'] });
       if (res?.orderStatus === 'READY_TO_SHIP' && res?.orderStatusChanged) {
         notifications.show({
-          title: 'Заказ изготовлен',
-          message: `${v.orderId ? '' : ''}Все работы закрыты — заказ готов к отгрузке, сигнал в 1С поставлен в очередь`,
+          title: 'Заказ изготовлен полностью',
+          message: 'Все изделия готовы — заказ к отгрузке, сигнал в 1С поставлен в очередь',
           color: 'success',
           icon: <IconCheck size={16} />,
         });
       } else {
         notifications.show({
-          title: 'Готово',
-          message: v.stage.label,
-          color: 'success',
-          icon: <IconCheck size={16} />,
+          title: v.done ? 'Изготовлено' : 'Отметка снята',
+          message: '',
+          color: v.done ? 'success' : 'warning',
+          icon: v.done ? <IconCheck size={16} /> : <IconArrowBackUp size={16} />,
         });
       }
     },
@@ -459,215 +341,173 @@ export function ShopFloor() {
   if (isLoading || !data) {
     return (
       <Stack gap="md">
-        <Skeleton height={60} radius="md" />
-        {[...Array(4)].map((_, i) => <Skeleton key={i} height={96} radius="md" />)}
+        <Skeleton height={54} radius="md" />
+        {[...Array(4)].map((_, i) => <Skeleton key={i} height={140} radius="md" />)}
       </Stack>
     );
   }
 
-  // Мой передел выбран — показываю только заказы, где он ещё не закрыт
-  const stageOf = (o: ShopFloorRow) => o.stages.find((s) => s.key === myStage) ?? null;
-  const byMyStage = myStage
-    ? data.orders.filter((o) => {
-        const s = stageOf(o);
-        return s && (showDone || s.status !== 'DONE');
-      })
-    : data.orders;
-
-  const rows = search
-    ? byMyStage.filter((o) =>
-        o.orderNumber.toLowerCase().includes(search.toLowerCase()) ||
-        (o.customerName ?? '').toLowerCase().includes(search.toLowerCase()))
-    : byMyStage;
+  const orders = data.orders
+    .map((o) => ({
+      ...o,
+      products: showDone ? o.products : o.products.filter((p) => p.status !== 'DONE'),
+    }))
+    .filter((o) => o.products.length > 0);
 
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
-      {/* Контекст смены: свой передел выбирается один раз и запоминается */}
-      <Card withBorder radius="md" padding="sm">
-        <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb="xs">Мои работы</Text>
-        <Group gap="xs" wrap="wrap">
-          {MY_STAGES.map((s) => {
-            const count = data.byStage.find((b) => b.key === s.key)?.count ?? 0;
-            const active = myStage === s.key;
-            return (
-              <Button
-                key={s.key}
-                variant={active ? 'filled' : 'default'}
-                size="sm"
-                onClick={() => setMyStage(active ? null : s.key)}
-                rightSection={count > 0
-                  ? <Badge size="sm" circle variant={active ? 'white' : 'light'}>{count}</Badge>
-                  : undefined}
-              >
-                {s.label}
-              </Button>
-            );
-          })}
-          {myStage && (
-            <>
-              <Button
-                variant={showDone ? 'light' : 'subtle'}
-                size="sm"
-                color="gray"
-                onClick={() => setShowDone((v) => !v)}
-              >
-                {showDone ? 'Скрыть закрытые' : 'Показать закрытые'}
-              </Button>
-              <Button variant="subtle" size="sm" color="gray" onClick={() => setMyStage(null)}>
-                Показать все
-              </Button>
-            </>
-          )}
-        </Group>
-      </Card>
-
       <Group justify="space-between" wrap="wrap" gap="sm">
         <TextInput
-          placeholder="№ заказа или заказчик..."
+          placeholder="Изделие, № заказа или заказчик..."
           leftSection={<IconSearch size={15} />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          w={280}
+          w={320}
           size="sm"
         />
-        <Text size="sm" c="dimmed">
-          {myStage ? 'Ждут моей работы: ' : 'В работе: '}
-          <Text span fw={700} ff="monospace">{rows.length}</Text>
-        </Text>
+        <Group gap="sm">
+          <Button
+            variant={showDone ? 'light' : 'subtle'}
+            size="sm"
+            color="gray"
+            onClick={() => setShowDone((v) => !v)}
+          >
+            {showDone ? 'Скрыть изготовленные' : 'Показать изготовленные'}
+          </Button>
+          <Text size="sm" c="dimmed">
+            Осталось изготовить:{' '}
+            <Text span fw={700} ff="monospace">{data.waitingProducts.toLocaleString('ru-RU')}</Text>
+            {' '}из {data.totalProducts.toLocaleString('ru-RU')}
+          </Text>
+        </Group>
       </Group>
 
-      {rows.length === 0 ? (
+      {orders.length === 0 ? (
         <Card withBorder radius="md" padding="xl">
           <Stack align="center" gap="sm" py="lg">
             <ThemeIcon size={48} radius="xl" variant="light" color="teal">
               <IconCheck size={26} />
             </ThemeIcon>
-            <Text fw={700}>{myStage ? 'По моим работам всё закрыто' : 'Заказов в работе нет'}</Text>
+            <Text fw={700}>{search ? 'Ничего не найдено' : 'Всё изготовлено'}</Text>
           </Stack>
         </Card>
-      ) : <Stagger>{rows.map((o) => {
-        const mine = stageOf(o);
-        const expanded = expandedId === o.id;
-        const progress = o.totalStages > 0 ? (o.doneCount / o.totalStages) * 100 : 0;
-
-        return (
-          <Card
-            key={o.id}
-            withBorder
-            radius="md"
-            padding="md"
-            onClick={() => setExpandedId(expanded ? null : o.id)}
-            style={{ cursor: 'pointer' }}
-          >
-            <Group justify="space-between" wrap="nowrap" mb={6}>
-              <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                <OrderRef id={o.id} number={o.orderNumber} size="lg" focus="stages" />
-                {mine && mine.status === 'IN_PROGRESS' && (
-                  <Badge color="brand" variant="light" radius="xl">в работе</Badge>
-                )}
-                {mine && mine.contractorWorks.length > 0 && (
-                  <Badge color="orange" variant="light" radius="xl" leftSection={<IconTruck size={11} />}>
-                    подряд
-                  </Badge>
-                )}
-              </Group>
-              <Group gap={6} wrap="nowrap" onClick={(e) => e.stopPropagation()}>
-                <Text size="sm" ff="monospace" c="dimmed">{formatDate(o.plannedShipmentDate)}</Text>
-                {o.overdueDays > 0 && (
-                  <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={10} />}>
-                    {o.overdueDays} дн
-                  </Badge>
-                )}
-                {/* Главный путь — один тап прямо на карточке. Детали (часы,
-                    подряд) — за «⋯», обычному случаю они не нужны */}
-                {canEdit && mine && o.stageTrackingMode !== 'LINE' && mine.status !== 'DONE' && (
-                  <>
-                    <Button
-                      size="sm"
-                      leftSection={<IconCheck size={16} />}
-                      loading={done.isPending && done.variables?.orderId === o.id}
-                      onClick={() => done.mutate({ orderId: o.id, stage: mine })}
-                    >
-                      Готово
-                    </Button>
-                    <ActionIcon
-                      variant="default"
-                      size="lg"
-                      aria-label="Часы и подряд"
-                      onClick={() => setSheet({ order: o, stage: mine })}
-                    >
-                      <IconDots size={16} />
-                    </ActionIcon>
-                  </>
-                )}
-                {canEdit && mine && mine.status === 'DONE' && (
-                  <Badge color="teal" variant="light" radius="xl" leftSection={<IconCheck size={11} />}>
-                    готово
-                  </Badge>
-                )}
-              </Group>
+      ) : <Stagger>{orders.map((o) => (
+        <Card key={o.id} withBorder radius="md" padding="md">
+          <Group justify="space-between" wrap="nowrap" mb={6}>
+            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+              <OrderRef id={o.id} number={o.orderNumber} size="lg" focus="stages" />
+              <Text size="sm" c="dimmed" lineClamp={1}>{o.customerName ?? '—'}</Text>
             </Group>
-
-            <Text size="sm" c="dimmed" lineClamp={1} mb={8}>
-              {o.customerName ?? '—'} · {o.qty.toLocaleString('ru-RU')} шт
-              {o.articles.length > 0 ? ` · ${o.articles.join(', ')}` : ''}
-            </Text>
-
-            <Group gap="sm" wrap="nowrap" mb={expanded ? 'md' : 0}>
-              <Progress value={progress} size="sm" radius="xl" style={{ flex: 1 }}
-                color={o.doneCount === o.totalStages ? 'teal' : 'brand'} />
-              <Text size="xs" ff="monospace" c="dimmed">{o.doneCount}/{o.totalStages}</Text>
-            </Group>
-
-            <Collapse opened={Boolean(expanded && canEdit && mine)}>
-              {mine && (
-              <Stack gap="sm" pt="sm" onClick={(e) => e.stopPropagation()}>
-                <MaterialAvailability orderId={o.id} />
-                {mine.contractorWorks.length > 0 && (
-                  <Alert color="orange" variant="light" p="xs" radius="md" icon={<IconTruck size={16} />}>
-                    <Text size="sm">
-                      {mine.contractorWorks.map((w) =>
-                        `${w.contractorName} — ${Math.round(w.share * 100)} %${w.isAccepted ? ' (принято)' : ''}`,
-                      ).join('; ')}
-                      {mine.staffShare > 0 && `; штат — ${Math.round(mine.staffShare * 100)} %`}
-                    </Text>
-                  </Alert>
-                )}
-
-                {o.stageTrackingMode === 'LINE' ? (
-                  <Alert color="gray" variant="light" p="xs" radius="md">
-                    <Text size="sm">Заказ отмечается по позициям — откройте карточку заказа</Text>
-                  </Alert>
-                ) : mine.status === 'DONE' ? (
-                  // Отмечено по ошибке — единственный путь назад
-                  <Button
-                    size="lg"
-                    variant="default"
-                    color="gray"
-                    leftSection={<IconArrowBackUp size={20} />}
-                    disabled={undo.isPending}
-                    onClick={() => undo.mutate({ orderId: o.id, stage: mine })}
-                    fullWidth
-                  >
-                    Снять готовность
-                  </Button>
-                ) : null}
-              </Stack>
+            <Group gap={6} wrap="nowrap">
+              <Text size="sm" ff="monospace" c="dimmed">{formatDate(o.plannedShipmentDate)}</Text>
+              {o.overdueDays > 0 && (
+                <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={10} />}>
+                  {o.overdueDays} дн
+                </Badge>
               )}
-            </Collapse>
+            </Group>
+          </Group>
 
-            {expanded && !myStage && (
-              <Text size="xs" c="dimmed" mt="xs">
-                Выберите свой вид работ сверху, чтобы отмечать работу
+          <Group gap="sm" wrap="nowrap" mb="xs">
+            <Progress
+              value={o.totalProducts > 0 ? (o.doneCount / o.totalProducts) * 100 : 0}
+              size="sm" radius="xl" style={{ flex: 1 }}
+              color={o.doneCount === o.totalProducts ? 'teal' : 'brand'}
+            />
+            <Text size="xs" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+              {o.doneCount}/{o.totalProducts} изделий
+            </Text>
+            {o.resaleCount > 0 && (
+              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                + {o.resaleCount} сырьё, изготавливать не надо
               </Text>
             )}
-          </Card>
-        );
-      })}</Stagger>}
+          </Group>
 
-      <DoneSheet
+          <Box mb="xs"><MaterialAvailability orderId={o.id} /></Box>
+
+          <Stack gap={6}>
+            {o.products.map((p) => {
+              const busy = mark.isPending && mark.variables?.productId === p.id;
+              const isDone = p.status === 'DONE';
+              return (
+                <Group
+                  key={p.id}
+                  justify="space-between"
+                  wrap="nowrap"
+                  gap="sm"
+                  px="sm"
+                  py={8}
+                  style={{
+                    borderRadius: 'var(--mantine-radius-md)',
+                    background: isDone
+                      ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.10))'
+                      : 'var(--mantine-color-default-hover)',
+                  }}
+                >
+                  <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+                    <Group gap={6} wrap="nowrap">
+                      <Text size="sm" ff="monospace" fw={700} c="brand.7">{p.articleCode}</Text>
+                      {/* Две одинаковые строки в заказе — иначе не понять, какую отметил */}
+                      {p.isDuplicateCode && (
+                        <Badge size="xs" variant="default" radius="xl">поз. {p.lineNo}</Badge>
+                      )}
+                      {p.contractors.length > 0 && (
+                        <Badge color="orange" variant="light" radius="xl" size="xs"
+                          leftSection={<IconTruck size={10} />}>
+                          подряд
+                        </Badge>
+                      )}
+                    </Group>
+                    <Text size="sm" lineClamp={1}>{p.articleName}</Text>
+                    <Text size="xs" c="dimmed">
+                      {p.qty.toLocaleString('ru-RU')} {p.unit}
+                      {p.normHours > 0 && ` · норма ${p.normHours} ч`}
+                      {p.actualHours != null && ` · факт ${p.actualHours} ч`}
+                    </Text>
+                  </Stack>
+
+                  {canEdit && (isDone ? (
+                    <Button
+                      size="compact-sm"
+                      variant="default"
+                      color="gray"
+                      leftSection={<IconArrowBackUp size={14} />}
+                      loading={busy}
+                      onClick={() => mark.mutate({ orderId: o.id, productId: p.id, done: false })}
+                    >
+                      Снять
+                    </Button>
+                  ) : (
+                    <Group gap={6} wrap="nowrap">
+                      <Button
+                        size="sm"
+                        leftSection={<IconCheck size={16} />}
+                        loading={busy}
+                        onClick={() => mark.mutate({ orderId: o.id, productId: p.id, done: true })}
+                      >
+                        Изготовлено
+                      </Button>
+                      <ActionIcon
+                        variant="default"
+                        size="lg"
+                        aria-label="Часы и подряд"
+                        onClick={() => setSheet({ order: o, product: p })}
+                      >
+                        <IconDots size={16} />
+                      </ActionIcon>
+                    </Group>
+                  ))}
+                </Group>
+              );
+            })}
+          </Stack>
+        </Card>
+      ))}</Stagger>}
+
+      <DetailsSheet
         order={sheet?.order ?? null}
-        stage={sheet?.stage ?? null}
+        product={sheet?.product ?? null}
         opened={sheet !== null}
         onClose={() => setSheet(null)}
       />

@@ -2181,6 +2181,35 @@
         ]
       }
     },
+    "/api/v1/orders/{id}/material-availability": {
+      "get": {
+        "operationId": "OrdersController_materialAvailability",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Хватает ли сырья на заказ (по партиям, с учётом чужих резервов)",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
     "/api/v1/orders/{id}/production-stages/{code}": {
       "patch": {
         "operationId": "OrdersController_updateProductionStage",
@@ -2212,7 +2241,7 @@
             "bearer": []
           }
         ],
-        "summary": "Отметить этап заказа (КД / Снабжение / Производство + передел)",
+        "summary": "Отметить вид работ по заказу (резка / сборка / покраска)",
         "tags": [
           "Orders"
         ]
@@ -2260,6 +2289,55 @@
         "summary": "Как фактические часы этапа лягут на позиции заказа",
         "tags": [
           "Orders"
+        ]
+      }
+    },
+    "/api/v1/orders-dashboard": {
+      "get": {
+        "operationId": "OrdersDashboardController_dashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Дашборд заказов клиента: портфель, направления, долги, возраст",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
+    "/api/v1/contractor-work/{id}/send-to-bitrix": {
+      "post": {
+        "operationId": "ContractorWorkController_sendToBitrix",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отправить заявку на подряд в Б24 (воронка «Заказ на Работы»)",
+        "tags": [
+          "Contractor Work"
         ]
       }
     },
@@ -2479,7 +2557,7 @@
             "bearer": []
           }
         ],
-        "summary": "Цех: заказы в работе + прогресс по этапам",
+        "summary": "Цех: изделия, которые надо изготовить",
         "tags": [
           "Production Plan"
         ]
@@ -2877,6 +2955,26 @@
         ]
       }
     },
+    "/api/v1/warehouse/finished-goods": {
+      "get": {
+        "operationId": "WarehouseController_getFinishedGoods",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Склад готовой продукции: движения ГП",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
     "/api/v1/warehouse/receipts": {
       "get": {
         "operationId": "WarehouseController_getReceipts",
@@ -2991,7 +3089,7 @@
             "bearer": []
           }
         ],
-        "summary": "List purchase requests",
+        "summary": "Список заявок на закуп",
         "tags": [
           "Purchase Requests"
         ]
@@ -3009,15 +3107,64 @@
             "bearer": []
           }
         ],
-        "summary": "Create purchase request",
+        "summary": "Создать заявку вручную",
         "tags": [
           "Purchase Requests"
         ]
       }
     },
-    "/api/v1/purchase-requests/{id}/approve": {
+    "/api/v1/purchase-requests/from-order/{orderId}": {
       "post": {
-        "operationId": "PurchaseRequestsController_approve",
+        "operationId": "PurchaseRequestsController_fromOrder",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Положить дефицит заказа в очередь на закуп",
+        "tags": [
+          "Purchase Requests"
+        ]
+      }
+    },
+    "/api/v1/purchase-requests/send-to-bitrix": {
+      "post": {
+        "operationId": "PurchaseRequestsController_sendToBitrix",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отправить выбранные заявки одной сделкой в Б24 (воронка снабжения)",
+        "tags": [
+          "Purchase Requests"
+        ]
+      }
+    },
+    "/api/v1/purchase-requests/{id}/reject": {
+      "post": {
+        "operationId": "PurchaseRequestsController_reject",
         "parameters": [
           {
             "name": "id",
@@ -3038,7 +3185,36 @@
             "bearer": []
           }
         ],
-        "summary": "Approve purchase request",
+        "summary": "Отклонить заявку (например, дефицит ложный)",
+        "tags": [
+          "Purchase Requests"
+        ]
+      }
+    },
+    "/api/v1/purchase-requests/{id}/ordered": {
+      "post": {
+        "operationId": "PurchaseRequestsController_markOrdered",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Отметить: по заявке создан заказ поставщику в 1С",
         "tags": [
           "Purchase Requests"
         ]
@@ -3180,6 +3356,46 @@
         ]
       }
     },
+    "/api/v1/purchases/dashboard": {
+      "get": {
+        "operationId": "PurchasesController_dashboard",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Дашборд закупок: сколько должны, куда ушло, где обошли процедуру",
+        "tags": [
+          "Purchases"
+        ]
+      }
+    },
+    "/api/v1/purchases/documents": {
+      "get": {
+        "operationId": "PurchasesController_documents",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Реестр заказов поставщику: все 306, а не только те, где опознан материал",
+        "tags": [
+          "Purchases"
+        ]
+      }
+    },
     "/api/v1/acceptance-acts": {
       "get": {
         "operationId": "AcceptanceActsController_findAll",
@@ -3235,104 +3451,6 @@
         "summary": "Get audit log",
         "tags": [
           "Platform - Audit Log"
-        ]
-      }
-    },
-    "/api/v1/spreadsheet/imports/latest": {
-      "get": {
-        "operationId": "SpreadsheetController_getLatestImport",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get latest spreadsheet import metadata",
-        "tags": [
-          "Spreadsheet"
-        ]
-      }
-    },
-    "/api/v1/spreadsheet/sheets": {
-      "get": {
-        "operationId": "SpreadsheetController_listSheets",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "List all imported sheets",
-        "tags": [
-          "Spreadsheet"
-        ]
-      }
-    },
-    "/api/v1/spreadsheet/sheets/{name}": {
-      "get": {
-        "operationId": "SpreadsheetController_getSheet",
-        "parameters": [
-          {
-            "name": "name",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get sheet metadata by name",
-        "tags": [
-          "Spreadsheet"
-        ]
-      }
-    },
-    "/api/v1/spreadsheet/sheets/{name}/rows": {
-      "get": {
-        "operationId": "SpreadsheetController_getSheetRows",
-        "parameters": [
-          {
-            "name": "name",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": ""
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Get sheet rows with all columns (paginated)",
-        "tags": [
-          "Spreadsheet"
         ]
       }
     },

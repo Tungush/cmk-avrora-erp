@@ -488,30 +488,34 @@ export class OrdersController {
         orderLines: {
           select: {
             id: true, qty: true, unit: true, articleId: true,
-            article: { select: { articleCode: true, name: true } },
+            article: { select: { articleCode: true, name: true, isMaterialResale: true } },
           },
         },
       },
     });
     if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${id} not found` });
 
+    // Отметка идёт по ИЗДЕЛИЮ (26.08.2026): мастер показывает, что
+    // конкретная продукция изготовлена. Отметка «на заказ целиком»
+    // больше не принимается — она ничего не значила при 8 позициях в среднем.
     const orderLineId = body.orderLineId ?? null;
-    if (order.stageTrackingMode === 'LINE' && !orderLineId) {
+    if (!orderLineId) {
       throw new BadRequestException({
         code: 'ORDER_LINE_REQUIRED',
-        message: `Заказ отмечается построчно (${order.orderLines.length} позиций) — укажите orderLineId`,
+        message: 'Укажите изделие (orderLineId): производство отмечается по изделиям',
       });
     }
-    if (order.stageTrackingMode === 'ORDER' && orderLineId) {
-      throw new BadRequestException({
-        code: 'ORDER_LINE_NOT_ALLOWED',
-        message: 'Заказ отмечается целиком — orderLineId указывать нельзя',
-      });
-    }
-    if (orderLineId && !order.orderLines.some((l) => l.id === orderLineId)) {
+    const line = order.orderLines.find((l) => l.id === orderLineId);
+    if (!line) {
       throw new BadRequestException({
         code: 'ORDER_LINE_NOT_IN_ORDER',
         message: `Позиция ${orderLineId} не принадлежит заказу ${order.orderNumber}`,
+      });
+    }
+    if (line.article?.isMaterialResale) {
+      throw new BadRequestException({
+        code: 'NOT_MANUFACTURED',
+        message: `«${line.article.name}» — сырьё или ТМЦ, завод его не изготавливает`,
       });
     }
 
@@ -571,11 +575,12 @@ export class OrdersController {
         where: { orderId: id },
         select: { stageCode: true, routingStage: true, orderLineId: true, status: true },
       });
-      // В режиме LINE шаг закрыт, только когда отмечены все позиции
-      const expectedLines = order.stageTrackingMode === 'LINE'
-        ? Math.max(1, order.orderLines.length)
-        : 1;
-      const derived = deriveStatusFromStages(order.status, allStages as any, expectedLines);
+      // Заказ готов, когда изготовлены ВСЕ его изделия. Сырьё и ТМЦ
+      // в меру не входят — их не изготавливают
+      const productLineIds = order.orderLines
+        .filter((l) => l.articleId && !l.article?.isMaterialResale)
+        .map((l) => l.id);
+      const derived = deriveStatusFromStages(order.status, allStages as any, productLineIds);
       if (derived) {
         // Условие в WHERE: если статус успели сдвинуть между чтением заказа
         // и этой записью (параллельная отметка, ручной переход), обновление
@@ -631,7 +636,7 @@ export class OrdersController {
               reportedBy: user.email ?? user.roles[0],
               documentHint: 'Производство без заказа',
               lines: order.orderLines
-                .filter((l) => l.articleId)
+                .filter((l) => l.articleId && !l.article?.isMaterialResale)
                 .map((l) => ({
                   orderLineId: l.id,
                   articleCode: l.article?.articleCode ?? null,
@@ -644,7 +649,7 @@ export class OrdersController {
           // Той же транзакцией — приход готовой продукции: склад ГП начинает
           // жить от работы цеха, а не ждать отдельной выгрузки
           for (const l of order.orderLines) {
-            if (!l.articleId) continue;
+            if (!l.articleId || l.article?.isMaterialResale) continue;
             await tx.finishedGoodsMovement.create({
               data: {
                 itemId: l.articleId,

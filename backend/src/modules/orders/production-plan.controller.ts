@@ -57,126 +57,100 @@ export class ProductionPlanController {
    * а не «лежит в колонке», поэтому список с прогрессом честнее доски.
    */
   @Get('shop-floor')
-  @ApiOperation({ summary: 'Цех: заказы в работе + прогресс по этапам' })
-  async shopFloor(@Query() query: { stage?: string; status?: string }) {
+  @ApiOperation({ summary: 'Цех: изделия, которые надо изготовить' })
+  async shopFloor(@Query() query: { search?: string }) {
     return runWithFallback(
       this.prisma,
       async () => {
         const orders = await this.prisma.order.findMany({
           where: { status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] } },
-          orderBy: [{ overdueDays: 'desc' }, { plannedShipmentDate: 'asc' }],
-          // 241 подходящий заказ при прежнем take: 200 — 41 не попадал
-          // на экран никогда (26.08.2026)
+          orderBy: [{ plannedShipmentDate: 'asc' }, { createdAt: 'desc' }],
           take: 500,
           include: {
             customer: { select: { name: true } },
-            productionStages: true,
+            productionStages: { select: { orderLineId: true, status: true, actualHours: true } },
             orderLines: {
               select: {
-                qty: true,
-                articleId: true,
-                article: { select: { articleCode: true, name: true } },
+                id: true, qty: true, unit: true, articleId: true,
+                article: { select: { articleCode: true, name: true, isMaterialResale: true } },
               },
             },
             contractorWorks: {
-              include: { contractor: { select: { id: true, name: true } } },
+              select: {
+                id: true, routingStage: true, share: true,
+                contractor: { select: { name: true } },
+                acceptedAt: true,
+              },
             },
           },
         });
 
-        // Норма часов на передел — её мастер увидит подставленной в поле
-        // «часов по факту», и в типичном случае не будет вводить ничего
+        // Нормативные часы изделия — сумма по всем видам работ: мастеру
+        // показываем «сколько это стоит по норме», не разбивая на операции
         const articleIds = [...new Set(
           orders.flatMap((o) => o.orderLines.map((l) => l.articleId).filter(Boolean)),
         )] as string[];
         const norms = articleIds.length
           ? await this.prisma.routingOperation.findMany({
               where: { articleId: { in: articleIds } },
-              select: { articleId: true, stage: true, workers: true, hoursPerUnit: true },
+              select: { articleId: true, workers: true, hoursPerUnit: true },
             })
           : [];
-        const normByArticleStage = new Map<string, number>();
+        const normByArticle = new Map<string, number>();
         for (const n of norms) {
-          normByArticleStage.set(
-            `${n.articleId}:${n.stage}`,
-            Number(n.workers) * Number(n.hoursPerUnit),
+          normByArticle.set(
+            n.articleId,
+            (normByArticle.get(n.articleId) ?? 0) + Number(n.workers) * Number(n.hoursPerUnit),
           );
         }
 
-        const rows = orders.map((o) => {
-          // В режиме LINE у шага несколько записей (по позициям): шаг считается
-          // готовым, только когда готовы все — иначе прогресс завышается
-          const byKey = new Map<string, string[]>();
-          for (const s of o.productionStages) {
-            const key = stepKey(s.stageCode, s.routingStage);
-            byKey.set(key, [...(byKey.get(key) ?? []), s.status]);
+        const statusByLine = new Map<string, string>();
+        const hoursByLine = new Map<string, number>();
+        for (const o of orders) {
+          for (const st of o.productionStages) {
+            if (!st.orderLineId) continue;
+            const prev = statusByLine.get(st.orderLineId);
+            // DONE важнее IN_PROGRESS: одна закрывающая отметка решает
+            if (st.status === 'DONE' || !prev) statusByLine.set(st.orderLineId, st.status);
+            if (st.actualHours != null) {
+              hoursByLine.set(st.orderLineId, Number(st.actualHours));
+            }
           }
-          const stages = STAGE_STEPS.map((step) => {
-            const statuses = byKey.get(step.key) ?? [];
-            const status = statuses.length === 0
-              ? 'NOT_STARTED'
-              : statuses.every((x) => x === 'DONE')
-                ? 'DONE'
-                : statuses.some((x) => x === 'DONE' || x === 'IN_PROGRESS')
-                  ? 'IN_PROGRESS'
-                  : 'NOT_STARTED';
+        }
 
-            // Нормативные часы передела по всем позициям заказа
-            const normHours = step.routingStage
-              ? round3(o.orderLines.reduce((sum, l) => {
-                  const perUnit = l.articleId
-                    ? normByArticleStage.get(`${l.articleId}:${step.routingStage}`) ?? 0
-                    : 0;
-                  return sum + perUnit * Number(l.qty);
-                }, 0))
-              : null;
-
-            // Уже введённый факт: если его нет, часы считаются «по норме»
-            const rows = o.productionStages.filter(
-              (s) => stepKey(s.stageCode, s.routingStage) === step.key,
-            );
-            const actualHours = rows.some((r) => r.actualHours != null)
-              ? round3(rows.reduce((s, r) => s + Number(r.actualHours ?? 0), 0))
-              : null;
-
-            // Подряд на этом переделе — мастер видит, что работа уже отдана
-            const works = step.routingStage
-              ? o.contractorWorks
-                  .filter((w) => w.routingStage === step.routingStage)
-                  .map((w) => ({
-                    id: w.id,
-                    contractorId: w.contractorId,
-                    contractorName: w.contractor.name,
-                    share: Number(w.share),
-                    rateType: w.rateType,
-                    rate: Number(w.rate),
-                    isAccepted: w.acceptedAt != null,
-                    actualQty: w.actualQty != null ? Number(w.actualQty) : null,
-                  }))
-              : [];
-
-            return {
-              code: step.code,
-              routingStage: step.routingStage,
-              key: step.key,
-              label: step.label,
-              status,
-              lineCount: statuses.length,
-              normHours,
-              actualHours,
-              contractorWorks: works,
-              // Сколько объёма осталось штату после подряда
-              staffShare: works.length
-                ? Math.max(0, 1 - works.reduce((s, w) => s + w.share, 0))
-                : 1,
-            };
-          });
-          const done = stages.filter((s) => s.status === 'DONE').length;
-          // Текущий этап — первый незавершённый: именно там сейчас стоит работа
-          const current = stages.find((s) => s.status === 'IN_PROGRESS')
-            ?? stages.find((s) => s.status !== 'DONE')
-            ?? null;
-
+        const search = query.search?.trim().toLowerCase();
+        const rows = orders.map((o) => {
+          // Сырьё и ТМЦ цех не изготавливает — в очередь не попадают вовсе
+          const productLines = o.orderLines
+            .filter((l) => l.articleId && !l.article?.isMaterialResale);
+          // Одно изделие двумя строками — обычное дело в заказах 1С.
+          // Без номера позиции мастер видит две одинаковые строки и не
+          // понимает, какую из них он уже отметил
+          const codeSeen = new Map<string, number>();
+          for (const l of productLines) {
+            const c = l.article?.articleCode ?? '—';
+            codeSeen.set(c, (codeSeen.get(c) ?? 0) + 1);
+          }
+          const products = productLines
+            .map((l, idx) => ({
+              id: l.id,
+              lineNo: idx + 1,
+              isDuplicateCode: (codeSeen.get(l.article?.articleCode ?? '—') ?? 0) > 1,
+              articleCode: l.article?.articleCode ?? '—',
+              articleName: l.article?.name ?? '—',
+              qty: Number(l.qty),
+              unit: l.unit,
+              status: statusByLine.get(l.id) ?? 'NOT_STARTED',
+              normHours: round3((normByArticle.get(l.articleId as string) ?? 0) * Number(l.qty)),
+              actualHours: hoursByLine.get(l.id) ?? null,
+              // Подряд у заказа: мастер видит, что часть работ отдана на сторону
+              contractors: o.contractorWorks.map((w) => ({
+                name: w.contractor.name,
+                sharePct: Math.round(Number(w.share) * 100),
+                isAccepted: w.acceptedAt != null,
+              })),
+            }));
+          const done = products.filter((p) => p.status === 'DONE').length;
           return {
             id: o.id,
             orderNumber: o.orderNumber,
@@ -184,42 +158,33 @@ export class ProductionPlanController {
             status: o.status,
             plannedShipmentDate: o.plannedShipmentDate,
             overdueDays: o.overdueDays,
-            qty: o.orderLines.reduce((s, l) => s + Number(l.qty), 0),
-            articles: o.orderLines
-              .map((l) => l.article?.articleCode)
-              .filter(Boolean)
-              .slice(0, 3),
-            stageTrackingMode: o.stageTrackingMode,
-            stages,
+            products,
             doneCount: done,
-            totalStages: stages.length,
-            currentStage: current?.key ?? null,
+            totalProducts: products.length,
+            // Позиции сырья показываем только числом — чтобы было видно,
+            // что они есть, но изготавливать их не надо
+            resaleCount: o.orderLines.filter((l) => l.article?.isMaterialResale).length,
           };
-        });
+        })
+        // Заказ без изделий (только сырьё) цеху показывать незачем
+        .filter((r) => r.totalProducts > 0)
+        .filter((r) => !search
+          || r.orderNumber.toLowerCase().includes(search)
+          || (r.customerName ?? '').toLowerCase().includes(search)
+          || r.products.some((p) =>
+            p.articleCode.toLowerCase().includes(search) || p.articleName.toLowerCase().includes(search)));
 
-        const filtered = query.stage
-          ? rows.filter((r) => r.currentStage === query.stage)
-          : rows;
-
-        // Сколько заказов ЖДУТ каждого вида работ (шаг не закрыт) — та же
-        // логика, что у фильтра на экране цеха. Раньше считалось по
-        // currentStage (первый незакрытый шаг), и при пустой таблице
-        // отметок весь счёт доставался первому шагу списка, а остальные
-        // показывали 0 — мастер видел «работы нет» и уходил (26.08.2026)
-        const byStage = STAGE_STEPS.map((step) => ({
-          code: step.code,
-          routingStage: step.routingStage,
-          key: step.key,
-          label: step.label,
-          count: rows.filter((r) => {
-            const st = r.stages.find((x) => x.key === step.key);
-            return st != null && st.status !== 'DONE';
-          }).length,
-        }));
-
-        return { orders: filtered, byStage, total: rows.length };
+        const totalProducts = rows.reduce((s, r) => s + r.totalProducts, 0);
+        const doneProducts = rows.reduce((s, r) => s + r.doneCount, 0);
+        return {
+          orders: rows,
+          total: rows.length,
+          totalProducts,
+          doneProducts,
+          waitingProducts: totalProducts - doneProducts,
+        };
       },
-      () => ({ orders: [], byStage: [], total: 0 }),
+      () => ({ orders: [], total: 0, totalProducts: 0, doneProducts: 0, waitingProducts: 0 }),
     );
   }
 
