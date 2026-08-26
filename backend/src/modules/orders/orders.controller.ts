@@ -488,7 +488,12 @@ export class OrdersController {
         orderLines: {
           select: {
             id: true, qty: true, unit: true, articleId: true,
-            article: { select: { articleCode: true, name: true, isMaterialResale: true } },
+            article: {
+              select: {
+                id: true, articleCode: true, name: true, isMaterialResale: true,
+                _count: { select: { bomItems: true, routingOperations: true } },
+              },
+            },
           },
         },
       },
@@ -517,6 +522,41 @@ export class OrdersController {
         code: 'NOT_MANUFACTURED',
         message: `«${line.article.name}» — сырьё или ТМЦ, завод его не изготавливает`,
       });
+    }
+
+    /**
+     * Нет спецификации — нечего изготавливать (26.08.2026, правило пользователя).
+     *
+     * Отметка «изготовлено» без состава и норм — это не запись факта, а его
+     * потеря: списывать нечего, себестоимость встаёт в ноль, обеспеченность
+     * сырьём не считается, а заказ уезжает в «готов к отгрузке» с нулевой
+     * материальной частью. Запрет действует только на закрывающую отметку:
+     * начать работу и снять отметку можно всегда, иначе цех запрётся сам.
+     *
+     * Выход всегда есть и назван в тексте: либо инженер заводит состав,
+     * либо позиция помечается как ТМЦ, если завод её не изготавливает
+     * (среди таких строк попадаются «Доставка до объекта» и «СМР»).
+     */
+    if (status === 'DONE' && line.article) {
+      const noBom = line.article._count.bomItems === 0;
+      const noNorms = line.article._count.routingOperations === 0;
+      if (noBom || noNorms) {
+        const missing = noBom && noNorms ? 'состав и нормы труда'
+          : noBom ? 'состав (какое сырьё идёт в изделие)'
+            : 'нормы труда';
+        throw new BadRequestException({
+          code: 'SPEC_REQUIRED',
+          message: `У «${line.article.name}» (${line.article.articleCode}) не заведены ${missing}.`
+            + ' Пока их нет, изготовление записать нельзя: списывать нечего и себестоимость встанет в ноль.'
+            + ' Заведите спецификацию в «Изделиях» — или отметьте позицию как ТМЦ, если её не изготавливают',
+          details: {
+            articleId: line.article.id,
+            articleCode: line.article.articleCode,
+            missingBom: noBom,
+            missingNorms: noNorms,
+          },
+        });
+      }
     }
 
     const routingStage = (body.routingStage ?? null) as any;

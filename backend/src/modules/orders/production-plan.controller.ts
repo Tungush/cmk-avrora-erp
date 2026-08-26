@@ -73,7 +73,12 @@ export class ProductionPlanController {
             orderLines: {
               select: {
                 id: true, qty: true, unit: true, articleId: true,
-                article: { select: { articleCode: true, name: true, isMaterialResale: true } },
+                article: {
+                  select: {
+                    id: true, articleCode: true, name: true, isMaterialResale: true,
+                    _count: { select: { bomItems: true, routingOperations: true } },
+                  },
+                },
               },
             },
             contractorWorks: {
@@ -137,8 +142,14 @@ export class ProductionPlanController {
               id: l.id,
               lineNo: idx + 1,
               isDuplicateCode: (codeSeen.get(l.article?.articleCode ?? '—') ?? 0) > 1,
+              articleId: l.article?.id ?? null,
               articleCode: l.article?.articleCode ?? '—',
               articleName: l.article?.name ?? '—',
+              // Без состава и норм отметить изготовление нельзя (правило
+              // 26.08.2026). Мастер должен видеть это ДО клика, а не ловить
+              // отказ, когда работа уже сделана
+              missingBom: (l.article?._count.bomItems ?? 0) === 0,
+              missingNorms: (l.article?._count.routingOperations ?? 0) === 0,
               qty: Number(l.qty),
               unit: l.unit,
               status: statusByLine.get(l.id) ?? 'NOT_STARTED',
@@ -152,6 +163,7 @@ export class ProductionPlanController {
               })),
             }));
           const done = products.filter((p) => p.status === 'DONE').length;
+          const blocked = products.filter((p) => p.missingBom || p.missingNorms).length;
           return {
             id: o.id,
             orderNumber: o.orderNumber,
@@ -162,6 +174,8 @@ export class ProductionPlanController {
             products,
             doneCount: done,
             totalProducts: products.length,
+            /** Изделия без спецификации: их нельзя отметить, пока не заведут */
+            blockedCount: blocked,
             // Позиции сырья показываем только числом — чтобы было видно,
             // что они есть, но изготавливать их не надо
             resaleCount: o.orderLines.filter((l) => l.article?.isMaterialResale).length,
@@ -177,6 +191,7 @@ export class ProductionPlanController {
 
         const totalProducts = rows.reduce((s, r) => s + r.totalProducts, 0);
         const doneProducts = rows.reduce((s, r) => s + r.doneCount, 0);
+        const blockedProducts = rows.reduce((s, r) => s + r.blockedCount, 0);
 
         // Открытые заявки на подряд — на уровне ответа, а не заказа:
         // привязать заявку к заказу заранее нельзя, в этом вся её суть.
@@ -215,10 +230,11 @@ export class ProductionPlanController {
           totalProducts,
           doneProducts,
           waitingProducts: totalProducts - doneProducts,
+          blockedProducts,
           openRequests,
         };
       },
-      () => ({ orders: [], total: 0, totalProducts: 0, doneProducts: 0, waitingProducts: 0, openRequests: [] }),
+      () => ({ orders: [], total: 0, totalProducts: 0, doneProducts: 0, waitingProducts: 0, blockedProducts: 0, openRequests: [] }),
     );
   }
 

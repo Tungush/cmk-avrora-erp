@@ -89,6 +89,29 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
 
     const articleId = artRes.body.id;
 
+    // Спецификация изделия: без состава и норм цех не имеет права отметить
+    // изготовление (правило 26.08.2026) — тестовое изделие должно быть
+    // заведено так же, как настоящее
+    const prismaSetup = app.get(PrismaService);
+    const testMaterial = await prismaSetup.material.create({
+      data: {
+        materialCode: `M-E2E-${runId}`.slice(0, 20),
+        category: 'METAL' as any,
+        name: 'E2E Test Steel',
+        unit: 'кг',
+        purchasePrice: 500,
+      },
+    });
+    await prismaSetup.bomItem.create({
+      data: {
+        articleId, materialId: testMaterial.id,
+        qtyPerUnit: 10, operationType: 'CUTTING' as any,
+      },
+    });
+    await prismaSetup.routingOperation.create({
+      data: { articleId, stage: 'CUTTING' as any, workers: 2, hoursPerUnit: 1.5 },
+    });
+
     // 2. Sales Manager creates Customer
     const custRes = await request(app.getHttpServer())
       .post('/api/v1/customers')
@@ -155,6 +178,38 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
 
     // 7. Мастер отмечает изделие изготовленным. В заказе одна позиция —
     //    её и достаточно, чтобы заказ был готов
+    await request(app.getHttpServer())
+      .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ status: 'done', orderLineId: lineId })
+      .expect(200);
+
+    // Изделие без состава и норм отметить нельзя: списывать нечего,
+    // себестоимость встала бы в ноль (правило 26.08.2026)
+    const bare = await prismaSetup.article.create({
+      data: { articleCode: `A-BARE-${runId}`.slice(0, 20), name: 'E2E без спецификации' },
+    });
+    const bareLine = await prismaSetup.orderLine.create({
+      data: { orderId, articleId: bare.id, qty: 1, unit: 'шт' },
+    });
+    const specRes = await request(app.getHttpServer())
+      .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ status: 'done', orderLineId: bareLine.id })
+      .expect(400);
+    expect(specRes.body.error.code).toBe('SPEC_REQUIRED');
+    // Начать работу по нему можно — запрет только на закрывающую отметку,
+    // иначе цех запирается сам и снять ошибочную отметку нечем
+    await request(app.getHttpServer())
+      .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ status: 'in_progress', orderLineId: bareLine.id })
+      .expect(200);
+    await prismaSetup.productionStage.deleteMany({ where: { orderLineId: bareLine.id } });
+    await prismaSetup.orderLine.delete({ where: { id: bareLine.id } });
+    await prismaSetup.article.delete({ where: { id: bare.id } });
+    // Позиция без спецификации уводила заказ из «готов к отгрузке», пока
+    // висела в нём: повторяем отметку, чтобы статус пересчитался по факту
     await request(app.getHttpServer())
       .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
       .set('Authorization', `Bearer ${tokens.foreman}`)

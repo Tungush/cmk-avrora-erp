@@ -9,7 +9,7 @@ import {
   IconTarget, IconPackage, IconHammer, IconAlertTriangle,
 } from '@tabler/icons-react';
 import api from '../api/client';
-import { formatCurrency } from '../utils/formatters';
+import { formatCurrency, plural } from '../utils/formatters';
 import { useAuthStore } from '../store/auth';
 import { RoleWidgets } from '../components/RoleWidgets';
 import { ShopFloor } from './Production/ShopFloor';
@@ -56,7 +56,7 @@ function UnallocatedContractorAlert() {
       <Alert color="danger" variant="light" radius="md" icon={<IconAlertTriangle size={18} />}>
         <Text size="sm" fw={600}>
           Подряд не разнесён: {u.requests}{' '}
-          {u.requests === 1 ? 'заявка' : u.requests < 5 ? 'заявки' : 'заявок'}
+          {plural(u.requests, 'заявка', 'заявки', 'заявок')}
           {u.amount > 0 ? ` на ${formatCurrency(u.amount)}` : ''}
         </Text>
         <Text size="xs" c="dimmed">

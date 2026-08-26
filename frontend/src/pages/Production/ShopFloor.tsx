@@ -6,20 +6,26 @@ import {
   SegmentedControl, Modal, Table,
 } from '@mantine/core';
 import {
-  IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots,
+  IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots, IconRuler2,
 } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { ordersApi } from '../../api/orders';
 import { useAuthStore } from '../../store/auth';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { Stagger } from '../../components/motion';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, plural } from '../../utils/formatters';
 
 interface ProductRow {
   id: string;
   lineNo: number;
   isDuplicateCode: boolean;
+  articleId: string | null;
+  /** Нет состава — изготовление записать нельзя: списывать нечего */
+  missingBom: boolean;
+  /** Нет норм труда — себестоимость труда встанет в ноль */
+  missingNorms: boolean;
   articleCode: string;
   articleName: string;
   qty: number;
@@ -39,6 +45,7 @@ interface ShopFloorOrder {
   products: ProductRow[];
   doneCount: number;
   totalProducts: number;
+  blockedCount: number;
   resaleCount: number;
 }
 interface OpenRequest {
@@ -60,6 +67,8 @@ interface ShopFloorResponse {
   totalProducts: number;
   doneProducts: number;
   waitingProducts: number;
+  /** Изделия без спецификации — отметить нельзя, пока её не заведут */
+  blockedProducts: number;
   /** Заявки на подряд, ждущие разнесения. К заказу заранее не привязаны —
       мастер сам говорит, сколько из партии ушло на этот заказ */
   openRequests: OpenRequest[];
@@ -585,6 +594,21 @@ export function ShopFloor() {
         </Group>
       </Group>
 
+      {/* Нет спецификации — цех эти изделия отметить не сможет. Это
+          не его работа: пусть видит цифру и знает, к кому идти */}
+      {data.blockedProducts > 0 && (
+        <Alert color="danger" variant="light" radius="md" icon={<IconAlertTriangle size={18} />}>
+          <Text size="sm" fw={600}>
+            Без спецификации: {data.blockedProducts.toLocaleString('ru-RU')}{' '}
+            {plural(data.blockedProducts, 'изделие', 'изделия', 'изделий')}
+          </Text>
+          <Text size="xs" c="dimmed">
+            У них не заведён состав или нормы труда — изготовление записать нельзя:
+            списывать нечего и себестоимость встанет в ноль. Нужен инженер.
+          </Text>
+        </Alert>
+      )}
+
       {orders.length === 0 ? (
         <Card withBorder radius="md" padding="xl">
           <Stack align="center" gap="sm" py="lg">
@@ -633,6 +657,12 @@ export function ShopFloor() {
             {o.products.map((p) => {
               const busy = mark.isPending && mark.variables?.productId === p.id;
               const isDone = p.status === 'DONE';
+              // Нет состава или норм — отметить нельзя (правило 26.08.2026).
+              // Показываем это ЗАРАНЕЕ: ловить отказ, когда работа уже
+              // сделана, — худший момент, чтобы узнать о пустой карточке
+              const noSpec = p.missingBom || p.missingNorms;
+              const specMissing = p.missingBom && p.missingNorms ? 'состава и норм'
+                : p.missingBom ? 'состава' : 'норм труда';
               return (
                 <Group
                   key={p.id}
@@ -661,6 +691,12 @@ export function ShopFloor() {
                           подряд
                         </Badge>
                       )}
+                      {!isDone && noSpec && (
+                        <Badge color="danger" variant="light" radius="xl" size="xs"
+                          leftSection={<IconAlertTriangle size={10} />}>
+                          нет {specMissing}
+                        </Badge>
+                      )}
                     </Group>
                     <Text size="sm" lineClamp={1}>{p.articleName}</Text>
                     <Text size="xs" c="dimmed">
@@ -680,6 +716,18 @@ export function ShopFloor() {
                       onClick={() => mark.mutate({ orderId: o.id, productId: p.id, done: false })}
                     >
                       Снять
+                    </Button>
+                  ) : noSpec ? (
+                    // Тупика быть не должно: отсюда прямой путь к спецификации
+                    <Button
+                      size="sm"
+                      variant="light"
+                      color="danger"
+                      component={Link}
+                      to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
+                      leftSection={<IconRuler2 size={16} />}
+                    >
+                      Завести спецификацию
                     </Button>
                   ) : (
                     <Group gap={6} wrap="nowrap">
