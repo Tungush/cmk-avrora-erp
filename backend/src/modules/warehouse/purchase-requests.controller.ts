@@ -50,7 +50,12 @@ export class PurchaseRequestsController {
             orderBy: { createdAt: 'desc' },
             include: {
               material: { select: { materialCode: true, name: true, unit: true, purchasePrice: true } },
-              order: { select: { id: true, orderNumber: true } },
+              order: {
+                select: {
+                  id: true, orderNumber: true, plannedShipmentDate: true,
+                  customer: { select: { name: true } },
+                },
+              },
             },
           }),
           this.prisma.purchaseRequest.count({ where }),

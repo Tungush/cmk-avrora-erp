@@ -1,13 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Stack, Group, Text, Card, Badge, Button, Textarea, Divider, Table, Skeleton, Box,
-  Popover, ActionIcon, Timeline, Select, Progress, Tooltip,
+  Popover, ActionIcon, Timeline, Select, Progress, Tooltip, Modal, NumberInput, Alert,
 } from '@mantine/core';
 import {
   IconLock, IconAlertTriangle, IconHelpCircle, IconWand, IconCheck,
   IconPlayerPlay, IconTruck, IconCircle,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { ordersApi } from '../../api/orders';
+import { contractorRequestsApi } from '../../api/contractorRequests';
 import { useOrder, useTransitionOrderStatus } from '../../hooks/useOrders';
 import { useAuthStore } from '../../store/auth';
 import { getAllowedTransitions, STATE_TRANSITIONS, DERIVED_STATUSES } from '../../utils/roles';
@@ -232,6 +235,216 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
   );
 }
 
+/**
+ * Подряд по этому заказу и что он сделал с трудозатратами (26.08.2026,
+ * запрос пользователя: «разнос по заказам надо мочь делать через сам
+ * заказ… когда укажем подряд с суммой, у нас пересчитается трудозатрата.
+ * Было базовая 2 часа, от неё сминусуется то, что сделал подряд»).
+ *
+ * Пересчёт работал в калькуляции с самого начала, но нигде не назывался
+ * вслух: доля подряда вырезает свой кусок нормы, остаток достаётся штату.
+ * Здесь та же арифметика показана в трёх колонках — было / подряд / штат.
+ */
+function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
+  const qc = useQueryClient();
+  const [assigning, setAssigning] = useState(false);
+  const [requestId, setRequestId] = useState<string | null>(null);
+  const [qty, setQty] = useState<number | string>('');
+  const [sharePct, setSharePct] = useState<number | string>(100);
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['contractor-work', orderId],
+    queryFn: () => ordersApi.contractorWork(orderId).then((r) => r.data),
+  });
+  // Заявки, из которых ещё есть что разносить
+  const { data: requests } = useQuery({
+    queryKey: ['contractor-requests', 'open'],
+    queryFn: () => contractorRequestsApi.list(),
+    enabled: assigning,
+  });
+  const open = (requests?.data ?? []).filter(
+    (r) => r.status !== 'CANCELLED' && r.contractor
+      && (r.unallocatedQty == null || r.unallocatedQty > 0),
+  );
+  const chosen = open.find((r) => r.id === requestId) ?? null;
+
+  const allocate = useMutation({
+    mutationFn: () => contractorRequestsApi.allocate(requestId as string, {
+      orderId, qty: Number(qty), share: Number(sharePct) / 100,
+    }),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['contractor-work', orderId] });
+      qc.invalidateQueries({ queryKey: ['contractor-requests'] });
+      setAssigning(false); setRequestId(null); setQty(''); setSharePct(100);
+      notifications.show({
+        title: 'Подряд записан на заказ',
+        message: `${res.qty} ${res.unit} из ${chosen?.number ?? 'заявки'}.`
+          + ` Штат по «${res.stageLabel}» пересчитан — пересчитайте себестоимость`,
+        color: 'success',
+        icon: <IconCheck size={16} />,
+      });
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Не записано',
+      message: e?.response?.data?.error?.message ?? 'Ошибка',
+      color: 'danger',
+      icon: <IconAlertTriangle size={16} />,
+    }),
+  });
+
+  const impact = data?.laborImpact ?? [];
+  const totals = data?.laborTotals;
+  const works = data?.data ?? [];
+
+  return (
+    <Section
+      title="Подряд и трудозатраты"
+      id="card-contractor"
+      extra={
+        <Button size="compact-xs" variant="light" onClick={() => setAssigning(true)}>
+          Указать подряд
+        </Button>
+      }
+    >
+      {isLoading ? (
+        <Skeleton height={90} radius="md" />
+      ) : impact.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          Норм труда по изделиям заказа нет — считать нечего
+        </Text>
+      ) : (
+        <>
+          <Table verticalSpacing="xs" fz="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Вид работ</Table.Th>
+                <Table.Th ta="right">Норма</Table.Th>
+                <Table.Th ta="right">Забрал подряд</Table.Th>
+                <Table.Th ta="right">Осталось штату</Table.Th>
+                <Table.Th ta="right">Подрядчику, ₸</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {impact.map((r) => (
+                <Table.Tr key={r.stage}>
+                  <Table.Td>
+                    <Text size="sm">{r.stageLabel}</Text>
+                    {r.contractors.length > 0 && (
+                      <Text size="xs" c="dimmed" lineClamp={1}>
+                        {r.contractors.map((c) => `${c.name} — ${c.sharePct} %`).join('; ')}
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace">{r.normHours} ч</Table.Td>
+                  <Table.Td ta="right" ff="monospace" c={r.contractorSharePct > 0 ? 'orange.7' : 'dimmed'}>
+                    {r.contractorSharePct > 0
+                      ? `−${r.contractorHours} ч (${r.contractorSharePct} %)`
+                      : '—'}
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={600}>{r.staffHours} ч</Table.Td>
+                  <Table.Td ta="right" ff="monospace">
+                    {r.contractorAmount > 0 ? formatCurrency(r.contractorAmount) : '—'}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              {totals && (
+                <Table.Tr>
+                  <Table.Td><Text size="sm" fw={700}>Итого</Text></Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={700}>{totals.normHours} ч</Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={700} c="orange.7">
+                    {totals.contractorHours > 0 ? `−${totals.contractorHours} ч` : '—'}
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={700}>{totals.staffHours} ч</Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={700}>
+                    {totals.contractorAmount > 0 ? formatCurrency(totals.contractorAmount) : '—'}
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+          {works.length > 0 && (
+            <Text size="xs" c="dimmed" mt="xs">
+              Часы подряда в мощность цеха не идут, если работы на площадке
+              подрядчика. Себестоимость возьмёт эти цифры при пересчёте.
+            </Text>
+          )}
+        </>
+      )}
+
+      <Modal
+        opened={assigning}
+        onClose={() => setAssigning(false)}
+        title={<Text fw={700}>Подряд на заказ {orderNumber}</Text>}
+        radius="md"
+        centered
+        /* Карточка заказа — шторка со своим слоем; без этого модалка
+           открывается ПОД ней и выглядит нерабочей */
+        zIndex={400}
+      >
+        <Stack gap="md">
+          <Select
+            label="Заявка на подряд"
+            description="работа отдана партией — укажите, сколько из неё пришлось на этот заказ"
+            placeholder={open.length === 0 ? 'открытых заявок нет' : 'выберите'}
+            data={open.map((r) => ({
+              value: r.id,
+              label: `${r.number} · ${r.stageLabel} · ${r.contractor?.name ?? ''}`,
+            }))}
+            value={requestId}
+            onChange={setRequestId}
+            disabled={open.length === 0}
+            searchable
+            /* Слой модалки поднят над шторкой — выпадашке нужен ещё выше,
+               иначе список открывается под ней и выглядит пустым */
+            comboboxProps={{ withinPortal: true, zIndex: 500 }}
+          />
+          {chosen && (
+            <Text size="sm" c="dimmed">
+              {chosen.unallocatedQty != null
+                ? <>осталось разнести <Text span fw={700} ff="monospace">
+                    {chosen.unallocatedQty} {chosen.unit}</Text></>
+                : 'объём по заявке не задан'}
+            </Text>
+          )}
+          <NumberInput
+            label={`Сколько ушло на этот заказ${chosen ? ` (${chosen.unit})` : ''}`}
+            value={qty}
+            onChange={setQty}
+            min={0}
+            decimalScale={3}
+          />
+          <NumberInput
+            label="Какую долю работ забрал подряд, %"
+            description="от неё зависит, сколько нормо-часов останется штату"
+            value={sharePct}
+            onChange={setSharePct}
+            min={1}
+            max={100}
+          />
+          {open.length === 0 && (
+            <Alert color="gray" variant="light" p="xs" radius="md">
+              <Text size="sm">
+                Заявки заводятся в разделе «Подряд» — там же их отправляют в Б24
+                и принимают акт из 1С.
+              </Text>
+            </Alert>
+          )}
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setAssigning(false)}>Отмена</Button>
+            <Button
+              loading={allocate.isPending}
+              disabled={!requestId || !(Number(qty) > 0)}
+              onClick={() => allocate.mutate()}
+            >
+              Записать на заказ
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </Section>
+  );
+}
+
 export function OrderDetail({
   id, onClose, focus,
 }: { id: string; onClose: () => void; focus?: OrderCardFocus | null }) {
@@ -418,7 +631,10 @@ export function OrderDetail({
 
       {/* ▼ Где сейчас — этапы цеха */}
       {canProduction ? (
-        <StagesSection stages={stages} lines={lines} />
+        <>
+          <StagesSection stages={stages} lines={lines} />
+          <ContractorSection orderId={id} orderNumber={o.orderNumber} />
+        </>
       ) : (
         <LockedSection title="Где сейчас" roleName={roleName} />
       )}

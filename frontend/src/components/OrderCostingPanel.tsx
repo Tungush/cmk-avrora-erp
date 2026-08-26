@@ -9,10 +9,21 @@ import { costingsApi } from '../api/costings';
 import { ordersApi } from '../api/orders';
 import { formatCurrency, formatDate } from '../utils/formatters';
 
+/**
+ * Откуда взята цена материала (26.08.2026). Слова «оценка / заказано /
+ * факт» описывали внутреннее состояние записи, а человеку нужно знать
+ * источник цифры: по последней закупке, по цене из заказа поставщику или
+ * по фактическому приходу на склад.
+ */
 const PRICE_STATE_LABELS: Record<string, string> = {
-  ESTIMATE: 'Оценка',
-  ORDERED: 'Заказано',
-  ACTUAL: 'Факт',
+  ESTIMATE: 'по прошлым закупкам',
+  ORDERED: 'по заказу поставщику',
+  ACTUAL: 'по приходу на склад',
+};
+const PRICE_STATE_HINTS: Record<string, string> = {
+  ESTIMATE: 'Цена прикидочная: взята из последней закупки этого материала. Уточнится, когда снабжение закажет его под этот заказ.',
+  ORDERED: 'Цена из «Заказа поставщику» в 1С — заказано, но ещё не приехало.',
+  ACTUAL: 'Цена из фактического прихода на склад — это то, что реально заплачено.',
 };
 const PRICE_STATE_COLORS: Record<string, string> = {
   ESTIMATE: 'gray',
@@ -193,17 +204,26 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                     <Table.Th ta="right">Кол-во</Table.Th>
                     <Table.Th ta="right">Цена</Table.Th>
                     <Table.Th ta="right">Сумма</Table.Th>
-                    <Table.Th>Стадия / источник</Table.Th>
+                    <Table.Th>Откуда цена</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
                   {detail.materials.map((m) => {
+                    // Обрубок uuid партии человеку не говорил ничего. Есть
+                    // номер документа — показываем его; нет — честную
+                    // подпись «партия без номера», а не «98d37d71»
                     const source = m.batch
-                      ? (m.batch.documentNumber ?? m.batch.id.slice(0, 8))
+                      ? (m.batch.documentNumber
+                        ?? (m.batch.receiptDate ? `приход ${formatDate(m.batch.receiptDate)}` : 'партия без номера'))
                       : m.supplierOrderNumber ?? null;
-                    const tooltip = m.batch
-                      ? `${m.batch.supplierName ?? '—'} · ${formatDate(m.batch.receiptDate)}${m.batch.batchType === 'TOLLING' ? ' · давальческое' : ''}`
-                      : m.priceStateChangedAt ? `с ${formatDate(m.priceStateChangedAt)}` : '';
+                    const tooltip = [
+                      PRICE_STATE_HINTS[m.priceState],
+                      m.batch
+                        ? `Партия: ${m.batch.supplierName ?? 'поставщик не указан'}`
+                          + `${m.batch.receiptDate ? `, приход ${formatDate(m.batch.receiptDate)}` : ''}`
+                          + `${m.batch.batchType === 'TOLLING' ? ', давальческое сырьё' : ''}`
+                        : m.priceStateChangedAt ? `Цена этого состояния с ${formatDate(m.priceStateChangedAt)}` : null,
+                    ].filter(Boolean).join(' ');
                     return (
                       <Table.Tr key={m.id}>
                         <Table.Td>

@@ -212,7 +212,71 @@ export class ContractorWorkController {
       status: r.acted === 0 ? 'WAITING_ACT' : Math.abs(r.logged - r.acted) < 0.01 ? 'MATCHED' : 'MISMATCH',
     }));
 
+    /**
+     * Что подряд сделал с трудозатратами (26.08.2026, вопрос пользователя:
+     * «было базовая трудозатрата 2 часа, от неё сминусуется то, что сделал
+     * подряд, и выйдет правильная сумма»).
+     *
+     * Это уже работало внутри калькуляции, но нигде не показывалось: доля
+     * подряда вырезает свой кусок нормы, а штату достаётся остаток. Здесь
+     * та же арифметика, но названная вслух — чтобы человек видел, откуда
+     * взялось «осталось 0,8 ч» вместо прежних 2.
+     */
+    const lines = await this.prisma.orderLine.findMany({
+      where: { orderId, articleId: { not: null } },
+      select: { qty: true, articleId: true, article: { select: { isMaterialResale: true } } },
+    });
+    const articleIds = [...new Set(
+      lines.filter((l) => !l.article?.isMaterialResale).map((l) => l.articleId),
+    )] as string[];
+    const ops = articleIds.length
+      ? await this.prisma.routingOperation.findMany({
+          where: { articleId: { in: articleIds } },
+          select: { articleId: true, stage: true, workers: true, hoursPerUnit: true },
+        })
+      : [];
+    const normPerUnit = new Map<string, number>();
+    for (const o of ops) {
+      normPerUnit.set(
+        `${o.articleId}:${o.stage}`,
+        (normPerUnit.get(`${o.articleId}:${o.stage}`) ?? 0) + Number(o.workers) * Number(o.hoursPerUnit),
+      );
+    }
+
+    const STAGE_RU: Record<string, string> = {
+      CUTTING: 'Резка', ASSEMBLY: 'Сборка / сварка / обшивка', PAINTING: 'Зачистка / покраска',
+    };
+    const laborImpact = (['CUTTING', 'ASSEMBLY', 'PAINTING'] as const).map((stage) => {
+      const normHours = lines
+        .filter((l) => !l.article?.isMaterialResale)
+        .reduce((s, l) => s + (normPerUnit.get(`${l.articleId}:${stage}`) ?? 0) * Number(l.qty), 0);
+      const stageWorks = works.filter((w) => w.routingStage === stage);
+      const share = Math.min(1, stageWorks.reduce((s, w) => s + Number(w.share), 0));
+      const contractorAmount = stageWorks.reduce((s, w) => s + amountOf(w), 0);
+      return {
+        stage,
+        stageLabel: STAGE_RU[stage] ?? stage,
+        normHours: Math.round(normHours * 100) / 100,
+        contractorSharePct: Math.round(share * 100),
+        // Штату остаётся то, что подряд не забрал: 2 ч при доле 60 % → 0,8 ч
+        staffHours: Math.round(normHours * (1 - share) * 100) / 100,
+        contractorHours: Math.round(normHours * share * 100) / 100,
+        contractorAmount: Math.round(contractorAmount * 100) / 100,
+        contractors: stageWorks.map((w) => ({
+          name: w.contractor.name,
+          sharePct: Math.round(Number(w.share) * 100),
+        })),
+      };
+    }).filter((r) => r.normHours > 0 || r.contractorSharePct > 0);
+
     return {
+      laborImpact,
+      laborTotals: {
+        normHours: Math.round(laborImpact.reduce((s, r) => s + r.normHours, 0) * 100) / 100,
+        staffHours: Math.round(laborImpact.reduce((s, r) => s + r.staffHours, 0) * 100) / 100,
+        contractorHours: Math.round(laborImpact.reduce((s, r) => s + r.contractorHours, 0) * 100) / 100,
+        contractorAmount: Math.round(laborImpact.reduce((s, r) => s + r.contractorAmount, 0) * 100) / 100,
+      },
       data: works.map((w) => ({
         ...w,
         share: Number(w.share),

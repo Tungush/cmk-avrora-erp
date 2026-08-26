@@ -636,7 +636,16 @@ function AcceptModal({ request, onClose }: {
   // слов. Ручной ввод остаётся на случай, когда ДО ещё не пришёл
   const [docId, setDocId] = useState<string | null>(null);
 
-  const candidates = (detail?.supplierActs ?? []).filter((a) => !a.linkedRequestNumber);
+  /**
+   * 1С отвечает только на то, о чём мы просили: заявка ушла от нас в Б24,
+   * оттуда в 1С, и обратно приходит «Заказ поставщику». Пока заявку не
+   * отправили, привязывать к ней документ не к чему — предлагать ДО в этом
+   * состоянии значило бы приглашать связать заявку со случайным закупом.
+   */
+  const sentToBitrix = Boolean(request.bitrixSentAt);
+  const candidates = sentToBitrix
+    ? (detail?.supplierActs ?? []).filter((a) => !a.linkedRequestNumber)
+    : [];
   const chosenDoc = candidates.find((a) => a.id === docId) ?? null;
   const pickDoc = (id: string | null) => {
     setDocId(id);
@@ -714,10 +723,14 @@ function AcceptModal({ request, onClose }: {
 
         <Select
           label="Заказ поставщику из 1С"
-          description={candidates.length === 0
-            ? 'от этого подрядчика непривязанных ДО пока нет — введите сумму руками, привязать можно позже'
-            : 'сумма приёмки возьмётся из документа'}
-          placeholder={candidates.length === 0 ? 'ДО ещё не пришёл' : 'выберите ДО'}
+          description={!sentToBitrix
+            ? 'заявка ещё не ушла в Б24 — 1С по ней документ не создаст. Сумму можно ввести руками'
+            : candidates.length === 0
+              ? 'ответа от 1С пока нет — введите сумму руками, привязать документ можно позже'
+              : 'сумма приёмки возьмётся из документа 1С'}
+          placeholder={!sentToBitrix
+            ? 'сначала отправьте заявку в Б24'
+            : candidates.length === 0 ? 'ответ 1С ещё не пришёл' : 'выберите ДО'}
           data={candidates.map((a) => ({
             value: a.id,
             label: `${a.doNumber} · ${formatCurrency(a.totalAmount)}`

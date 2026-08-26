@@ -30,9 +30,22 @@ export const ordersApi = {
       data: Array<{
         id: string; routingStage: string; contractorId: string; share: number;
         rateType: string; rate: number; actualQty: number | null; amount: number;
-        isAccepted: boolean; contractor?: { id: string; name: string };
+        isAccepted: boolean; decidedAt: string; acceptedAt: string | null;
+        requestId?: string | null; reason?: string | null;
+        contractor?: { id: string; name: string };
       }>;
       reconciliation: Array<{ contractorId: string; name: string; logged: number; acted: number; delta: number; status: string }>;
+      /** Что подряд сделал с нормой труда: было / забрал подряд / осталось штату */
+      laborImpact: Array<{
+        stage: string; stageLabel: string;
+        normHours: number; contractorSharePct: number;
+        staffHours: number; contractorHours: number; contractorAmount: number;
+        contractors: Array<{ name: string; sharePct: number }>;
+      }>;
+      laborTotals: {
+        normHours: number; staffHours: number;
+        contractorHours: number; contractorAmount: number;
+      };
     }>(`/orders/${orderId}/contractor-work`),
 
   /** Отдать передел подрядчику — вызывается прямо из отметки этапа */
