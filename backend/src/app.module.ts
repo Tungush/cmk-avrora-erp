@@ -42,6 +42,7 @@ import { MinStockController } from './modules/orders/min-stock.controller';
 import { WarehouseController } from './modules/warehouse/warehouse.controller';
 import { PurchaseRequestsController } from './modules/warehouse/purchase-requests.controller';
 import { PaymentDocumentsController } from './modules/finance/payment-documents.controller';
+import { PurchasesController } from './modules/finance/purchases.controller';
 import { AcceptanceActsController } from './modules/finance/acceptance-acts.controller';
 import { AuditLogController } from './modules/platform/audit-log.controller';
 import { DashboardsController } from './modules/dashboards/dashboards.controller';
@@ -73,6 +74,7 @@ import { DealsController } from './modules/sales/deals.controller';
     WarehouseController,
     PurchaseRequestsController,
     PaymentDocumentsController,
+    PurchasesController,
     AcceptanceActsController,
     AuditLogController,
     DashboardsController,

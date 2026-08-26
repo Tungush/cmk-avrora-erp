@@ -51,7 +51,7 @@ export function ReceiptCardProvider({ children }: { children: React.ReactNode })
         onClose={close}
         position="right"
         size={isMobile ? '100%' : 'xl'}
-        title={<Text fw={700}>Карточка прихода</Text>}
+        title={<Text fw={700}>Заказ поставщику</Text>}
         padding="md"
         keepMounted={false}
       >

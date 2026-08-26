@@ -28,6 +28,17 @@ export function formatRelative(dateStr?: string | null): string {
   }
 }
 
+/**
+ * Сумма в валюте документа. formatCurrency всегда рисует тенге, и 17 ДО
+ * в рублях показывались как тенговые — деньги завышались молча (26.08.2026).
+ */
+export function formatMoney(value?: number | null, currency = 'KZT'): string {
+  if (value == null) return '—';
+  const symbols: Record<string, string> = { KZT: '₸', RUB: '₽', USD: '$', EUR: '€', CNY: '¥' };
+  const num = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 }).format(value);
+  return `${num} ${symbols[currency] ?? currency}`;
+}
+
 export function formatCurrency(value?: number | null): string {
   if (value == null) return '—';
   return new Intl.NumberFormat('ru-KZ', {

@@ -359,6 +359,7 @@ async function main() {
     materialResaleCreated: 0,
     docsCreated: 0, docsUpdated: 0,
     batchesCreated: 0, batchAnomalies: 0,
+    docLinesCreated: 0, docLinesMismatch: 0,
     unmatchedMaterials: new Map<string, { qty: number; amount: number }>(),
     statusGuessed: new Map<string, number>(),
   };
@@ -543,17 +544,39 @@ async function main() {
       const doNumber = docKeyOf.get(h)!;
       const contractorId = customerIdByName.get(h['Контрагент'].trim());
       const existedBefore = await prisma.paymentDocument.findUnique({ where: { doNumber }, select: { id: true } });
+      // Все данные заказа поставщику, а не 6 колонок из 33: раньше
+      // подразделение, направление, проект, автор, утвердитель и документы
+      // поставщика просто терялись (26.08.2026). Один и тот же набор в
+      // create и update — иначе у уже существующих 306 документов поля
+      // навсегда остались бы пустыми.
+      const doFields = {
+        doDate: dateOfHeader(h) ?? undefined,
+        contractorId: contractorId!,
+        currency: h['Валюта']?.trim() || 'KZT',
+        totalAmount: num(h['СуммаДокумента']),
+        rawColumns: h as any,
+        businessDirection: h['НаправлениеДеятельности']?.trim() || null,
+        projectName: h['Проект']?.trim() || null,
+        division: h['Подразделение']?.trim() || null,
+        warehouseName: h['Склад']?.trim() || null,
+        costCategory: h['КатегорияЗатрат']?.trim() || null,
+        author: h['Автор']?.trim() || null,
+        managerName: h['Менеджер']?.trim() || null,
+        approvedAt: parseRuDate(h['ДатаСогласования']) ?? undefined,
+        approver: h['Утвердитель']?.trim() || null,
+        supplierDocNumber: h['НомерПоДаннымПоставщика']?.trim() || null,
+        supplierDocDate: parseRuDate(h['ДатаПоДаннымПоставщика']) ?? undefined,
+        salesOrderNumber: h['НомерЗаказаНаПродажу']?.trim() || null,
+      };
       const doc = await prisma.paymentDocument.upsert({
         where: { doNumber },
         create: {
           doNumber,
-          doDate: dateOfHeader(h) ?? undefined,
-          contractorId: contractorId!,
-          currency: h['Валюта']?.trim() || 'KZT',
-          totalAmount: num(h['СуммаДокумента']),
+          ...doFields,
+          // unpaidAmount только при создании: дальше его пересчитывает блок оплат
           unpaidAmount: num(h['СуммаДокумента']),
         },
-        update: { totalAmount: num(h['СуммаДокумента']) },
+        update: doFields,
       });
       if (existedBefore) report.docsUpdated += 1; else report.docsCreated += 1;
       docByHeader.set(h, { id: doc.id, date: dateOfHeader(h), customerName: h['Контрагент'], doNumber });
@@ -575,7 +598,13 @@ async function main() {
       }).doNumber;
     }
 
-    console.log('\n===== ПРИХОДЫ ПО СТРОКАМ ЗАКУПА (исторические партии) =====');
+    console.log('\n===== СТРОКИ И ПРИХОДЫ ПО ЗАКУПУ =====');
+    // Строки заказа поставщику сохраняются ВСЕГДА, даже когда материал не
+    // опознан или цена нулевая: иначе «что заказано» видно лишь у той трети
+    // документов, где импорт смог завести партию (26.08.2026).
+    await prisma.paymentDocumentLine.deleteMany({
+      where: { paymentDocumentId: { in: [...docByHeader.values()].map((d) => d.id) } },
+    });
     const healthyByMaterial = new Map<string, number[]>();
     for (const l of supplierLines) {
       const header = supplierLineToHeader.get(l);
@@ -584,14 +613,43 @@ async function main() {
       if (!doc) continue;
       const qty = num(l['Количество']);
       const price = num(l['Цена']);
-      if (qty <= 0 || price <= 0) continue;
+      const amount = num(l['Сумма']);
       const itemName = l['Номенклатура']?.trim() ?? '';
       const nomEntry = nomDict.get(normalizeName(itemName));
       const materialId = await matchMaterial(prisma, itemName, nomEntry?.code ?? '');
+
+      // «Количество × Цена ≠ Сумма» в четверти строк — цена за тонну при
+      // количестве в штуках. Помечаем один раз здесь, чтобы все расчёты
+      // ниже могли опираться только на «Сумму», а карточка — предупредить.
+      const expected = qty * price;
+      const mismatch = amount > 0 && expected > 0
+        && Math.abs(expected - amount) > Math.max(1, amount * 0.01);
+      await prisma.paymentDocumentLine.create({
+        data: {
+          paymentDocumentId: doc.id,
+          lineNo: Number(l['НомерСтроки']) || 0,
+          itemName: itemName || '(без названия)',
+          qty: qty || null,
+          unitPrice: price || null,
+          amount: amount || null,
+          vatRate: l['СтавкаНДС']?.trim() || null,
+          packaging: l['Упаковка']?.trim() || null,
+          expenseItem: l['СтатьяРасходов']?.trim() || null,
+          purpose: l['Назначение']?.trim() || null,
+          customerOrderNum: l['НомерЗаказаКлиента']?.trim() || null,
+          materialId,
+          amountMismatch: mismatch,
+          rawColumns: l as any,
+        },
+      });
+      report.docLinesCreated += 1;
+      if (mismatch) report.docLinesMismatch += 1;
+
+      if (qty <= 0 || price <= 0) continue;
       if (!materialId) {
         const key = itemName || '(без названия)';
         const acc = report.unmatchedMaterials.get(key) ?? { qty: 0, amount: 0 };
-        acc.qty += qty; acc.amount += num(l['Сумма']);
+        acc.qty += qty; acc.amount += amount;
         report.unmatchedMaterials.set(key, acc);
         continue;
       }
@@ -615,6 +673,7 @@ async function main() {
       report.batchesCreated += 1;
       if (anomaly) report.batchAnomalies += 1; else healthyByMaterial.set(materialId, [...others, price]);
     }
+    console.log(`Строк заказов поставщику: ${report.docLinesCreated} (кол-во × цена ≠ сумма: ${report.docLinesMismatch})`);
     console.log(`Создано исторических партий: ${report.batchesCreated} (в карантине по цене: ${report.batchAnomalies})`);
     console.log(`Неопознанных материалов (уникальных названий): ${report.unmatchedMaterials.size}`);
 

@@ -9,6 +9,7 @@ import {
   IconPackage,
   IconBuildingBank,
   IconRuler2,
+  IconTruckDelivery,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { LogoLockup } from '../Brand';
@@ -30,6 +31,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     { to: '/orders', icon: IconShoppingCart, label: 'Заказы', module: 'orders' },
     { to: '/specs', icon: IconRuler2, label: 'Изделия', module: 'specs' },
     { to: '/warehouse', icon: IconPackage, label: 'Материалы', module: 'materials' },
+    { to: '/purchases', icon: IconTruckDelivery, label: 'Закупки', module: 'purchases' },
     { to: '/finance', icon: IconBuildingBank, label: 'Деньги', module: 'money' },
     { to: '/settings', icon: IconSettings, label: 'Настройки', module: 'settings' },
   ];

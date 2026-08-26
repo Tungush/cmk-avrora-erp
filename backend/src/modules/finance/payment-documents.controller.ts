@@ -178,6 +178,8 @@ export class PaymentDocumentsController {
         contractor: true,
         order: true,
         batches: { include: { material: true }, orderBy: { receiptDate: 'desc' } },
+        lines: { orderBy: { lineNo: 'asc' } },
+        payments: { orderBy: { paymentDate: 'desc' } },
       },
     });
     if (!doc) throw new NotFoundException({ code: 'NOT_FOUND', message: `Payment document ${id} not found` });

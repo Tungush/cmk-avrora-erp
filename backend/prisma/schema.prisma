@@ -315,6 +315,7 @@ model Material {
   purchaseRequests       PurchaseRequest[]
   batches                MaterialBatch[]
   aliases                MaterialAlias[]
+  purchaseOrderLines     PaymentDocumentLine[]
 
   @@map("materials")
 }
@@ -1027,12 +1028,67 @@ model PaymentDocument {
   status   PaymentDocStatus @default(UNPAID)
   orderId  String?          @map("order_id") @db.Uuid
 
+  /// Данные заказа поставщику из 1С. Раньше из 33 заполненных колонок
+  /// выгрузки сохранялось 6 — остальное просто терялось (26.08.2026).
+  /// Полный сырой ряд лежит в rawColumns, как у Order.
+  rawColumns        Json?     @map("raw_columns")
+  /// «ЦМК Телекоммуникации» / «ЦМК Другие» — главный разрез закупа
+  businessDirection String?   @map("business_direction") @db.VarChar(60)
+  projectName       String?   @map("project_name") @db.VarChar(200)
+  division          String?   @db.VarChar(100)
+  warehouseName     String?   @map("warehouse_name") @db.VarChar(100)
+  costCategory      String?   @map("cost_category") @db.VarChar(100)
+  author            String?   @db.VarChar(120)
+  managerName       String?   @map("manager_name") @db.VarChar(120)
+  approvedAt        DateTime? @map("approved_at") @db.Date
+  approver          String?   @db.VarChar(120)
+  /// Номер и дата документа у поставщика: ловит закуп задним числом
+  supplierDocNumber String?   @map("supplier_doc_number") @db.VarChar(60)
+  supplierDocDate   DateTime? @map("supplier_doc_date") @db.Date
+  /// Единственная ниточка от закупа к заказу клиента (17 из 306)
+  salesOrderNumber  String?   @map("sales_order_number") @db.VarChar(30)
+
   contractor Customer        @relation(fields: [contractorId], references: [id])
   order      Order?          @relation(fields: [orderId], references: [id])
   payments   Payment[]
   batches    MaterialBatch[]
+  lines      PaymentDocumentLine[]
 
+  @@index([doDate])
+  @@index([contractorId])
+  @@index([businessDirection])
   @@map("payment_documents")
+}
+
+/// Строки заказа поставщику. Без них «что заказано» видно лишь у 85 ДО из
+/// 306 (только там, где импорт опознал материал и завёл партию), а в
+/// выгрузке строки есть у 303 документов.
+model PaymentDocumentLine {
+  id                String   @id @default(uuid()) @db.Uuid
+  paymentDocumentId String   @map("payment_document_id") @db.Uuid
+  lineNo            Int      @map("line_no")
+  itemName          String   @map("item_name") @db.Text
+  qty               Decimal? @db.Decimal(14, 3)
+  unitPrice         Decimal? @map("unit_price") @db.Decimal(14, 2)
+  /// Единственная надёжная денежная колонка: в 226 строках из 903
+  /// количество × цена ≠ сумма (цена за тонну при количестве в штуках)
+  amount            Decimal? @db.Decimal(14, 2)
+  vatRate           String?  @map("vat_rate") @db.VarChar(20)
+  packaging         String?  @db.VarChar(30)
+  expenseItem       String?  @map("expense_item") @db.VarChar(120)
+  purpose           String?  @db.VarChar(200)
+  customerOrderNum  String?  @map("customer_order_num") @db.VarChar(30)
+  materialId        String?  @map("material_id") @db.Uuid
+  /// Ставится на импорте: защищает все расчёты от заведомо кривой строки
+  amountMismatch    Boolean  @default(false) @map("amount_mismatch")
+  rawColumns        Json?    @map("raw_columns")
+
+  paymentDocument PaymentDocument @relation(fields: [paymentDocumentId], references: [id], onDelete: Cascade)
+  material        Material?       @relation(fields: [materialId], references: [id])
+
+  @@index([paymentDocumentId])
+  @@index([materialId])
+  @@map("payment_document_lines")
 }
 
 model Payment {

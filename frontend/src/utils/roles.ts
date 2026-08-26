@@ -42,6 +42,7 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   orders: ['order.core:read'],                           // Заказы
   specs: ['routing.norm:read', 'bom.core:read'],         // Изделия
   materials: ['stockMaterial.core:read', 'material.core:read', 'stockFg.core:read'],
+  purchases: ['payment.core:read'],                      // Закупки (заказы поставщику)
   money: ['payment.core:read'],                          // Деньги
   settings: ['audit:read'],                              // Настройки и обмен
 

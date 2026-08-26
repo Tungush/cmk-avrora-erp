@@ -184,9 +184,31 @@ export interface PaymentDocument {
   status: string;
   category?: string;
   orderId?: string;
+  // Данные заказа поставщику из 1С (26.08.2026)
+  rawColumns?: Record<string, string | null> | null;
+  businessDirection?: string | null;
+  projectName?: string | null;
+  division?: string | null;
+  warehouseName?: string | null;
+  costCategory?: string | null;
+  author?: string | null;
+  managerName?: string | null;
+  approvedAt?: string | null;
+  approver?: string | null;
+  supplierDocNumber?: string | null;
+  supplierDocDate?: string | null;
+  salesOrderNumber?: string | null;
   // Только в детальном ответе GET /payment-documents/:id
   contractor?: { id: string; name: string };
   order?: { id: string; orderNumber: string } | null;
+  lines?: Array<{
+    id: string; lineNo: number; itemName: string;
+    qty: number | string | null; unitPrice: number | string | null;
+    amount: number | string | null; vatRate: string | null;
+    packaging: string | null; expenseItem: string | null;
+    purpose: string | null; amountMismatch: boolean;
+  }>;
+  payments?: Array<{ id: string; amount: number | string; paymentDate: string }>;
   batches?: Array<{
     id: string;
     qtyReceived: number;
