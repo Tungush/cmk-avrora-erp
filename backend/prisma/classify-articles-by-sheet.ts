@@ -10,6 +10,14 @@
  * по одному лишь совпадению имени с материалом под нож попали бы «БМЗ для
  * КТПБ» и «Ограждения спортплощадки», а это продукция.
  *
+ * Для того, чего в листе нет вообще (825 артикулов), работает второе
+ * правило — по виду кода. Оно проверено на 1650 строках, где ответ листа
+ * известен, и совпало 100 % (1432/1432 ГП и 218/218 ТМЦ): собственный код
+ * завода выглядит как «n-182», «k-023», «z-519», а позиция справочника 1С —
+ * как «С0806», «TLCM004495», «ERP0001115», «АА-00028667». Правило применяем
+ * с дополнительной страховкой: только если у артикула нет ни состава, ни
+ * норм труда — то есть система не знает его как изготавливаемое изделие.
+ *
  * Скрипт идемпотентный: снимает ошибочные пометки и ставит недостающие.
  *
  * Запуск: npx ts-node prisma/classify-articles-by-sheet.ts [-- --dry-run]
@@ -56,27 +64,46 @@ async function main() {
     return !!s && s.size === 1 && s.has(t);
   };
 
+  // Собственный код завода: «n-182», «k-023», «z-519», «m-043»
+  const isFactoryCode = (code: string) => /^[a-zA-Z]{1,3}-\d+$/.test(code);
+
   const prisma = new PrismaClient();
   const arts = await prisma.article.findMany({
-    select: { id: true, articleCode: true, name: true, isMaterialResale: true },
+    select: {
+      id: true, articleCode: true, name: true, isMaterialResale: true,
+      _count: { select: { bomItems: true, routingOperations: true } },
+    },
   });
+  const isMade = (a: typeof arts[number]) =>
+    a._count.bomItems > 0 || a._count.routingOperations > 0;
 
   const toShow = arts.filter((a) => a.isMaterialResale && onlyIs(a.articleCode, 'ГП'));
   const toHide = arts.filter((a) => !a.isMaterialResale && onlyIs(a.articleCode, 'ТМЦ'));
   const unknown = arts.filter((a) => !byCode.has(a.articleCode));
+  // Правило по виду кода — только для тех, кого лист не знает, и только
+  // если система не знает их как изготавливаемые (нет состава и норм)
+  const byCodeShape = unknown.filter(
+    (a) => !a.isMaterialResale && !isFactoryCode(a.articleCode) && !isMade(a),
+  );
 
   console.log(`Артикулов в каталоге: ${arts.length}`);
   console.log(`  вернуть в продукцию (лист: ГП, а мы прятали): ${toShow.length}`);
   console.log(`  убрать из продукции (лист: ТМЦ): ${toHide.length}`);
-  console.log(`  нет в листе — не трогаем: ${unknown.length}`);
+  console.log(`  убрать по виду кода (1С-код, нет состава и норм): ${byCodeShape.length}`);
+  console.log(`  нет в листе, но код заводской или есть состав — оставляем: ${unknown.length - byCodeShape.length}`);
 
   if (toShow.length) {
     console.log('\nВозвращаются в каталог:');
     toShow.slice(0, 15).forEach((a) => console.log(`   ${a.articleCode.padEnd(14)} ${a.name.slice(0, 55)}`));
   }
   if (toHide.length) {
-    console.log('\nУбираются из каталога:');
+    console.log('\nУбираются из каталога (лист: ТМЦ):');
     toHide.forEach((a) => console.log(`   ${a.articleCode.padEnd(14)} ${a.name.slice(0, 55)}`));
+  }
+  if (byCodeShape.length) {
+    console.log('\nУбираются из каталога (1С-код, не изготавливается):');
+    byCodeShape.slice(0, 20).forEach((a) => console.log(`   ${a.articleCode.padEnd(16)} ${a.name.slice(0, 52)}`));
+    if (byCodeShape.length > 20) console.log(`   … и ещё ${byCodeShape.length - 20}`);
   }
 
   if (dryRun) {
@@ -91,13 +118,14 @@ async function main() {
       data: { isMaterialResale: false },
     });
   }
-  if (toHide.length) {
+  const hideIds = [...toHide, ...byCodeShape].map((a) => a.id);
+  if (hideIds.length) {
     await prisma.article.updateMany({
-      where: { id: { in: toHide.map((a) => a.id) } },
+      where: { id: { in: hideIds } },
       data: { isMaterialResale: true },
     });
   }
-  console.log(`\nГотово: возвращено ${toShow.length}, убрано ${toHide.length}.`);
+  console.log(`\nГотово: возвращено ${toShow.length}, убрано ${hideIds.length}.`);
   await prisma.$disconnect();
 }
 

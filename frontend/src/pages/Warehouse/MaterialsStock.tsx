@@ -89,14 +89,24 @@ function MovementHistory({ materialId, material }: { materialId: string; materia
  * Данные живые (не Excel-архив): учётная цена отсюда идёт в себестоимость
  * при сборке спецификации.
  */
-export function MaterialsStock() {
+/**
+ * @param only — какие категории показывать. «Склад сырья» — то, из чего
+ * делают изделия; «Кладовая» — расходники и инструмент. Разделения по
+ * настоящим складам 1С («74п_Склад Сырья», «74п_Кладовая_ЦМК») в остатках
+ * нет: колонка склада в выгрузке пустая, поэтому делим по категории.
+ */
+export function MaterialsStock({ only }: { only?: string[] } = {}) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [selected, setSelected] = useState<any>(null);
 
+  const visibleCategories = only
+    ? CATEGORIES.filter((c) => only.includes(c.value))
+    : CATEGORIES;
+
   const { data, isLoading } = useMaterials({
     search,
-    ...(category ? { category } : {}),
+    ...(category ? { category } : only ? { categories: only.join(',') } : {}),
     pageSize: 100,
   });
   const materials: any[] = (data as any)?.data ?? [];
@@ -121,7 +131,7 @@ export function MaterialsStock() {
           />
           <Select
             placeholder="Все категории"
-            data={CATEGORIES}
+            data={visibleCategories}
             value={category}
             onChange={setCategory}
             clearable

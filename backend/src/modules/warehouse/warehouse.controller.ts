@@ -135,12 +135,41 @@ export class WarehouseController {
   }
 
   /**
+   * Склад готовой продукции. Движения ГП ведёт 1С; в загруженных сейчас
+   * выгрузках их нет, поэтому таблица честно пустая — экран об этом
+   * говорит прямо, а не рисует нули как факт (26.08.2026).
+   */
+  @Get('finished-goods')
+  @ApiOperation({ summary: 'Склад готовой продукции: движения ГП' })
+  async getFinishedGoods(@Query() query: { page?: string; pageSize?: string }) {
+    const page = Number(query.page) || 1;
+    const pageSize = Number(query.pageSize) || 100;
+    return runWithFallback(
+      this.prisma,
+      async () => {
+        const [data, total] = await Promise.all([
+          this.prisma.finishedGoodsMovement.findMany({
+            skip: (page - 1) * pageSize,
+            take: pageSize,
+            orderBy: { movementDate: 'desc' },
+            include: {
+              article: { select: { articleCode: true, name: true } },
+              order: { select: { orderNumber: true } },
+            },
+          }),
+          this.prisma.finishedGoodsMovement.count(),
+        ]);
+        return { data, meta: { page, pageSize, total } };
+      },
+      () => ({ data: [], meta: { page, pageSize, total: 0 } }),
+    );
+  }
+
+  /**
    * Журнал приходов: ручные приходы (material_stock_movements) и приходы
-   * из 1С-заливки по строкам закупа (material_batches, origin ONEC) —
-   * та же болезнь, что была у истории цены материала (см. комментарий
-   * выше): раньше экран смотрел только в первую таблицу и не видел вообще
-   * ничего из сегодняшней заливки. У ONEC-строк есть paymentDocumentId —
-   * настоящая ДО, «карточка прихода» открывается по ней (25.08.2026).
+   * из 1С-заливки по строкам закупа (material_batches, origin ONEC).
+   * У ONEC-строк есть paymentDocumentId — настоящая ДО, «карточка прихода»
+   * открывается по ней (25.08.2026).
    */
   @Get('receipts')
   @ApiOperation({ summary: 'Журнал приходов материалов' })

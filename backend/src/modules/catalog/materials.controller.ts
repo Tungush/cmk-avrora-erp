@@ -17,13 +17,19 @@ export class MaterialsController {
 
   @Get()
   @ApiOperation({ summary: 'List materials with search & pagination' })
-  async findAll(@Query() query: { category?: string; search?: string; page?: string; pageSize?: string }) {
+  async findAll(@Query() query: { category?: string; categories?: string; search?: string; page?: string; pageSize?: string }) {
     const page = Number(query.page) || 1;
     const pageSize = Number(query.pageSize) || 50;
     const skip = (page - 1) * pageSize;
 
     const where: any = {};
     if (query.category) where.category = query.category;
+    // Несколько категорий разом: «Склад сырья» — это металл + метизы +
+    // комплектующие, «Кладовая» — расходники + инструменты (26.08.2026)
+    else if (query.categories) {
+      const list = query.categories.split(',').map((c) => c.trim()).filter(Boolean);
+      if (list.length) where.category = { in: list };
+    }
     if (query.search) {
       where.OR = [
         { materialCode: { contains: query.search, mode: 'insensitive' } },

@@ -153,7 +153,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
         </Group>
         <Group gap="xs">
           <Text size="sm" ff="monospace" fw={700}>Материалы: {num(total)} ₸/ед.</Text>
-          <Tooltip label="Учётная цена — средневзвешенная по приходам со склада. Занести закуп: Склад → Приход материалов" multiline w={260}>
+          <Tooltip label="Учётная цена — средневзвешенная по приходам со склада. Приходы приезжают из заказов поставщику в 1С" multiline w={260}>
             <Text size="xs" c="dimmed" style={{ cursor: 'help' }}>ⓘ</Text>
           </Tooltip>
         </Group>

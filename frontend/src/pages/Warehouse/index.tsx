@@ -3,12 +3,18 @@ import { Tabs, Stack, Text } from '@mantine/core';
 import {
   IconGavel,
   IconBoxSeam,
-  IconTruckDelivery,
+  IconTool,
+  IconBuildingWarehouse,
 } from '@tabler/icons-react';
 import { MaterialsStock } from './MaterialsStock';
-import { MaterialReceipts } from './MaterialReceipts';
 import { BatchesReserves } from './BatchesReserves';
+import { FinishedGoodsStock } from './FinishedGoodsStock';
 import { useSearchParams } from 'react-router-dom';
+
+/** Склад сырья — то, из чего делают изделия */
+const RAW = ['METAL', 'HARDWARE', 'COMPONENTS'];
+/** Кладовая — расходники и инструмент, в изделие не входят */
+const STOREROOM = ['CONSUMABLES', 'INSTRUMENTS'];
 
 export function Warehouse() {
   // Вкладка живёт в адресе: ссылки «Требует решения» с экрана директора
@@ -25,20 +31,22 @@ export function Warehouse() {
           Склад
         </Text>
         <Text size="sm" c="dimmed">
-          База сырья с ценами закупа — отсюда берётся себестоимость в спецификациях
+          Сырьё с ценами закупа — отсюда берётся себестоимость в спецификациях
         </Text>
       </Stack>
 
       <Tabs value={tab} onChange={(v) => setTab(v ?? 'stock')} radius="md" keepMounted={false}>
         <Tabs.List mb="md">
-          <Tabs.Tab value="stock" leftSection={<IconBoxSeam size={15} />}>База сырья</Tabs.Tab>
+          <Tabs.Tab value="stock" leftSection={<IconBoxSeam size={15} />}>Склад сырья</Tabs.Tab>
+          <Tabs.Tab value="storeroom" leftSection={<IconTool size={15} />}>Кладовая</Tabs.Tab>
+          <Tabs.Tab value="fg" leftSection={<IconBuildingWarehouse size={15} />}>Склад ГП</Tabs.Tab>
           <Tabs.Tab value="batches" leftSection={<IconGavel size={15} />}>Партии и резервы</Tabs.Tab>
-          <Tabs.Tab value="receipts" leftSection={<IconTruckDelivery size={15} />}>Приход материалов</Tabs.Tab>
         </Tabs.List>
 
-        <Tabs.Panel value="stock"><MaterialsStock /></Tabs.Panel>
+        <Tabs.Panel value="stock"><MaterialsStock only={RAW} /></Tabs.Panel>
+        <Tabs.Panel value="storeroom"><MaterialsStock only={STOREROOM} /></Tabs.Panel>
+        <Tabs.Panel value="fg"><FinishedGoodsStock /></Tabs.Panel>
         <Tabs.Panel value="batches"><BatchesReserves /></Tabs.Panel>
-        <Tabs.Panel value="receipts"><MaterialReceipts /></Tabs.Panel>
       </Tabs>
     </Stack>
   );

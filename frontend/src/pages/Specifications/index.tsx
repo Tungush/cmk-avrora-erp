@@ -638,13 +638,12 @@ export function Specifications() {
   // тоже обрезалось). Теперь список растёт по кнопке, честно показывая,
   // сколько всего и сколько ещё скрыто.
   const [visibleCount, setVisibleCount] = useState(30);
-  // «Изделия» — каталог продукции. Сырьё/метизы (isMaterialResale), у которых
-  // код совпал с кодом материала, по умолчанию из списка убраны — раньше
-  // они просто помечались бейджем и продолжали засорять список (жалоба
-  // пользователя 25.08.2026: «какого х у меня тут сырье ходит»)
-  const [showResale, setShowResale] = useState(false);
+  // «Изделия» — каталог ТОЛЬКО продукции. Сырьё, услуги и прочее, что завод
+  // не изготавливает, сюда не попадает вовсе: переключателя нет намеренно
+  // (26.08.2026 — «удали тут всё что сырьё и убери кнопку показать сырьё»).
+  // Сырьё живёт в разделе «Материалы».
   const { data: articlesData, isLoading: articlesLoading } = useArticles({
-    search, pageSize: visibleCount, includeResale: showResale,
+    search, pageSize: visibleCount,
   });
   const articles = articlesData?.data ?? [];
   const articlesTotal = articlesData?.meta?.total ?? articles.length;
@@ -702,20 +701,9 @@ export function Specifications() {
             size="sm"
             mb={4}
           />
-          <Group justify="space-between" mb="sm" gap={4} wrap="nowrap">
-            <Text size="xs" c="dimmed">
-              {articlesLoading ? ' ' : `Показано ${articles.length} из ${articlesTotal}`}
-            </Text>
-            <Text
-              size="xs"
-              c="brand.7"
-              fw={600}
-              style={{ cursor: 'pointer', whiteSpace: 'nowrap' }}
-              onClick={() => { setShowResale((v) => !v); setVisibleCount(30); setSelectedId(null); }}
-            >
-              {showResale ? 'скрыть сырьё' : 'показать сырьё'}
-            </Text>
-          </Group>
+          <Text size="xs" c="dimmed" mb="sm">
+            {articlesLoading ? ' ' : `Показано ${articles.length} из ${articlesTotal}`}
+          </Text>
           <ScrollArea h={isMobile ? 220 : 560} scrollbarSize={6}>
             <Stack gap={4}>
               {articlesLoading
