@@ -2,10 +2,10 @@ import {
   STAGE_STEPS, stepKey, stageShapeError, resolveTrackingMode, allocateActualHours,
 } from '../src/common/production-stages';
 
-describe('Этапы заказа: две вехи + три передела (09 §2.1)', () => {
-  it('пять шагов в порядке прохождения заказа', () => {
+describe('Этапы заказа: три вида работ цеха (26.08.2026)', () => {
+  it('три вида работ в порядке прохождения заказа', () => {
     expect(STAGE_STEPS.map((s) => s.key)).toEqual([
-      'DESIGN', 'SUPPLY', 'PRODUCTION:CUTTING', 'PRODUCTION:ASSEMBLY', 'PRODUCTION:PAINTING',
+      'PRODUCTION:CUTTING', 'PRODUCTION:ASSEMBLY', 'PRODUCTION:PAINTING',
     ]);
   });
 
@@ -33,9 +33,9 @@ describe('Этапы заказа: две вехи + три передела (09
 });
 
 describe('Проверка формы этапа', () => {
-  it('веха без передела — валидна', () => {
-    expect(stageShapeError('DESIGN', null)).toBeNull();
-    expect(stageShapeError('SUPPLY', undefined)).toBeNull();
+  it('старые вехи «Чертежи»/«Закуп» отклоняются — это не работа цеха', () => {
+    expect(stageShapeError('DESIGN', null)).toMatch(/Неизвестный этап/);
+    expect(stageShapeError('SUPPLY', undefined)).toMatch(/Неизвестный этап/);
   });
 
   it('производство с переделом — валидно', () => {
@@ -43,11 +43,11 @@ describe('Проверка формы этапа', () => {
   });
 
   it('производство без передела отклоняется', () => {
-    expect(stageShapeError('PRODUCTION', null)).toMatch(/нужен передел/);
+    expect(stageShapeError('PRODUCTION', null)).toMatch(/Нужен вид работ/);
   });
 
-  it('«Снабжение / Резка» отклоняется — иначе бессмыслица всплывёт в отчётах', () => {
-    expect(stageShapeError('SUPPLY', 'CUTTING')).toMatch(/только для этапа/);
+  it('«Снабжение / Резка» отклоняется — SUPPLY больше не существует', () => {
+    expect(stageShapeError('SUPPLY', 'CUTTING')).toMatch(/Неизвестный этап/);
   });
 
   it('старые коды больше не принимаются', () => {

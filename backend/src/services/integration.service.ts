@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from './prisma.service';
@@ -26,10 +26,30 @@ const backoffMinutes = (attempt: number) => Math.min(2 ** attempt, 16);
  * события, а перевод в объекты 1С живёт в адаптере.
  */
 @Injectable()
-export class IntegrationService {
+export class IntegrationService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(IntegrationService.name);
+  private flushTimer: NodeJS.Timeout | null = null;
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Доставка по расписанию (26.08.2026): раньше flushOutbox вызывался только
+   * кнопкой админа — сигнал «производство готово» ждал бы человека. Таймер
+   * включается лишь при настроенном адресе 1С; без него сообщения копятся
+   * в PENDING, как и прежде.
+   */
+  onModuleInit() {
+    if (!INTEGRATION_1C_URL) return;
+    this.flushTimer = setInterval(() => {
+      this.flushOutbox().catch((e) =>
+        this.logger.error(`Плановая отправка outbox упала: ${e instanceof Error ? e.message : e}`));
+    }, 5 * 60_000);
+    this.flushTimer.unref?.();
+  }
+
+  onModuleDestroy() {
+    if (this.flushTimer) clearInterval(this.flushTimer);
+  }
 
   // ---------- Маппинг ID ----------
 
@@ -122,7 +142,7 @@ export class IntegrationService {
     let failed = 0;
     for (const m of messages) {
       try {
-        await this.send(m.type, m.payload);
+        await this.send(m.id, m.type, m.payload);
         await this.prisma.outboxMessage.update({
           where: { id: m.id },
           data: { status: 'SENT', sentAt: new Date(), attempts: m.attempts + 1, lastError: null },
@@ -150,9 +170,14 @@ export class IntegrationService {
     return { skipped: false, sent, failed, processed: messages.length };
   }
 
-  /** Транспорт до 1С. Подпись — HMAC, как для входящих (04_ROLES_PERMISSIONS.md) */
-  private async send(type: string, payload: unknown) {
-    const body = JSON.stringify({ type, payload });
+  /**
+   * Транспорт до 1С. Подпись — HMAC, как для входящих.
+   * messageId в конверте — ключ идемпотентности: по production.completed 1С
+   * создаёт документ, и без ключа ретрай после таймаута (когда документ
+   * фактически проведён) создал бы второй документ производства.
+   */
+  private async send(messageId: string, type: string, payload: unknown) {
+    const body = JSON.stringify({ messageId, type, payload });
     const signature = crypto.createHmac('sha256', INTEGRATION_SECRET).update(body).digest('hex');
     const res = await fetch(`${INTEGRATION_1C_URL.replace(/\/$/, '')}/${type}`, {
       method: 'POST',

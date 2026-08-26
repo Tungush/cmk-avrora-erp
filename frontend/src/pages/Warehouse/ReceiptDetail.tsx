@@ -108,6 +108,9 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         <Row label="Дата документа" value={formatDate(d.doDate)} />
         <Row label="Валюта" value={cur} />
         {d.costCategory && <Row label="Категория затрат" value={d.costCategory} />}
+        {raw['НомерЗаказаБитрикс'] && (
+          <Row label="Заявка в Битрикс" value={`ID ${raw['НомерЗаказаБитрикс']}`} mono />
+        )}
       </Section>
 
       <Card withBorder radius="md" padding="md">

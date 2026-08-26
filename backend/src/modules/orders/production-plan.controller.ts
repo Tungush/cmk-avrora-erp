@@ -52,9 +52,9 @@ export class ProductionPlanController {
    * пробел данных, который в Excel был невидим.
    */
   /**
-   * Цех: заказы в производстве вместе с этапами (замена канбана).
-   * Заказ идёт по пяти шагам сразу — КД, Снабжение и три передела, — а не
-   * «лежит в колонке», поэтому список с прогрессом честнее доски (09 §2.1).
+   * Цех: заказы в производстве вместе с видами работ (замена канбана).
+   * Заказ идёт по трём видам работ сразу — резка, сборка, покраска, —
+   * а не «лежит в колонке», поэтому список с прогрессом честнее доски.
    */
   @Get('shop-floor')
   @ApiOperation({ summary: 'Цех: заказы в работе + прогресс по этапам' })
@@ -65,7 +65,9 @@ export class ProductionPlanController {
         const orders = await this.prisma.order.findMany({
           where: { status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] } },
           orderBy: [{ overdueDays: 'desc' }, { plannedShipmentDate: 'asc' }],
-          take: 200,
+          // 241 подходящий заказ при прежнем take: 200 — 41 не попадал
+          // на экран никогда (26.08.2026)
+          take: 500,
           include: {
             customer: { select: { name: true } },
             productionStages: true,
@@ -199,13 +201,20 @@ export class ProductionPlanController {
           ? rows.filter((r) => r.currentStage === query.stage)
           : rows;
 
-        // Где стоит работа: сколько заказов ждёт на каждом этапе — узкие места цеха
+        // Сколько заказов ЖДУТ каждого вида работ (шаг не закрыт) — та же
+        // логика, что у фильтра на экране цеха. Раньше считалось по
+        // currentStage (первый незакрытый шаг), и при пустой таблице
+        // отметок весь счёт доставался первому шагу списка, а остальные
+        // показывали 0 — мастер видел «работы нет» и уходил (26.08.2026)
         const byStage = STAGE_STEPS.map((step) => ({
           code: step.code,
           routingStage: step.routingStage,
           key: step.key,
           label: step.label,
-          count: rows.filter((r) => r.currentStage === step.key).length,
+          count: rows.filter((r) => {
+            const st = r.stages.find((x) => x.key === step.key);
+            return st != null && st.status !== 'DONE';
+          }).length,
         }));
 
         return { orders: filtered, byStage, total: rows.length };

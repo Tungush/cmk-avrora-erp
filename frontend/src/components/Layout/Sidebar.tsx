@@ -10,6 +10,7 @@ import {
   IconBuildingBank,
   IconRuler2,
   IconTruckDelivery,
+  IconHammer,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { LogoLockup } from '../Brand';
@@ -29,6 +30,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const navItems = [
     { to: '/', icon: IconClipboardList, label: 'Моя работа', module: 'work' },
     { to: '/orders', icon: IconShoppingCart, label: 'Заказы', module: 'orders' },
+    { to: '/production/kanban', icon: IconHammer, label: 'Цех', module: 'production' },
     { to: '/specs', icon: IconRuler2, label: 'Изделия', module: 'specs' },
     { to: '/warehouse', icon: IconPackage, label: 'Материалы', module: 'materials' },
     { to: '/purchases', icon: IconTruckDelivery, label: 'Закупки', module: 'purchases' },

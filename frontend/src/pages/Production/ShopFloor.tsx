@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card, Stack, Group, Text, Badge, Skeleton, Box, TextInput, Button, Drawer,
-  NumberInput, Select, Switch, Divider, Progress, ThemeIcon, Alert,
+  NumberInput, Select, Switch, Divider, Progress, ThemeIcon, Alert, ActionIcon,
 } from '@mantine/core';
 import {
-  IconSearch, IconAlertTriangle, IconCheck, IconPlayerPlay, IconTruck, IconArrowBackUp,
+  IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
@@ -64,8 +64,6 @@ const MY_STAGES = [
   { key: 'PRODUCTION:CUTTING', label: 'Резка' },
   { key: 'PRODUCTION:ASSEMBLY', label: 'Сборка / сварка' },
   { key: 'PRODUCTION:PAINTING', label: 'Покраска' },
-  { key: 'DESIGN', label: 'Чертежи' },
-  { key: 'SUPPLY', label: 'Закуп' },
 ];
 
 const RATE_TYPE_LABELS: Record<string, string> = {
@@ -304,11 +302,14 @@ function DoneSheet({
 }
 
 /**
- * Цех: заказы, ждущие моего передела (решение 23.08.2026).
+ * Цех: заказы, ждущие моей работы (упрощено 26.08.2026).
  *
- * Мастер один раз выбирает свой передел — дальше видит одну колонку карточек,
- * а не полосу из пяти квадратиков внутри горизонтально скроллящейся таблицы.
- * Нормальный путь — два касания: тап по карточке, тап «Готово».
+ * Мастер один раз выбирает свой вид работ — дальше видит колонку карточек
+ * с кнопкой «Готово» прямо на каждой. Нормальный путь — ОДИН тап: пользователь
+ * показывает, что изготовление сделано, и всё. Часы не спрашиваются («не
+ * ввёл» = «по норме»); часы по факту и подряд — за кнопкой «⋯». Кнопки
+ * «Начал» больше нет: заказ сам встаёт «в работу» после первого закрытого
+ * вида работ, отдельного действия это не стоит.
  */
 export function ShopFloor() {
   const qc = useQueryClient();
@@ -336,7 +337,8 @@ export function ShopFloor() {
     refetchInterval: 60_000,
   });
 
-  const start = useMutation({
+  // «Снять готовность» — единственный путь исправить ошибочное «Готово»
+  const undo = useMutation({
     mutationFn: (input: { orderId: string; stage: StageState }) =>
       ordersApi.updateStage(input.orderId, input.stage.code, {
         status: 'in_progress',
@@ -345,11 +347,45 @@ export function ShopFloor() {
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['shop-floor'] });
       notifications.show({
-        title: 'Начали',
-        message: `${v.stage.label} — в работе`,
-        color: 'success',
-        icon: <IconPlayerPlay size={16} />,
+        title: 'Готовность снята',
+        message: `${v.stage.label} — снова в работе`,
+        color: 'warning',
+        icon: <IconArrowBackUp size={16} />,
       });
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Ошибка',
+      message: e?.response?.data?.error?.message ?? 'Не удалось отметить',
+      color: 'danger',
+    }),
+  });
+
+  // Главное действие цеха: один тап — «изготовлено». Когда закрыт последний
+  // вид работ, бэкенд сам переводит заказ в «готов к отгрузке» и ставит
+  // в очередь сигнал 1С на оформление «Производства без заказа»
+  const done = useMutation({
+    mutationFn: (input: { orderId: string; stage: StageState }) =>
+      ordersApi.updateStage(input.orderId, input.stage.code, {
+        status: 'done',
+        routingStage: input.stage.routingStage,
+      }).then((r) => r.data),
+    onSuccess: (res: any, v) => {
+      qc.invalidateQueries({ queryKey: ['shop-floor'] });
+      if (res?.orderStatus === 'READY_TO_SHIP' && res?.orderStatusChanged) {
+        notifications.show({
+          title: 'Заказ изготовлен',
+          message: `${v.orderId ? '' : ''}Все работы закрыты — заказ готов к отгрузке, сигнал в 1С поставлен в очередь`,
+          color: 'success',
+          icon: <IconCheck size={16} />,
+        });
+      } else {
+        notifications.show({
+          title: 'Готово',
+          message: v.stage.label,
+          color: 'success',
+          icon: <IconCheck size={16} />,
+        });
+      }
     },
     onError: (e: any) => notifications.show({
       title: 'Ошибка',
@@ -473,11 +509,38 @@ export function ShopFloor() {
                   </Badge>
                 )}
               </Group>
-              <Group gap={6} wrap="nowrap">
+              <Group gap={6} wrap="nowrap" onClick={(e) => e.stopPropagation()}>
                 <Text size="sm" ff="monospace" c="dimmed">{formatDate(o.plannedShipmentDate)}</Text>
                 {o.overdueDays > 0 && (
                   <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={10} />}>
                     {o.overdueDays} дн
+                  </Badge>
+                )}
+                {/* Главный путь — один тап прямо на карточке. Детали (часы,
+                    подряд) — за «⋯», обычному случаю они не нужны */}
+                {canEdit && mine && o.stageTrackingMode !== 'LINE' && mine.status !== 'DONE' && (
+                  <>
+                    <Button
+                      size="sm"
+                      leftSection={<IconCheck size={16} />}
+                      loading={done.isPending && done.variables?.orderId === o.id}
+                      onClick={() => done.mutate({ orderId: o.id, stage: mine })}
+                    >
+                      Готово
+                    </Button>
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      aria-label="Часы и подряд"
+                      onClick={() => setSheet({ order: o, stage: mine })}
+                    >
+                      <IconDots size={16} />
+                    </ActionIcon>
+                  </>
+                )}
+                {canEdit && mine && mine.status === 'DONE' && (
+                  <Badge color="teal" variant="light" radius="xl" leftSection={<IconCheck size={11} />}>
+                    готово
                   </Badge>
                 )}
               </Group>
@@ -519,32 +582,13 @@ export function ShopFloor() {
                     variant="default"
                     color="gray"
                     leftSection={<IconArrowBackUp size={20} />}
-                    disabled={start.isPending}
-                    onClick={() => start.mutate({ orderId: o.id, stage: mine })}
+                    disabled={undo.isPending}
+                    onClick={() => undo.mutate({ orderId: o.id, stage: mine })}
                     fullWidth
                   >
                     Снять готовность
                   </Button>
-                ) : (
-                  <Group grow>
-                    <Button
-                      size="lg"
-                      variant="default"
-                      leftSection={<IconPlayerPlay size={20} />}
-                      disabled={mine.status === 'IN_PROGRESS' || start.isPending}
-                      onClick={() => start.mutate({ orderId: o.id, stage: mine })}
-                    >
-                      Начал
-                    </Button>
-                    <Button
-                      size="lg"
-                      leftSection={<IconCheck size={20} />}
-                      onClick={() => setSheet({ order: o, stage: mine })}
-                    >
-                      Готово
-                    </Button>
-                  </Group>
-                )}
+                ) : null}
               </Stack>
               )}
             </Collapse>

@@ -443,7 +443,7 @@ export class OrdersController {
    */
   @Patch(':id/production-stages/:code')
   @Roles('shop_foreman', 'planner', 'admin')
-  @ApiOperation({ summary: 'Отметить этап заказа (КД / Снабжение / Производство + передел)' })
+  @ApiOperation({ summary: 'Отметить вид работ по заказу (резка / сборка / покраска)' })
   async updateProductionStage(
     @Param('id') id: string,
     @Param('code') code: string,
@@ -470,7 +470,14 @@ export class OrdersController {
     }
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { orderLines: { select: { id: true } } },
+      include: {
+        orderLines: {
+          select: {
+            id: true, qty: true, unit: true, articleId: true,
+            article: { select: { articleCode: true, name: true } },
+          },
+        },
+      },
     });
     if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${id} not found` });
 
@@ -495,9 +502,20 @@ export class OrdersController {
     }
 
     const routingStage = (body.routingStage ?? null) as any;
+    // «Кто отметил» — поле было в схеме с самого начала, но не заполнялось.
+    // Ссылается на Employee, не на User: у общего цехового входа сотрудник
+    // не привязан — тогда остаётся null (след в audit log всё равно есть)
+    let completedById: string | null = null;
+    if (status === 'DONE' && !user.userId.startsWith('usr-')) {
+      const u = await this.prisma.user.findUnique({
+        where: { id: user.userId }, select: { employeeId: true },
+      });
+      completedById = u?.employeeId ?? null;
+    }
     const data = {
       status: status as any,
       completedAt: status === 'DONE' ? new Date() : null,
+      completedById,
       actualWorkers: body.actualWorkers ?? undefined,
       actualHours: body.actualHours ?? undefined,
       defectPhotoUrl: body.defectPhotoUrl,
@@ -579,6 +597,51 @@ export class OrdersController {
             comment: 'автоматически по отметкам этапов',
           },
         });
+
+        // Все виды работ закрыты — заказ изготовлен. Один сигнал в 1С со
+        // всеми позициями: там по нему оформляют «Производство без заказа»
+        // (запрос пользователя 26.08.2026, спроектировано в 08_INTEGRATION_1C
+        // §4.5). Однократность гарантирует optimistic guard выше: повторного
+        // перехода в READY_TO_SHIP из этого кода не бывает.
+        if (derived === 'READY_TO_SHIP') {
+          const releaseDate = new Date();
+          await this.integration.enqueue(tx, {
+            type: 'production.completed',
+            entityType: 'Order',
+            entityId: id,
+            payload: {
+              orderId: id,
+              orderNumber: order.orderNumber,
+              onecNum: order.onecNum,
+              releaseDate: releaseDate.toISOString(),
+              reportedBy: user.email ?? user.roles[0],
+              documentHint: 'Производство без заказа',
+              lines: order.orderLines
+                .filter((l) => l.articleId)
+                .map((l) => ({
+                  orderLineId: l.id,
+                  articleCode: l.article?.articleCode ?? null,
+                  articleName: l.article?.name ?? null,
+                  qty: Number(l.qty),
+                  unit: l.unit,
+                })),
+            },
+          });
+          // Той же транзакцией — приход готовой продукции: склад ГП начинает
+          // жить от работы цеха, а не ждать отдельной выгрузки
+          for (const l of order.orderLines) {
+            if (!l.articleId) continue;
+            await tx.finishedGoodsMovement.create({
+              data: {
+                itemId: l.articleId,
+                orderId: id,
+                movementType: 'FROM_PRODUCTION',
+                qty: l.qty,
+                movementDate: releaseDate,
+              },
+            });
+          }
+        }
       }
 
       return { ...stage, orderStatus: derived ?? order.status, orderStatusChanged: Boolean(derived) };

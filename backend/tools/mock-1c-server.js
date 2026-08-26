@@ -171,6 +171,23 @@ const server = http.createServer((req, res) => {
     return send([turnover(num || 'Т7АА-001211', adem || 'П-115480-24')]);
   }
 
+  // Приём исходящих от сервиса (INTEGRATION_1C_URL): production.completed,
+  // production-status, production-stage, nomenclature.requested и т.д.
+  // Настоящая 1С по production.completed оформляет «Производство без заказа»;
+  // мок просто подтверждает приём и логирует тело — этого достаточно, чтобы
+  // outbox перешёл в SENT и ретраи не плодились.
+  if (req.method === 'POST') {
+    let body = '';
+    req.on('data', (chunk) => { body += chunk; });
+    req.on('end', () => {
+      let parsed = {};
+      try { parsed = JSON.parse(body); } catch { /* оставляем пустым */ }
+      console.log(`[мок 1С] принят ${url.pathname}:`, JSON.stringify(parsed).slice(0, 500));
+      send({ accepted: true, messageId: parsed.messageId ?? null, path: url.pathname });
+    });
+    return;
+  }
+
   send({ error: `Неизвестный путь ${url.pathname}` }, 404);
 });
 

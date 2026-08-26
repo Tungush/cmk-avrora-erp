@@ -77,7 +77,7 @@ describe('Order State Machine Unit Tests', () => {
         userId: 'usr-3',
         userRole: 'shop_foreman',
       })
-    ).toThrow(/закрыто \d+ из 5 этапов/);
+    ).toThrow(/закрыто \d+ из 3 этапов/);
   });
 
   // Режим LINE: шаг закрыт, только когда отмечены ВСЕ позиции заказа.
@@ -124,7 +124,7 @@ describe('Order State Machine Unit Tests', () => {
         userId: 'usr-3',
         userRole: 'shop_foreman',
       })
-    ).toThrow(/закрыто 1 из 5 этапов/);
+    ).toThrow(/закрыто 1 из 3 этапов/);
   });
 
   it('Happy Path: READY_TO_SHIP -> SHIPPED', () => {

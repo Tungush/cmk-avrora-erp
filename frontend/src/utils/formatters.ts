@@ -86,21 +86,18 @@ export const ORDER_STATUS_COLORS: Record<string, string> = {
 };
 
 /**
- * Этапы заказа: две вехи + три передела (09_COSTING_AND_STAGES.md §2.1).
- * Ключ передела — «PRODUCTION:CUTTING», как его отдаёт бэкенд.
+ * Этапы заказа = три вида работ цеха (26.08.2026, «Чертежи» и «Закуп»
+ * убраны отовсюду — это не работа цеха, и они блокировали готовность).
+ * Ключ — «PRODUCTION:CUTTING», как его отдаёт бэкенд.
  */
 export const STAGE_LABELS: Record<string, string> = {
-  DESIGN: 'Чертежи',
-  SUPPLY: 'Закуп',
-  PRODUCTION: 'Осн производство',
+  PRODUCTION: 'Производство',
   'PRODUCTION:CUTTING': 'Резка',
   'PRODUCTION:ASSEMBLY': 'Сборка / сварка / обшивка',
   'PRODUCTION:PAINTING': 'Зачистка / покраска',
 };
 
 export const STAGE_ORDER = [
-  'DESIGN',
-  'SUPPLY',
   'PRODUCTION:CUTTING',
   'PRODUCTION:ASSEMBLY',
   'PRODUCTION:PAINTING',
@@ -108,8 +105,6 @@ export const STAGE_ORDER = [
 
 /** Короткие метки для полосы этапов — два символа читаются на любой ширине */
 export const STAGE_SHORT: Record<string, string> = {
-  DESIGN: 'ЧТ',
-  SUPPLY: 'ЗК',
   'PRODUCTION:CUTTING': 'РЗ',
   'PRODUCTION:ASSEMBLY': 'СВ',
   'PRODUCTION:PAINTING': 'ПК',

@@ -1,58 +1,58 @@
 /**
- * Этапы заказа: два уровня вместо восьми в один ряд (09_COSTING_AND_STAGES.md §2).
+ * Этапы заказа = три вида работ цеха (решение 26.08.2026).
  *
- * Верхний уровень — вехи заказа: КД → Снабжение → Производство.
- * Нижний — три передела внутри производства, и это тот же справочник
- * RoutingStage, по которому считается себестоимость. Один список вместо двух:
- * галочка мастера и калькуляция наконец говорят на одном языке.
+ * Раньше шагов было пять: «Чертежи» и «Закуп» стояли перед производством
+ * и входили в знаменатель готовности — цех физически не мог довести заказ
+ * до «готов к отгрузке», не отметив чужую работу КБ и снабжения, а счётчик
+ * «где стоит работа» всегда показывал «Чертежи». Пользователь: «не хочу,
+ * чтобы пользователь тратил время на указание, что он конкретно делал —
+ * мне надо, чтобы показал, сделал ли он изготовление на самом деле».
+ * DESIGN/SUPPLY убраны отовсюду; enum в БД не тронут (данных по ним 0,
+ * а гонять миграцию кириллических enum ради пустых значений незачем) —
+ * эти коды просто больше не принимаются.
+ *
+ * Нижний уровень — тот же справочник RoutingStage, по которому считается
+ * себестоимость: галочка мастера и калькуляция говорят на одном языке.
  */
 
-export type OrderStageCodeValue = 'DESIGN' | 'SUPPLY' | 'PRODUCTION';
+export type OrderStageCodeValue = 'PRODUCTION';
 export type RoutingStageValue = 'CUTTING' | 'ASSEMBLY' | 'PAINTING';
 
 export interface StageStep {
   code: OrderStageCodeValue;
-  routingStage: RoutingStageValue | null;
+  routingStage: RoutingStageValue;
   key: string;
   label: string;
 }
 
-/** Порядок прохождения заказа: 2 вехи + 3 передела */
+/** Порядок прохождения заказа: три вида работ */
 export const STAGE_STEPS: StageStep[] = [
-  { code: 'DESIGN', routingStage: null, key: 'DESIGN', label: 'Чертежи' },
-  { code: 'SUPPLY', routingStage: null, key: 'SUPPLY', label: 'Закуп' },
   { code: 'PRODUCTION', routingStage: 'CUTTING', key: 'PRODUCTION:CUTTING', label: 'Резка' },
   { code: 'PRODUCTION', routingStage: 'ASSEMBLY', key: 'PRODUCTION:ASSEMBLY', label: 'Сборка / сварка / обшивка' },
   { code: 'PRODUCTION', routingStage: 'PAINTING', key: 'PRODUCTION:PAINTING', label: 'Зачистка / покраска' },
 ];
 
-export const ORDER_STAGE_CODES: OrderStageCodeValue[] = ['DESIGN', 'SUPPLY', 'PRODUCTION'];
+export const ORDER_STAGE_CODES: OrderStageCodeValue[] = ['PRODUCTION'];
 export const ROUTING_STAGES: RoutingStageValue[] = ['CUTTING', 'ASSEMBLY', 'PAINTING'];
 
-/** Ключ шага: «PRODUCTION:CUTTING» или «DESIGN» — по нему сопоставляются записи БД */
+/** Ключ шага: «PRODUCTION:CUTTING» — по нему сопоставляются записи БД */
 export function stepKey(code: string, routingStage?: string | null): string {
   return routingStage ? `${code}:${routingStage}` : code;
 }
 
 /**
- * Передел обязателен ровно для PRODUCTION и запрещён для остальных:
- * «Снабжение / Резка» — бессмыслица, которая потом всплывёт в отчётах.
+ * Этап всегда PRODUCTION с обязательным переделом. Старые коды DESIGN/SUPPLY
+ * отклоняются: чертежи и закуп — не работа цеха (26.08.2026).
  */
 export function stageShapeError(code: string, routingStage?: string | null): string | null {
   if (!ORDER_STAGE_CODES.includes(code as OrderStageCodeValue)) {
     return `Неизвестный этап: ${code}. Допустимо: ${ORDER_STAGE_CODES.join(', ')}`;
   }
-  if (code === 'PRODUCTION') {
-    if (!routingStage) {
-      return `Для этапа «Производство» нужен передел: ${ROUTING_STAGES.join(', ')}`;
-    }
-    if (!ROUTING_STAGES.includes(routingStage as RoutingStageValue)) {
-      return `Неизвестный передел: ${routingStage}. Допустимо: ${ROUTING_STAGES.join(', ')}`;
-    }
-    return null;
+  if (!routingStage) {
+    return `Нужен вид работ: ${ROUTING_STAGES.join(', ')}`;
   }
-  if (routingStage) {
-    return `Передел указывается только для этапа «Производство», не для «${code}»`;
+  if (!ROUTING_STAGES.includes(routingStage as RoutingStageValue)) {
+    return `Неизвестный вид работ: ${routingStage}. Допустимо: ${ROUTING_STAGES.join(', ')}`;
   }
   return null;
 }
@@ -71,7 +71,7 @@ export function stageShapeError(code: string, routingStage?: string | null): str
  * когда мастер отметил шаг. Заказ с одной отметкой «резка готова» дал бы
  * `every(done) === true` — и уехал бы в «готов к отгрузке», хотя сборка
  * и покраска даже не начинались. Поэтому мерой служит полный список
- * из пяти шагов, а не то, что успело попасть в базу.
+ * из трёх видов работ, а не то, что успело попасть в базу.
  */
 export function stageProgress(
   rows: Array<{ stageCode: string; routingStage?: string | null; orderLineId?: string | null; status: string }>,

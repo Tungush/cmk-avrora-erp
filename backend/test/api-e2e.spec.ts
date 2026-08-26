@@ -151,10 +151,9 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .expect(200);
     expect(afterStart.body.status).toBe('IN_PRODUCTION');
 
-    // 7. Мастер закрывает все этапы: две вехи + три передела (09 §2.1)
+    // 7. Мастер закрывает три вида работ (26.08.2026 — «Чертежи» и «Закуп»
+    //    убраны: цех отмечает только своё)
     const steps: Array<{ code: string; routingStage: string | null }> = [
-      { code: 'DESIGN', routingStage: null },
-      { code: 'SUPPLY', routingStage: null },
       { code: 'PRODUCTION', routingStage: 'CUTTING' },
       { code: 'PRODUCTION', routingStage: 'ASSEMBLY' },
       { code: 'PRODUCTION', routingStage: 'PAINTING' },
@@ -167,7 +166,7 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
         .expect(200);
     }
 
-    // Производство без передела и веха с переделом — отклоняются
+    // Производство без вида работ и старая веха — отклоняются
     await request(app.getHttpServer())
       .patch(`/api/v1/orders/${orderId}/production-stages/PRODUCTION`)
       .set('Authorization', `Bearer ${tokens.foreman}`)
@@ -179,7 +178,7 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .send({ status: 'done', routingStage: 'CUTTING' })
       .expect(400);
 
-    // 8. «Готов к отгрузке» тоже проставился сам — все пять этапов закрыты.
+    // 8. «Готов к отгрузке» тоже проставился сам — все три вида работ закрыты.
     //    Складу больше не нужно повторять работу мастера вручную.
     const afterStages = await request(app.getHttpServer())
       .get(`/api/v1/orders/${orderId}`)
