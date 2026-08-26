@@ -162,6 +162,7 @@ export class ContractorRequestsController {
           take: 300,
           include: {
             contractor: { select: { id: true, name: true, binIin: true } },
+            paymentDocument: { select: { doNumber: true, totalAmount: true } },
             works: {
               select: {
                 id: true, orderId: true, actualQty: true, actualAmount: true, share: true,
@@ -171,7 +172,37 @@ export class ContractorRequestsController {
           },
         });
 
-        const data = rows.map((r) => allocationSummary(r));
+        // «Ждём ответа от 1С» должно заканчиваться сигналом, а не тишиной:
+        // по отправленным заявкам ищем свежие непривязанные ДО их подрядчиков
+        const waiting = rows.filter((r) => r.bitrixSentAt && !r.paymentDocumentId && r.contractor?.binIin);
+        const bins = [...new Set(waiting.map((r) => r.contractor!.binIin as string))];
+        const freshDocs = bins.length
+          ? await this.prisma.paymentDocument.findMany({
+              where: { contractorRequest: null, contractor: { binIin: { in: bins } } },
+              select: {
+                doNumber: true, doDate: true, totalAmount: true,
+                contractor: { select: { binIin: true } },
+              },
+              orderBy: { doDate: 'desc' },
+            })
+          : [];
+
+        const data = rows.map((r) => {
+          // ДО свежее отправки в Б24 — похоже, это ответ 1С на эту заявку
+          const candidate = r.bitrixSentAt && !r.paymentDocumentId && r.contractor?.binIin
+            ? freshDocs.find((d) => d.contractor.binIin === r.contractor!.binIin
+                && (!d.doDate || d.doDate.getTime() >= r.bitrixSentAt!.getTime() - 86_400_000))
+            : null;
+          return {
+            ...allocationSummary(r),
+            supplierDoc: r.paymentDocument
+              ? { doNumber: r.paymentDocument.doNumber, totalAmount: Number(r.paymentDocument.totalAmount) }
+              : null,
+            candidateDoc: candidate
+              ? { doNumber: candidate.doNumber, totalAmount: Number(candidate.totalAmount) }
+              : null,
+          };
+        });
         return {
           data,
           // Самая опасная точка: деньги приняты, но не сидят ни в одном
@@ -198,6 +229,7 @@ export class ContractorRequestsController {
       where: { id },
       include: {
         contractor: { select: { id: true, name: true, binIin: true } },
+        paymentDocument: { select: { id: true, doNumber: true, doDate: true, totalAmount: true } },
         works: {
           orderBy: { decidedAt: 'asc' },
           include: {
@@ -209,11 +241,16 @@ export class ContractorRequestsController {
     if (!req) throw new NotFoundException({ code: 'NOT_FOUND', message: `Заявка ${id} не найдена` });
 
     // Сверка идёт на уровне ПОДРЯДЧИКА, а не заказа: акт существует именно
-    // там, а партия из трёх заказов дала бы вечный MISMATCH по каждому
+    // там, а партия из трёх заказов дала бы вечный MISMATCH по каждому.
+    // Из этих же ДО выбирают основание приёмки: пришёл «Заказ поставщику»
+    // из 1С — его сумма и раскидывается по заказам, а не сумма со слов
     const acts = req.contractor?.binIin
       ? await this.prisma.paymentDocument.findMany({
           where: { contractor: { binIin: req.contractor.binIin } },
-          select: { id: true, doNumber: true, doDate: true, totalAmount: true, orderId: true },
+          select: {
+            id: true, doNumber: true, doDate: true, totalAmount: true, orderId: true,
+            contractorRequest: { select: { id: true, number: true } },
+          },
           orderBy: { doDate: 'desc' },
           take: 20,
         })
@@ -221,6 +258,14 @@ export class ContractorRequestsController {
 
     return {
       ...allocationSummary(req),
+      supplierDoc: req.paymentDocument
+        ? {
+            id: req.paymentDocument.id,
+            doNumber: req.paymentDocument.doNumber,
+            doDate: req.paymentDocument.doDate,
+            totalAmount: Number(req.paymentDocument.totalAmount),
+          }
+        : null,
       description: req.description,
       note: req.note,
       works: req.works.map((w) => ({
@@ -233,7 +278,17 @@ export class ContractorRequestsController {
         decidedAt: w.decidedAt,
         acceptedAt: w.acceptedAt,
       })),
-      supplierActs: acts.map((a) => ({ ...a, totalAmount: Number(a.totalAmount) })),
+      supplierActs: acts.map((a) => ({
+        id: a.id,
+        doNumber: a.doNumber,
+        doDate: a.doDate,
+        totalAmount: Number(a.totalAmount),
+        orderId: a.orderId,
+        // Занят другой заявкой — в кандидаты приёмки не годится
+        linkedRequestNumber: a.contractorRequest && a.contractorRequest.id !== req.id
+          ? a.contractorRequest.number
+          : null,
+      })),
     };
   }
 
@@ -655,23 +710,69 @@ export class ContractorRequestsController {
   @ApiOperation({ summary: 'Принять работу по заявке (замораживает сумму акта)' })
   async accept(
     @Param('id') id: string,
-    @Body() body: { actualQty: number; actualAmount: number; note?: string },
+    @Body() body: {
+      actualQty: number; actualAmount?: number;
+      /** «Заказ поставщику» из 1С — основание приёмки: сумма берётся из него */
+      paymentDocumentId?: string | null;
+      note?: string;
+    },
     @CurrentUser() user: UserPayload,
   ) {
     const req = await this.prisma.contractorRequest.findUnique({
-      where: { id }, include: { works: true },
+      where: { id }, include: { works: true, contractor: { select: { binIin: true, name: true } } },
     });
     if (!req) throw new NotFoundException({ code: 'NOT_FOUND', message: `Заявка ${id} не найдена` });
     if (req.status === 'CANCELLED') {
       throw new ConflictException({ code: 'REQUEST_CANCELLED', message: 'Заявка отменена' });
     }
     const qty = Number(body.actualQty);
-    const amount = Number(body.actualAmount);
     if (!(qty > 0)) {
       throw new BadRequestException({ code: 'INVALID_QTY', message: 'Укажите принятый объём' });
     }
+
+    // Приёмка по ДО из 1С: Б24 оформил заказ поставщику, 1С назвала сумму —
+    // она и раскидывается по заказам. Ручной ввод остаётся на случай, когда
+    // ДО ещё не пришёл, но платить уже надо
+    let doc: { id: string; doNumber: string; totalAmount: unknown } | null = null;
+    if (body.paymentDocumentId) {
+      const found = await this.prisma.paymentDocument.findUnique({
+        where: { id: body.paymentDocumentId },
+        include: {
+          contractor: { select: { binIin: true, name: true } },
+          contractorRequest: { select: { id: true, number: true } },
+        },
+      });
+      if (!found) {
+        throw new NotFoundException({ code: 'NOT_FOUND', message: 'Заказ поставщику не найден' });
+      }
+      // Один ДО — одна заявка: иначе одна сумма 1С разнеслась бы дважды
+      if (found.contractorRequest && found.contractorRequest.id !== id) {
+        throw new ConflictException({
+          code: 'DOC_TAKEN',
+          message: `ДО ${found.doNumber} уже привязан к заявке ${found.contractorRequest.number}`,
+        });
+      }
+      // ДО чужого контрагента — почти наверняка ошибка выбора из списка
+      if (req.contractor?.binIin && found.contractor.binIin
+        && req.contractor.binIin !== found.contractor.binIin) {
+        throw new BadRequestException({
+          code: 'DOC_CONTRACTOR_MISMATCH',
+          message: `ДО ${found.doNumber} — контрагент «${found.contractor.name}»,`
+            + ` а в заявке подрядчик «${req.contractor?.name ?? '—'}»`,
+        });
+      }
+      doc = found;
+    }
+
+    const amount = body.actualAmount != null ? Number(body.actualAmount)
+      : doc != null ? Number(doc.totalAmount) : NaN;
     if (!(amount >= 0)) {
-      throw new BadRequestException({ code: 'INVALID_AMOUNT', message: 'Сумма акта не может быть отрицательной' });
+      throw new BadRequestException({
+        code: 'INVALID_AMOUNT',
+        message: doc == null && body.actualAmount == null
+          ? 'Укажите сумму или выберите заказ поставщику из 1С'
+          : 'Сумма акта не может быть отрицательной',
+      });
     }
     // Разнесли 15 т, принимаем 12 — цифры разошлись, и молча подрезать
     // чужие заказы нельзя: пусть человек сначала поправит разнесение
@@ -692,6 +793,10 @@ export class ContractorRequestsController {
         acceptedAt: new Date(),
         acceptedById: dbUserId(user),
         status: req.works.length > 0 && allocated >= qty - 1e-6 ? 'ALLOCATED' : 'ACCEPTED',
+        // Смена основания: новый ДО заменяет старый, отвязка — только с ДО
+        ...(body.paymentDocumentId !== undefined
+          ? { paymentDocumentId: doc?.id ?? null }
+          : {}),
         note: body.note?.trim() || req.note,
       },
     });
@@ -712,6 +817,7 @@ export class ContractorRequestsController {
       accepted: true,
       actualQty: qty,
       actualAmount: amount,
+      supplierDocNumber: doc?.doNumber ?? null,
       allocatedRows: rows,
       // Директор должен видеть арифметику, а не «сумма разошлась по заказам»
       split: (after?.works ?? []).map((w) => ({

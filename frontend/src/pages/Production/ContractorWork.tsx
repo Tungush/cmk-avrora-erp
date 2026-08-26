@@ -631,6 +631,18 @@ function AcceptModal({ request, onClose }: {
     request.actualAmount ?? request.totalAmount ?? '',
   );
   const [note, setNote] = useState('');
+  // Основание приёмки — «Заказ поставщику» из 1С: Б24 оформил заявку, 1С
+  // назвала сумму, и раскидывается по заказам именно она, а не число со
+  // слов. Ручной ввод остаётся на случай, когда ДО ещё не пришёл
+  const [docId, setDocId] = useState<string | null>(null);
+
+  const candidates = (detail?.supplierActs ?? []).filter((a) => !a.linkedRequestNumber);
+  const chosenDoc = candidates.find((a) => a.id === docId) ?? null;
+  const pickDoc = (id: string | null) => {
+    setDocId(id);
+    const doc = candidates.find((a) => a.id === id);
+    if (doc) setAmount(doc.totalAmount);
+  };
 
   const works = detail?.works ?? [];
   const qtys = works.map((w) => w.qty ?? 0);
@@ -653,7 +665,12 @@ function AcceptModal({ request, onClose }: {
   const accept = useMutation({
     mutationFn: () => contractorRequestsApi.accept(request.id, {
       actualQty: Number(qty),
-      actualAmount: Number(amount),
+      // С ДО сумма едет из 1С; руками поверх — только если человек её поправил
+      ...(docId
+        ? { paymentDocumentId: docId,
+            ...(chosenDoc && Number(amount) !== chosenDoc.totalAmount
+              ? { actualAmount: Number(amount) } : {}) }
+        : { actualAmount: Number(amount) }),
       note: note.trim() || undefined,
     }),
     onSuccess: (res) => {
@@ -695,6 +712,24 @@ function AcceptModal({ request, onClose }: {
           {request.stageLabel} · {request.contractor?.name ?? 'подрядчик не выбран'}
         </Text>
 
+        <Select
+          label="Заказ поставщику из 1С"
+          description={candidates.length === 0
+            ? 'от этого подрядчика непривязанных ДО пока нет — введите сумму руками, привязать можно позже'
+            : 'сумма приёмки возьмётся из документа'}
+          placeholder={candidates.length === 0 ? 'ДО ещё не пришёл' : 'выберите ДО'}
+          data={candidates.map((a) => ({
+            value: a.id,
+            label: `${a.doNumber} · ${formatCurrency(a.totalAmount)}`
+              + (a.doDate ? ` · ${formatDate(a.doDate)}` : ''),
+          }))}
+          value={docId}
+          onChange={pickDoc}
+          disabled={candidates.length === 0}
+          clearable
+          searchable
+        />
+
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
           <NumberInput
             label={`Принято по акту, ${request.unit}`}
@@ -708,7 +743,9 @@ function AcceptModal({ request, onClose }: {
           />
           <NumberInput
             label="Сумма акта, ₸"
-            description="замораживается: пересчёт калькуляции её больше не двигает"
+            description={chosenDoc
+              ? `из ДО ${chosenDoc.doNumber} — правьте, только если акт разошёлся с заказом`
+              : 'замораживается: пересчёт калькуляции её больше не двигает'}
             value={amount}
             onChange={setAmount}
             min={0}
@@ -1219,6 +1256,10 @@ function RequestsTab() {
                             >
                               {REQUEST_STATUS_LABELS[r.status] ?? r.status}
                             </Badge>
+                          </Group>
+                          {/* Второй строкой, не в одну: три бейджа рядом с
+                              номером сплющивались в нечитаемые точки */}
+                          <Group gap={4} ml={28} mt={2} wrap="wrap" maw={200}>
                             {r.bitrixDealId && (
                               <Tooltip label={`Сделка в воронке «Заказ на Работы»`
                                 + (sentDays != null ? `, в Б24 ${sentDays} ${daysWord(sentDays)}` : '')}>
@@ -1227,8 +1268,25 @@ function RequestsTab() {
                                 </Badge>
                               </Tooltip>
                             )}
+                            {r.supplierDoc && (
+                              <Tooltip label={`Заказ поставщику из 1С на ${formatCurrency(r.supplierDoc.totalAmount)} — сумма приёмки из него`}>
+                                <Badge size="sm" variant="light" color="teal">
+                                  ДО {r.supplierDoc.doNumber}
+                                </Badge>
+                              </Tooltip>
+                            )}
+                            {/* 1С ответила: свежий непривязанный ДО подрядчика.
+                                «Ждём ответа» должно кончаться сигналом, не тишиной */}
+                            {!r.supplierDoc && r.candidateDoc && (
+                              <Tooltip label={`Похоже, 1С оформила заказ поставщику: ${r.candidateDoc.doNumber}`
+                                + ` на ${formatCurrency(r.candidateDoc.totalAmount)}. Принять — через акт`}>
+                                <Badge size="sm" variant="filled" color="teal">
+                                  пришёл ДО из 1С
+                                </Badge>
+                              </Tooltip>
+                            )}
                           </Group>
-                          <Text size="xs" c="dimmed" ml={28} lineClamp={2} maw={130}>
+                          <Text size="xs" c="dimmed" ml={28} lineClamp={2} maw={200}>
                             {/* пока описания не пришли — многоточие, а не пустота */}
                             {descriptions ? descriptions[r.id] ?? formatDate(r.createdAt) : '…'}
                           </Text>

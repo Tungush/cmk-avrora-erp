@@ -45,6 +45,7 @@ describe('Заявки на подряд: разнесение по заказа
     orderIds: [] as string[],
     contractorIds: [] as string[],
     requestIds: [] as string[],
+    paymentDocIds: [] as string[],
   };
 
   const state = {
@@ -121,6 +122,9 @@ describe('Заявки на подряд: разнесение по заказа
     if (own.orderIds.length) {
       await prisma.orderLine.deleteMany({ where: { orderId: { in: own.orderIds } } });
       await prisma.order.deleteMany({ where: { id: { in: own.orderIds } } });
+    }
+    if (own.paymentDocIds.length) {
+      await prisma.paymentDocument.deleteMany({ where: { id: { in: own.paymentDocIds } } });
     }
     if (own.customerIds.length) {
       await prisma.customer.deleteMany({ where: { id: { in: own.customerIds } } });
@@ -530,5 +534,112 @@ describe('Заявки на подряд: разнесение по заказа
     const still = await prisma.contractorWork.findUnique({ where: { id: work!.id } });
     expect(still).not.toBeNull();
     expect(Number(still!.actualQty)).not.toBe(99);
+  });
+
+  /**
+   * Ответ 1С: «Заказ поставщику» с номером и суммой. Сумма приёмки берётся
+   * из него — это и есть та сумма, которую потом раскидывают по заказам,
+   * а не число со слов (26.08.2026, уточнение пользователя).
+   */
+  it('12. Приёмка по ДО из 1С: сумма берётся из документа и раскидывается по заказам', async () => {
+    // ДО кладём напрямую, как это сделает синхронизация 1С. Контрагент 1С —
+    // Customer, связь с подрядчиком только по БИН
+    const contractor = await prisma.contractor.findUnique({ where: { id: state.contractorId } });
+    const asCustomer = await prisma.customer.create({
+      data: { name: `Контрагент ДО ${runId}`, binIin: contractor!.binIin! },
+    });
+    own.customerIds.push(asCustomer.id);
+    const doc = await prisma.paymentDocument.create({
+      data: {
+        doNumber: `ДО-E2E-${runId}`,
+        contractorId: asCustomer.id,
+        totalAmount: 990_000,
+        doDate: new Date(),
+      },
+    });
+    own.paymentDocIds.push(doc.id);
+
+    // Свежая заявка с разнесением на два заказа: 4 т и 8 т
+    const created = await http()
+      .post('/api/v1/contractor-requests')
+      .set('Authorization', `Bearer ${tokens.planner}`)
+      .send({
+        routingStage: 'CUTTING', description: `Резка по ДО ${runId}`,
+        rateType: 'PER_TON', plannedQty: 12, rate: 80_000, contractorId: state.contractorId,
+      })
+      .expect(201);
+    own.requestIds.push(created.body.id);
+    const rid = created.body.id;
+    await http().post(`/api/v1/contractor-requests/${rid}/allocate`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ orderId: state.orderA, qty: 4 }).expect(201);
+    await http().post(`/api/v1/contractor-requests/${rid}/allocate`)
+      .set('Authorization', `Bearer ${tokens.foreman}`)
+      .send({ orderId: state.orderB, qty: 8 }).expect(201);
+
+    // Сумму НЕ передаём — она обязана прийти из ДО
+    const res = await http()
+      .post(`/api/v1/contractor-requests/${rid}/accept`)
+      .set('Authorization', `Bearer ${tokens.procurement}`)
+      .send({ actualQty: 12, paymentDocumentId: doc.id })
+      .expect(201);
+    expect(res.body.actualAmount).toBe(990_000);
+    expect(res.body.supplierDocNumber).toBe(`ДО-E2E-${runId}`);
+
+    // Раскладка по объёму, копейка в копейку от суммы 1С
+    const works = await prisma.contractorWork.findMany({ where: { requestId: rid } });
+    const kopecks = works.reduce((s, w) => s + Math.round(Number(w.actualAmount) * 100), 0);
+    expect(kopecks).toBe(99_000_000);
+
+    // Связь записана и видна в списке
+    const list = await http().get('/api/v1/contractor-requests')
+      .set('Authorization', `Bearer ${tokens.planner}`).expect(200);
+    const row = list.body.data.find((r: any) => r.id === rid);
+    expect(row.supplierDoc?.doNumber).toBe(`ДО-E2E-${runId}`);
+
+    // Тот же ДО второй заявке не отдаётся: одна сумма 1С — одно разнесение
+    const second = await http()
+      .post('/api/v1/contractor-requests')
+      .set('Authorization', `Bearer ${tokens.planner}`)
+      .send({
+        routingStage: 'CUTTING', description: `Вторая по тому же ДО ${runId}`,
+        rateType: 'PER_TON', plannedQty: 1, rate: 80_000, contractorId: state.contractorId,
+      })
+      .expect(201);
+    own.requestIds.push(second.body.id);
+    const taken = await http()
+      .post(`/api/v1/contractor-requests/${second.body.id}/accept`)
+      .set('Authorization', `Bearer ${tokens.procurement}`)
+      .send({ actualQty: 1, paymentDocumentId: doc.id })
+      .expect(409);
+    expect(taken.body.error.code).toBe('DOC_TAKEN');
+  });
+
+  it('13. ДО чужого контрагента отклоняется — ошибка выбора из списка', async () => {
+    const stranger = await prisma.customer.create({
+      data: { name: `Чужой поставщик ${runId}`, binIin: `55${Date.now().toString().slice(-10)}` },
+    });
+    own.customerIds.push(stranger.id);
+    const alienDoc = await prisma.paymentDocument.create({
+      data: { doNumber: `ДО-ЧУЖОЙ-${runId}`, contractorId: stranger.id, totalAmount: 100_000 },
+    });
+    own.paymentDocIds.push(alienDoc.id);
+
+    const created = await http()
+      .post('/api/v1/contractor-requests')
+      .set('Authorization', `Bearer ${tokens.planner}`)
+      .send({
+        routingStage: 'PAINTING', description: `Чужой ДО ${runId}`,
+        rateType: 'PER_TON', plannedQty: 1, rate: 80_000, contractorId: state.contractorId,
+      })
+      .expect(201);
+    own.requestIds.push(created.body.id);
+
+    const res = await http()
+      .post(`/api/v1/contractor-requests/${created.body.id}/accept`)
+      .set('Authorization', `Bearer ${tokens.procurement}`)
+      .send({ actualQty: 1, paymentDocumentId: alienDoc.id })
+      .expect(400);
+    expect(res.body.error.code).toBe('DOC_CONTRACTOR_MISMATCH');
   });
 });

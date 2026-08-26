@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card, Stack, Group, Text, Badge, Skeleton, TextInput, Button, Drawer, Alert,
   NumberInput, Select, Switch, Divider, ThemeIcon, ActionIcon, Progress, Box,
-  SegmentedControl,
+  SegmentedControl, Modal, Table,
 } from '@mantine/core';
 import {
   IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots,
@@ -338,8 +338,11 @@ function DetailsSheet({
  * минус чужие резервы; если не хватает — кнопка кладёт дефицит в очередь
  * заявок, откуда снабженец отправляет накопленное в Б24 одной сделкой.
  */
-function MaterialAvailability({ orderId }: { orderId: string }) {
+function MaterialAvailability({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
   const qc = useQueryClient();
+  // Кнопка не шлёт вслепую: сначала карточка «что и сколько закупать»,
+  // и только подтверждение кладёт дефицит в очередь (уточнение 26.08.2026)
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const { data, isLoading } = useQuery({
     queryKey: ['order-availability', orderId],
     queryFn: () => api.get(`/orders/${orderId}/material-availability`).then((r) => r.data),
@@ -349,9 +352,11 @@ function MaterialAvailability({ orderId }: { orderId: string }) {
     mutationFn: () => api.post(`/purchase-requests/from-order/${orderId}`).then((r) => r.data),
     onSuccess: (res: any) => {
       qc.invalidateQueries({ queryKey: ['purchase-requests'] });
+      setConfirmOpen(false);
       notifications.show({
         title: 'В очереди на закуп',
-        message: res.message ?? `Добавлено позиций: ${res.created}, дополнено: ${res.updated}`,
+        message: res.message ?? `Добавлено позиций: ${res.created}, дополнено: ${res.updated}.`
+          + ' Снабженец отправит накопленное в Б24 одной заявкой',
         color: 'success',
       });
     },
@@ -371,21 +376,107 @@ function MaterialAvailability({ orderId }: { orderId: string }) {
       </Badge>
     );
   }
+
+  const shortages: Array<{
+    materialId: string; materialCode: string; name: string; unit: string;
+    need: number; available: number; shortage: number; estimatedPrice: number;
+  }> = data.shortages;
+  const totalEstimate = shortages.reduce((s, sh) => s + sh.shortage * sh.estimatedPrice, 0);
+  const noPriceCount = shortages.filter((sh) => !(sh.estimatedPrice > 0)).length;
+
   return (
-    <Group gap="xs" wrap="nowrap">
-      <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={11} />}>
-        не хватает {data.shortages.length} позиций
-      </Badge>
-      <Button
-        size="compact-xs"
-        variant="light"
-        color="orange"
-        loading={toQueue.isPending}
-        onClick={() => toQueue.mutate()}
+    <>
+      <Group gap="xs" wrap="nowrap">
+        <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={11} />}>
+          не хватает {shortages.length} позиций
+        </Badge>
+        <Button
+          size="compact-xs"
+          variant="light"
+          color="orange"
+          onClick={() => setConfirmOpen(true)}
+        >
+          В заявку на закуп
+        </Button>
+      </Group>
+
+      {/* Карточка дефицита: пользователь видит, что и сколько закупать,
+          ДО того как это уйдёт в очередь */}
+      <Modal
+        opened={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        title={<Text fw={700}>Что закупить для заказа {orderNumber}</Text>}
+        radius="md"
+        size="lg"
+        centered
       >
-        В заявку на закуп
-      </Button>
-    </Group>
+        <Stack gap="md">
+          <Table withTableBorder verticalSpacing={6} fz="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Материал</Table.Th>
+                <Table.Th ta="right">Нужно</Table.Th>
+                <Table.Th ta="right">На складе</Table.Th>
+                <Table.Th ta="right">Закупить</Table.Th>
+                <Table.Th ta="right">Оценка</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {shortages.map((sh) => (
+                <Table.Tr key={sh.materialId}>
+                  <Table.Td>
+                    <Text size="sm" ff="monospace" fw={600} c="brand.7">{sh.materialCode}</Text>
+                    <Text size="xs" c="dimmed" lineClamp={1}>{sh.name}</Text>
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                    {sh.need.toLocaleString('ru-RU')} {sh.unit}
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                    {sh.available.toLocaleString('ru-RU')}
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>
+                    {sh.shortage.toLocaleString('ru-RU')} {sh.unit}
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                    {sh.estimatedPrice > 0
+                      ? Math.round(sh.shortage * sh.estimatedPrice).toLocaleString('ru-RU') + ' ₸'
+                      : '—'}
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+              <Table.Tr>
+                <Table.Td colSpan={4}><Text size="sm" fw={700}>Итого, оценка</Text></Table.Td>
+                <Table.Td ta="right" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>
+                  {Math.round(totalEstimate).toLocaleString('ru-RU')} ₸
+                </Table.Td>
+              </Table.Tr>
+            </Table.Tbody>
+          </Table>
+
+          {noPriceCount > 0 && (
+            <Text size="xs" c="dimmed">
+              У {noPriceCount} позиций нет закупочной цены — оценка занижена
+            </Text>
+          )}
+          <Text size="xs" c="dimmed">
+            Позиции лягут в очередь «Закупки → На закуп». Одинаковый дефицит
+            по нескольким заказам склеится в одну строку, снабженец отправит
+            накопленное в Б24 одной заявкой.
+          </Text>
+
+          <Group justify="flex-end">
+            <Button variant="default" onClick={() => setConfirmOpen(false)}>Отмена</Button>
+            <Button
+              color="orange"
+              loading={toQueue.isPending}
+              onClick={() => toQueue.mutate()}
+            >
+              В заявку на закуп ({shortages.length} позиций)
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+    </>
   );
 }
 
@@ -536,7 +627,7 @@ export function ShopFloor() {
             )}
           </Group>
 
-          <Box mb="xs"><MaterialAvailability orderId={o.id} /></Box>
+          <Box mb="xs"><MaterialAvailability orderId={o.id} orderNumber={o.orderNumber} /></Box>
 
           <Stack gap={6}>
             {o.products.map((p) => {

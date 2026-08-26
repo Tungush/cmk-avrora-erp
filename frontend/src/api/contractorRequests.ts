@@ -89,6 +89,10 @@ export interface AllocationSummary {
   /** Принята, но по заказам не разошлась — деньги висят в воздухе */
   needsAllocation: boolean;
   isStale: boolean;
+  /** «Заказ поставщику» из 1С, которым Б24 оформил эту заявку */
+  supplierDoc: { doNumber: string; totalAmount: number } | null;
+  /** Свежий непривязанный ДО подрядчика — похоже, 1С ответила на заявку */
+  candidateDoc: { doNumber: string; totalAmount: number } | null;
 }
 
 export interface ContractorRequestsResponse {
@@ -114,13 +118,15 @@ export interface AllocationRow {
   acceptedAt: string | null;
 }
 
-/** Акт из 1С по этому подрядчику — сверка идёт по БИН, а не по заказу */
+/** ДО из 1С по этому подрядчику — сверка и основание приёмки, связь по БИН */
 export interface SupplierAct {
   id: string;
   doNumber: string;
   doDate: string | null;
   totalAmount: number;
   orderId: string | null;
+  /** Занят другой заявкой — в кандидаты приёмки не годится */
+  linkedRequestNumber: string | null;
 }
 
 export interface ContractorRequestDetail extends AllocationSummary {
@@ -187,6 +193,7 @@ export interface AllocateResult {
 }
 
 export interface AcceptResult {
+  supplierDocNumber: string | null;
   accepted: true;
   actualQty: number;
   actualAmount: number;
@@ -244,8 +251,11 @@ export const contractorRequestsApi = {
       `/contractor-requests/${id}/allocations/${workId}`,
     ).then((r) => r.data),
 
-  /** Приёмка партии целиком: сумма акта замораживается и делится по заказам */
-  accept: (id: string, body: { actualQty: number; actualAmount: number; note?: string }) =>
+  /** Приёмка партии: сумма из ДО 1С (paymentDocumentId) или руками */
+  accept: (id: string, body: {
+    actualQty: number; actualAmount?: number;
+    paymentDocumentId?: string | null; note?: string;
+  }) =>
     api.post<AcceptResult>(`/contractor-requests/${id}/accept`, body).then((r) => r.data),
 
   cancel: (id: string) =>

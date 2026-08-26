@@ -93,9 +93,13 @@ export class PurchaseRequestsController {
   }
 
   /**
-   * Дефицит заказа → очередь заявок. Дедуп: один DRAFT на материал,
-   * количество суммируется — пять заказов с нехваткой одного болта
-   * дают одну строку с общим объёмом, а не пять заявок.
+   * Дефицит заказа → очередь заявок. Строка живёт на паре «материал +
+   * заказ» (26.08.2026): снабженец смотрит очередь заказами, и группировка
+   * обязана показывать, какому заказу что нужно. Повтор по тому же заказу
+   * не суммирует, а ЗАМЕНЯЕТ количество свежим дефицитом — сырьё могло
+   * прийти, и старая цифра уже врёт. «Не из-за одного болта» остаётся:
+   * в Б24 выбранное всё равно уходит одной сделкой, одинаковые материалы
+   * разных заказов складываются при отправке.
    */
   @Post('from-order/:orderId')
   @Roles('warehouse_material', 'planner', 'shop_foreman', 'procurement', 'admin')
@@ -113,15 +117,12 @@ export class PurchaseRequestsController {
     let updated = 0;
     for (const s of availability.shortages) {
       const existing = await this.prisma.purchaseRequest.findFirst({
-        where: { materialId: s.materialId, status: 'DRAFT' },
+        where: { materialId: s.materialId, orderId, status: 'DRAFT' },
       });
       if (existing) {
         await this.prisma.purchaseRequest.update({
           where: { id: existing.id },
-          data: {
-            requestedQty: { increment: s.shortage },
-            note: [existing.note, `+ ${order.orderNumber}`].filter(Boolean).join(' '),
-          },
+          data: { requestedQty: s.shortage, estimatedPrice: s.estimatedPrice || null },
         });
         updated += 1;
       } else {
@@ -162,13 +163,26 @@ export class PurchaseRequestsController {
       throw new BadRequestException({ code: 'NOTHING_TO_SEND', message: 'Среди выбранных нет заявок в статусе «накоплено»' });
     }
 
-    const lines = requests.map((r) => ({
-      code: r.material.materialCode,
-      name: r.material.name,
-      qty: Number(r.requestedQty),
-      unit: r.unit ?? r.material.unit,
-      estPrice: Number(r.estimatedPrice ?? 0),
-    }));
+    // Один материал из трёх заказов — одна строка сделки: снабженцу в Б24
+    // нужен общий объём закупа, а не разбивка по заказам
+    const byMaterial = new Map<string, { code: string; name: string; qty: number; unit: string; estPrice: number }>();
+    for (const r of requests) {
+      const key = r.material.materialCode;
+      const cur = byMaterial.get(key);
+      if (cur) {
+        cur.qty += Number(r.requestedQty);
+        if (!cur.estPrice) cur.estPrice = Number(r.estimatedPrice ?? 0);
+      } else {
+        byMaterial.set(key, {
+          code: r.material.materialCode,
+          name: r.material.name,
+          qty: Number(r.requestedQty),
+          unit: r.unit ?? r.material.unit,
+          estPrice: Number(r.estimatedPrice ?? 0),
+        });
+      }
+    }
+    const lines = [...byMaterial.values()];
     const totalEstimate = lines.reduce((s, l) => s + l.qty * l.estPrice, 0);
 
     let dealId: string;

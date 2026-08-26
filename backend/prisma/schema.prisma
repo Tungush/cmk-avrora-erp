@@ -713,13 +713,19 @@ model ContractorRequest {
   acceptedAt   DateTime? @map("accepted_at")
   acceptedById String?   @map("accepted_by_id") @db.Uuid
 
+  /// «Заказ поставщику» из 1С, которым Б24 оформил эту заявку (26.08.2026):
+  /// сумма приёмки берётся из него, а не со слов. Один ДО — одна заявка,
+  /// иначе одна и та же сумма 1С разнеслась бы по заказам дважды
+  paymentDocumentId String? @unique @map("payment_document_id") @db.Uuid
+
   createdById String?  @map("created_by_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
   note        String?  @db.Text
 
-  contractor Contractor?      @relation(fields: [contractorId], references: [id])
-  works      ContractorWork[]
+  contractor      Contractor?      @relation(fields: [contractorId], references: [id])
+  works           ContractorWork[]
+  paymentDocument PaymentDocument? @relation(fields: [paymentDocumentId], references: [id])
 
   @@index([status, routingStage])
   @@map("contractor_requests")
@@ -1122,11 +1128,13 @@ model PaymentDocument {
   /// Единственная ниточка от закупа к заказу клиента (17 из 306)
   salesOrderNumber  String?   @map("sales_order_number") @db.VarChar(30)
 
-  contractor Customer              @relation(fields: [contractorId], references: [id])
-  order      Order?                @relation(fields: [orderId], references: [id])
-  payments   Payment[]
-  batches    MaterialBatch[]
-  lines      PaymentDocumentLine[]
+  contractor        Customer              @relation(fields: [contractorId], references: [id])
+  order             Order?                @relation(fields: [orderId], references: [id])
+  payments          Payment[]
+  batches           MaterialBatch[]
+  lines             PaymentDocumentLine[]
+  /// Заявка на подряд, оформленная этим ДО (связь 1:1 через @unique)
+  contractorRequest ContractorRequest?
 
   @@index([doDate])
   @@index([contractorId])

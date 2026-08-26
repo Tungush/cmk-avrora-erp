@@ -56,6 +56,21 @@ export function PurchaseQueue() {
     (s, r) => s + Number(r.requestedQty) * Number(r.estimatedPrice ?? 0), 0,
   );
 
+  // Группировка по заказу-источнику (26.08.2026): 43 строки одного заказа
+  // плоским списком нечитаемы, а выбирают их всё равно заказом целиком
+  const groups: Array<{ key: string; order: any | null; note: string | null; items: any[] }> = [];
+  const groupIdx = new Map<string, number>();
+  for (const r of rows) {
+    const key = r.order?.id ?? `note:${r.note ?? '—'}`;
+    let i = groupIdx.get(key);
+    if (i === undefined) {
+      i = groups.length;
+      groupIdx.set(key, i);
+      groups.push({ key, order: r.order ?? null, note: r.order ? null : (r.note ?? null), items: [] });
+    }
+    groups[i].items.push(r);
+  }
+
   const toggle = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -63,6 +78,13 @@ export function PurchaseQueue() {
   });
   const toggleAll = () => setSelected((prev) =>
     prev.size === drafts.length ? new Set() : new Set(drafts.map((r) => r.id)));
+  const toggleGroup = (items: any[]) => setSelected((prev) => {
+    const ids = items.filter((r) => r.status === 'DRAFT').map((r) => r.id);
+    const allIn = ids.length > 0 && ids.every((id) => prev.has(id));
+    const next = new Set(prev);
+    for (const id of ids) { if (allIn) next.delete(id); else next.add(id); }
+    return next;
+  });
 
   return (
     <Stack gap="md">
@@ -118,52 +140,81 @@ export function PurchaseQueue() {
                   <Table.Th>Материал</Table.Th>
                   <Table.Th ta="right">Нужно</Table.Th>
                   <Table.Th ta="right">Оценка</Table.Th>
-                  <Table.Th>Источник</Table.Th>
                   <Table.Th>Статус</Table.Th>
                   <Table.Th>Создана</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {rows.map((r) => (
-                  <Table.Tr key={r.id}>
-                    <Table.Td>
-                      {r.status === 'DRAFT' && (
-                        <Checkbox checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode}</Text>
-                      <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name}</Text>
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                      {Number(r.requestedQty).toLocaleString('ru-RU')} {r.unit ?? r.material?.unit ?? ''}
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">
-                      {r.estimatedPrice
-                        ? formatMoney(Number(r.requestedQty) * Number(r.estimatedPrice))
-                        : '—'}
-                    </Table.Td>
-                    <Table.Td>
-                      {r.order
-                        ? <OrderRef id={r.order.id} number={r.order.orderNumber} size="xs" bold={false} />
-                        : <Text size="xs" c="dimmed">{r.note ?? '—'}</Text>}
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge size="xs" variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
-                        {STATUS_LABELS[r.status] ?? r.status}
-                      </Badge>
-                      {r.bitrixDealId && (
-                        <Text size="xs" c="dimmed" ff="monospace">Б24 №{r.bitrixDealId}</Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td ff="monospace" fz="xs" style={{ whiteSpace: 'nowrap' }}>
-                      {formatDate(r.createdAt)}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
+                {groups.map((g) => {
+                  const gDrafts = g.items.filter((r) => r.status === 'DRAFT');
+                  const gSelected = gDrafts.filter((r) => selected.has(r.id)).length;
+                  const gEstimate = g.items.reduce(
+                    (s, r) => s + Number(r.requestedQty) * Number(r.estimatedPrice ?? 0), 0,
+                  );
+                  return (
+                    <React.Fragment key={g.key}>
+                      {/* Шапка группы: заказ, счётчик, оценка — и чекбокс
+                          на весь заказ, ведь выбирают именно так */}
+                      <Table.Tr style={{ background: 'var(--mantine-color-default-hover)' }}>
+                        <Table.Td>
+                          {gDrafts.length > 0 && (
+                            <Checkbox
+                              checked={gSelected === gDrafts.length && gDrafts.length > 0}
+                              indeterminate={gSelected > 0 && gSelected < gDrafts.length}
+                              onChange={() => toggleGroup(g.items)}
+                            />
+                          )}
+                        </Table.Td>
+                        <Table.Td colSpan={5}>
+                          <Group gap="sm" wrap="nowrap">
+                            {g.order
+                              ? <OrderRef id={g.order.id} number={g.order.orderNumber} size="sm" />
+                              : <Text size="sm" fw={600}>{g.note ?? 'Без заказа'}</Text>}
+                            <Text size="xs" c="dimmed">
+                              {g.items.length} поз.
+                              {gEstimate > 0 ? ` · оценка ${formatMoney(gEstimate)}` : ''}
+                            </Text>
+                          </Group>
+                        </Table.Td>
+                      </Table.Tr>
+                      {g.items.map((r) => (
+                        <Table.Tr key={r.id}>
+                          <Table.Td>
+                            {r.status === 'DRAFT' && (
+                              <Checkbox checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+                            )}
+                          </Table.Td>
+                          <Table.Td>
+                            <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode}</Text>
+                            <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name}</Text>
+                          </Table.Td>
+                          <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                            {Number(r.requestedQty).toLocaleString('ru-RU')} {r.unit ?? r.material?.unit ?? ''}
+                          </Table.Td>
+                          <Table.Td ta="right" ff="monospace">
+                            {r.estimatedPrice
+                              ? formatMoney(Number(r.requestedQty) * Number(r.estimatedPrice))
+                              : '—'}
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge size="xs" variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
+                              {STATUS_LABELS[r.status] ?? r.status}
+                            </Badge>
+                            {r.bitrixDealId && (
+                              <Text size="xs" c="dimmed" ff="monospace">Б24 №{r.bitrixDealId}</Text>
+                            )}
+                          </Table.Td>
+                          <Table.Td ff="monospace" fz="xs" style={{ whiteSpace: 'nowrap' }}>
+                            {formatDate(r.createdAt)}
+                          </Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
                 {rows.length === 0 && (
                   <Table.Tr>
-                    <Table.Td colSpan={7}>
+                    <Table.Td colSpan={6}>
                       <Text size="sm" c="dimmed" ta="center" py="lg">Заявок нет</Text>
                     </Table.Td>
                   </Table.Tr>
