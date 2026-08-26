@@ -44,6 +44,11 @@ export class ArticleCostingService {
         if (!cfg) return DEFAULT_RATES;
         return {
           hourlyRate: Number(cfg.hourlyRate),
+          stageRates: {
+            CUTTING: cfg.rateCutting == null ? null : Number(cfg.rateCutting),
+            ASSEMBLY: cfg.rateAssembly == null ? null : Number(cfg.rateAssembly),
+            PAINTING: cfg.ratePainting == null ? null : Number(cfg.ratePainting),
+          },
           logisticsPct: Number(cfg.logisticsPct),
           utilitiesPct: Number(cfg.utilitiesPct),
           marginPct: Number(cfg.marginPct),

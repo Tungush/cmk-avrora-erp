@@ -212,7 +212,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                   <Table verticalSpacing="xs" fz="sm">
                     <Table.Thead>
                       <Table.Tr>
-                        <Table.Th>Передел</Table.Th>
+                        <Table.Th>Вид работ</Table.Th>
                         <Table.Th>Исполнитель</Table.Th>
                         <Table.Th ta="right">Часы</Table.Th>
                         <Table.Th ta="right">Сумма</Table.Th>

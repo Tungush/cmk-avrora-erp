@@ -123,7 +123,7 @@ export function ContractorWork() {
         <Text size="xs" fw={600} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
           Производство · Подряд
         </Text>
-        <Text fw={700} size="xl">Кто делает наши переделы на стороне</Text>
+        <Text fw={700} size="xl">Кто делает наши работы на стороне</Text>
         <Text size="sm" c="dimmed">
           Штат считается по нормам спецификации и здесь не показывается — тут только то,
           что отдано подрядчикам
@@ -199,7 +199,7 @@ export function ContractorWork() {
                 <Table.Tr>
                   <Table.Th>Заказ</Table.Th>
                   <Table.Th>Подрядчик</Table.Th>
-                  <Table.Th>Передел</Table.Th>
+                  <Table.Th>Вид работ</Table.Th>
                   <Table.Th ta="right">Доля</Table.Th>
                   <Table.Th ta="right">Ставка</Table.Th>
                   <Table.Th ta="right">Объём</Table.Th>

@@ -174,3 +174,43 @@ describe('Калькуляция «Спецификации 2022» (07_ARCHITECT
     });
   });
 });
+
+/**
+ * Своя ставка на каждый передел (запрос 26.08.2026: «каждому пункту свою
+ * цену»). Порядок применения: участок → передел → общая ставка.
+ */
+describe('Ставка по переделам', () => {
+  const NORMS = [
+    { stage: 'CUTTING' as const, workers: 1, hoursPerUnit: 1 },
+    { stage: 'ASSEMBLY' as const, workers: 1, hoursPerUnit: 1 },
+    { stage: 'PAINTING' as const, workers: 1, hoursPerUnit: 1 },
+  ];
+
+  it('пустые ставки переделов — всё считается по общей', () => {
+    const r = calculateArticleCosting(0, NORMS, RATES);
+    expect(r.stages.map((s) => s.stageCost)).toEqual([2040, 2040, 2040]);
+  });
+
+  it('заданная ставка передела вытесняет общую только на своём переделе', () => {
+    const r = calculateArticleCosting(0, NORMS, {
+      ...RATES,
+      stageRates: { CUTTING: 1500, ASSEMBLY: null, PAINTING: 3000 },
+    });
+    expect(r.stages.map((s) => s.stageCost)).toEqual([1500, 2040, 3000]);
+    expect(r.laborCost).toBe(6540);
+  });
+
+  it('ставка участка важнее ставки передела', () => {
+    const r = calculateArticleCosting(
+      0,
+      [{ stage: 'CUTTING' as const, workers: 1, hoursPerUnit: 1, hourlyRate: 999 }],
+      { ...RATES, stageRates: { CUTTING: 1500 } },
+    );
+    expect(r.stages[0].stageCost).toBe(999);
+  });
+
+  it('ставка передела 0 — это ноль, а не «не задано»', () => {
+    const r = calculateArticleCosting(0, NORMS, { ...RATES, stageRates: { PAINTING: 0 } });
+    expect(r.stages[2].stageCost).toBe(0);
+  });
+});

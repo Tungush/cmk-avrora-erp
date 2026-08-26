@@ -136,7 +136,7 @@ function DoneSheet({
           throw new Error('Выберите подрядчика или выключите «Делал не наш цех»');
         }
         if (!(Number(rate) > 0)) {
-          throw new Error('Укажите ставку подрядчика — иначе передел встанет в 0 ₸');
+          throw new Error('Укажите ставку подрядчика — иначе работа встанет в 0 ₸');
         }
         await ordersApi.assignContractor(order.id, stage.routingStage, {
           contractorId,
@@ -255,7 +255,7 @@ function DoneSheet({
                   </Group>
 
                   <Box>
-                    <Text size="sm" fw={500} mb={4}>Сколько передела взял подрядчик</Text>
+                    <Text size="sm" fw={500} mb={4}>Сколько работы взял подрядчик</Text>
                     <Group gap="xs">
                       {[25, 50, 75, 100].map((p) => (
                         <Button
@@ -386,7 +386,7 @@ export function ShopFloor() {
     <Stack gap="md" style={{ minWidth: 0 }}>
       {/* Контекст смены: свой передел выбирается один раз и запоминается */}
       <Card withBorder radius="md" padding="sm">
-        <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb="xs">Мой передел</Text>
+        <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb="xs">Мои работы</Text>
         <Group gap="xs" wrap="wrap">
           {MY_STAGES.map((s) => {
             const count = data.byStage.find((b) => b.key === s.key)?.count ?? 0;
@@ -433,7 +433,7 @@ export function ShopFloor() {
           size="sm"
         />
         <Text size="sm" c="dimmed">
-          {myStage ? 'Ждут моего передела: ' : 'В работе: '}
+          {myStage ? 'Ждут моей работы: ' : 'В работе: '}
           <Text span fw={700} ff="monospace">{rows.length}</Text>
         </Text>
       </Group>
@@ -444,7 +444,7 @@ export function ShopFloor() {
             <ThemeIcon size={48} radius="xl" variant="light" color="teal">
               <IconCheck size={26} />
             </ThemeIcon>
-            <Text fw={700}>{myStage ? 'На моём переделе всё закрыто' : 'Заказов в работе нет'}</Text>
+            <Text fw={700}>{myStage ? 'По моим работам всё закрыто' : 'Заказов в работе нет'}</Text>
           </Stack>
         </Card>
       ) : <Stagger>{rows.map((o) => {
@@ -551,7 +551,7 @@ export function ShopFloor() {
 
             {expanded && !myStage && (
               <Text size="xs" c="dimmed" mt="xs">
-                Выберите свой передел сверху, чтобы отмечать работу
+                Выберите свой вид работ сверху, чтобы отмечать работу
               </Text>
             )}
           </Card>

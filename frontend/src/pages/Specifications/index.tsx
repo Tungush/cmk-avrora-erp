@@ -557,7 +557,7 @@ function HistoryModal({
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Когда</Table.Th>
-                    <Table.Th>Передел</Table.Th>
+                    <Table.Th>Вид работ</Table.Th>
                     <Table.Th style={{ textAlign: 'right' }}>Человек</Table.Th>
                     <Table.Th style={{ textAlign: 'right' }}>Часов/ед.</Table.Th>
                     <Table.Th>Причина</Table.Th>
@@ -662,7 +662,7 @@ export function Specifications() {
             Спецификации · трудочасы
           </Text>
           <Text size="sm" c="dimmed">
-            Нормы по переделам и калькуляция себестоимости — модуль листа «Спецификации 2022»
+            Нормы по видам работ и калькуляция себестоимости — модуль листа «Спецификации 2022»
           </Text>
         </Stack>
         <Group gap="sm">

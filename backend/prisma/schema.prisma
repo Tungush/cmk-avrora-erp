@@ -411,6 +411,16 @@ model CostingConfig {
   validFrom       DateTime  @map("valid_from") @db.Date
   validTo         DateTime? @map("valid_to") @db.Date
   hourlyRate      Decimal   @map("hourly_rate") @db.Decimal(12, 2)
+
+  /// Своя ставка на каждый передел (запрос пользователя 26.08.2026:
+  /// «каждому пункту свою цену»). null — передел берёт общую hourlyRate,
+  /// поэтому старые конфиги продолжают считаться как раньше.
+  /// Порядок применения: ставка участка (WorkCenter) → ставка передела →
+  /// общая ставка.
+  rateCutting     Decimal?  @map("rate_cutting") @db.Decimal(12, 2)
+  rateAssembly    Decimal?  @map("rate_assembly") @db.Decimal(12, 2)
+  ratePainting    Decimal?  @map("rate_painting") @db.Decimal(12, 2)
+
   logisticsPct    Decimal   @map("logistics_pct") @db.Decimal(6, 4)
   utilitiesPct    Decimal   @map("utilities_pct") @db.Decimal(6, 4)
   vatPct          Decimal   @map("vat_pct") @db.Decimal(6, 4)

@@ -12,7 +12,7 @@ import { ArticleCostingService, DEFAULT_RATES } from '../../services/article-cos
 import { runWithFallback } from '../../common/fallback';
 import {
   calculateArticleCosting, explainCosting, actualDeviationPct, costingImpact,
-  StageNorm, CostingRates,
+  rateForStage, StageNorm, CostingRates,
 } from '../../services/costing.service';
 
 /** Заказ считается затронутым правкой нормы, пока не отгружен и не закрыт */
@@ -80,7 +80,7 @@ export class RoutingController {
       const op: any = byStage.get(stage);
       const workers = op ? Number(op.workers) : 0;
       const hours = op ? Number(op.hoursPerUnit) : 0;
-      const rate = op?.workCenter ? Number(op.workCenter.hourlyRate) : rates.hourlyRate;
+      const rate = rateForStage(stage as any, rates, op?.workCenter ? Number(op.workCenter.hourlyRate) : null);
       const manHours = workers * hours;
       return {
         stage,
@@ -515,24 +515,46 @@ export class CostingConfigController {
     @Body() body: {
       hourlyRate: number; logisticsPct: number; utilitiesPct: number;
       vatPct: number; marginPct: number; paymentTermDays?: number;
+      rateCutting?: number | null;
+      rateAssembly?: number | null;
+      ratePainting?: number | null;
     },
     @CurrentUser() user: UserPayload,
   ) {
     // Версия: старая закрывается validTo, новая открывается — история сохраняется
     return this.prisma.$transaction(async (tx) => {
+      // Поля, которых нет в форме (режим маржи, режим логистики, коэффициент
+      // сварки, порог построчной отметки), переносятся из действующей версии.
+      // Раньше они не переносились и молча возвращались к умолчанию схемы —
+      // сохранение ставки могло сбросить режим логистики.
+      const prev = await tx.costingConfig.findFirst({
+        where: { validTo: null },
+        orderBy: { validFrom: 'desc' },
+      });
       await tx.costingConfig.updateMany({
         where: { validTo: null },
         data: { validTo: new Date() },
       });
+      const orPrev = (v: number | null | undefined, fallback: any) =>
+        v === undefined ? fallback : v;
       return tx.costingConfig.create({
         data: {
           validFrom: new Date(),
           hourlyRate: body.hourlyRate,
+          rateCutting: orPrev(body.rateCutting, prev?.rateCutting ?? null),
+          rateAssembly: orPrev(body.rateAssembly, prev?.rateAssembly ?? null),
+          ratePainting: orPrev(body.ratePainting, prev?.ratePainting ?? null),
           logisticsPct: body.logisticsPct,
           utilitiesPct: body.utilitiesPct,
           vatPct: body.vatPct,
           marginPct: body.marginPct,
           paymentTermDays: body.paymentTermDays ?? 30,
+          marginMode: prev?.marginMode ?? undefined,
+          logisticsMode: prev?.logisticsMode ?? undefined,
+          logisticsFixed: prev?.logisticsFixed ?? undefined,
+          logisticsPerKg: prev?.logisticsPerKg ?? undefined,
+          weldingFactor: prev?.weldingFactor ?? undefined,
+          stageTrackingThreshold: prev?.stageTrackingThreshold ?? undefined,
           createdById: user.userId.startsWith('usr-') ? null : user.userId,
         },
       });

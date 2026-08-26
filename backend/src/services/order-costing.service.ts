@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from './prisma.service';
 import { ArticleCostingService } from './article-costing.service';
 import { MaterialBatchService } from './material-batch.service';
-import { logisticsCostOf, marginAndPrice, CostingRates } from './costing.service';
+import { logisticsCostOf, marginAndPrice, rateForStage, CostingRates } from './costing.service';
 import {
   summarizeLabor, defaultStaffAssignments, LaborAssignment, StageValue,
 } from '../common/labor';
@@ -60,7 +60,11 @@ export class OrderCostingService {
    * подряд на сборке ронял труд с 652 800 ₸ до 480 000 ₸ (резка и покраска
    * исчезали молча), а при доле меньше 1 расчёт падал с INVALID_SHARES.
    */
-  async assignmentsFor(orderLineId: string, articleId: string | null, hourlyRate: number): Promise<LaborAssignment[]> {
+  async assignmentsFor(
+    orderLineId: string,
+    articleId: string | null,
+    rates: Pick<CostingRates, 'hourlyRate' | 'stageRates'>,
+  ): Promise<LaborAssignment[]> {
     const line = await this.prisma.orderLine.findUnique({
       where: { id: orderLineId },
       select: { orderId: true, qty: true, articleId: true },
@@ -98,7 +102,11 @@ export class OrderCostingService {
       stage: o.stage as StageValue,
       workers: Number(o.workers),
       hoursPerUnit: Number(o.hoursPerUnit),
-      hourlyRate: o.workCenter ? Number(o.workCenter.hourlyRate) : hourlyRate,
+      hourlyRate: rateForStage(
+        o.stage as StageValue as 'CUTTING' | 'ASSEMBLY' | 'PAINTING',
+        rates,
+        o.workCenter ? Number(o.workCenter.hourlyRate) : null,
+      ),
       workCenterId: o.workCenterId,
     })));
 
@@ -306,7 +314,7 @@ export class OrderCostingService {
     // ---- труд: штат по нормам, подряд вычитает свою долю (у продажи сырья
     // труда нет вовсе — цех этот заказ никогда не увидит)
     const assignments = isResale ? [] : await this.withNorms(
-      await this.assignmentsFor(orderLineId, line.article?.id ?? null, rates.hourlyRate),
+      await this.assignmentsFor(orderLineId, line.article?.id ?? null, rates),
       line.article?.id ?? null,
     );
     const labor = assignments.length > 0

@@ -46,8 +46,33 @@ export class CostingConfigError extends Error {
   }
 }
 
+/** Ставка часа отдельно по каждому переделу; null — берётся общая hourlyRate */
+export interface StageRates {
+  CUTTING?: number | null;
+  ASSEMBLY?: number | null;
+  PAINTING?: number | null;
+}
+
+/**
+ * Ставка для передела: участок → передел → общая.
+ * Участок (WorkCenter) остаётся самым точным уровнем — он про конкретную
+ * бригаду и оборудование; передел — про вид работ вообще.
+ */
+export function rateForStage(
+  stage: 'CUTTING' | 'ASSEMBLY' | 'PAINTING',
+  rates: Pick<CostingRates, 'hourlyRate' | 'stageRates'>,
+  workCenterRate?: number | null,
+): number {
+  if (workCenterRate != null) return workCenterRate;
+  const perStage = rates.stageRates?.[stage];
+  if (perStage != null) return perStage;
+  return rates.hourlyRate;
+}
+
 export interface CostingRates {
   hourlyRate: number;     // 2040 в исходнике
+  /** Своя ставка на передел; пусто — считается по общей (26.08.2026) */
+  stageRates?: StageRates;
   logisticsPct: number;   // 0.03
   utilitiesPct: number;   // 0.01
   marginPct: number;      // 0.35 в новой схеме, 0.10 в исходнике
@@ -147,7 +172,9 @@ export function calculateArticleCosting(
   ctx?: CostingContext,
 ): CostingResult {
   const stages: StageCostLine[] = norms.map((n) => {
-    const hourlyRate = n.hourlyRate ?? rates.hourlyRate;
+    // n.hourlyRate — ставка участка (если операция к нему привязана);
+    // иначе спускаемся к ставке передела и только потом к общей
+    const hourlyRate = rateForStage(n.stage, rates, n.hourlyRate);
     const manHours = round3(n.workers * n.hoursPerUnit);
     return {
       stage: n.stage,

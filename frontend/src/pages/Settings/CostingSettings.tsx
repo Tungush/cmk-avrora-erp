@@ -8,6 +8,13 @@ import { notifications } from '@mantine/notifications';
 import { costingConfigApi, CostingConfig } from '../../api/costings';
 import { useAuthStore } from '../../store/auth';
 
+/** Три вида работ цеха — те же, что в спецификациях и на экране мастера */
+const STAGE_RATE_FIELDS = [
+  { field: 'rateCutting' as const, label: 'Резка' },
+  { field: 'rateAssembly' as const, label: 'Сборка / сварка / обшивка' },
+  { field: 'ratePainting' as const, label: 'Зачистка / покраска' },
+];
+
 /**
  * Маржа, логистика, себестоимость — редактируемые коэффициенты калькуляции
  * (запрос 25.08.2026). Раньше их можно было поменять только скриптом в базе.
@@ -24,8 +31,20 @@ export function CostingSettings() {
     queryFn: () => costingConfigApi.get().then((r) => r.data),
   });
 
+  // Ставки видов работ показываются всегда заполненными: если раньше стояла
+  // одна общая ставка, каждое поле стартует с неё — цифры не меняются,
+  // а дальше их можно развести
   const [form, setForm] = useState<CostingConfig | null>(null);
-  useEffect(() => { if (data && !form) setForm(data); }, [data, form]);
+  useEffect(() => {
+    if (data && !form) {
+      setForm({
+        ...data,
+        rateCutting: data.rateCutting ?? data.hourlyRate,
+        rateAssembly: data.rateAssembly ?? data.hourlyRate,
+        ratePainting: data.ratePainting ?? data.hourlyRate,
+      });
+    }
+  }, [data, form]);
 
   const save = useMutation({
     mutationFn: (body: CostingConfig) => costingConfigApi.update(body),
@@ -87,23 +106,41 @@ export function CostingSettings() {
               suffix=" %" min={0} max={30} decimalScale={1} disabled={!canEdit}
             />
           </Group>
+          <Group grow>
+            <NumberInput
+              label="Отсрочка оплаты" description="дней от отгрузки"
+              value={form.paymentTermDays} onChange={set('paymentTermDays')}
+              min={0} max={180} disabled={!canEdit}
+            />
+            <div />
+          </Group>
         </Stack>
       </Card>
 
+      {/* Своя ставка на каждый вид работ (запрос 26.08.2026). Общая ставка
+          из интерфейса убрана: цех считает деньги по резке, сварке и
+          покраске отдельно, а «средняя ставка по цеху» ни на что не
+          отвечает. В базе она остаётся как запасное значение. */}
       <Card withBorder radius="md" padding="lg">
-        <Text fw={700} size="sm" mb="md">Труд и оплата</Text>
-        <Group grow>
-          <NumberInput
-            label="Ставка часа труда" description="штатный рабочий, ₸/час"
-            value={form.hourlyRate} onChange={set('hourlyRate')}
-            suffix=" ₸" min={0} thousandSeparator=" " disabled={!canEdit}
-          />
-          <NumberInput
-            label="Отсрочка оплаты" description="дней от отгрузки"
-            value={form.paymentTermDays} onChange={set('paymentTermDays')}
-            min={0} max={180} disabled={!canEdit}
-          />
-        </Group>
+        <Text fw={700} size="sm">Стоимость часа работы</Text>
+        <Text size="xs" c="dimmed" mb="md">
+          Сколько стоит час работы цеха по каждому виду работ. Отсюда считается
+          труд в себестоимости: человек × часы × ставка.
+        </Text>
+        <Stack gap="md">
+          {STAGE_RATE_FIELDS.map((f) => (
+            <NumberInput
+              key={f.field}
+              label={f.label}
+              value={form[f.field] ?? form.hourlyRate}
+              onChange={(v) => setForm({
+                ...form,
+                [f.field]: v === '' || v === null ? null : Number(v),
+              })}
+              suffix=" ₸/час" min={0} thousandSeparator=" " disabled={!canEdit}
+            />
+          ))}
+        </Stack>
       </Card>
 
       {canEdit ? (

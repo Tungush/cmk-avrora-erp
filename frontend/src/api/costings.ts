@@ -65,6 +65,10 @@ export interface CostingDetail {
 
 export interface CostingConfig {
   hourlyRate: number;
+  /** Своя ставка передела; null — считается по общей ставке */
+  rateCutting?: number | null;
+  rateAssembly?: number | null;
+  ratePainting?: number | null;
   logisticsPct: number;
   utilitiesPct: number;
   vatPct: number;
