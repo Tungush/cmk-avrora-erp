@@ -38,6 +38,35 @@ enum CustomerType {
   INSIDE  @map("Внутренний")
 }
 
+/// Юрлица холдинга (26.08.2026) — раньше «свои/чужие» не различались:
+/// customerType у всех контрагентов писался OUTSIDE, хотя часть из них —
+/// сама Аврора под другим юрлицом (Аврора 75, Аврора Сервис, LVE Group…)
+model Organization {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.Text
+  binIin    String?  @unique @map("bin_iin") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("organizations")
+}
+
+/// Склады 1С (27.08.2026) — раньше «Склад» в других отчётах был просто
+/// текстом; здесь у него есть тип и подразделение, достаточные, чтобы
+/// развести «74п_Склад Сырья» и «74п_Кладовая_ЦМК» как разные места,
+/// а не одну цифру остатка.
+model Warehouse {
+  id            String   @id @default(uuid()) @db.Uuid
+  code          String   @unique @db.VarChar(120)
+  name          String   @db.Text
+  warehouseType String?  @map("warehouse_type") @db.VarChar(60)
+  division      String?  @db.VarChar(120)
+  site          String?  @db.VarChar(120)
+  isDeleted     Boolean  @default(false) @map("is_deleted")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("warehouses")
+}
+
 enum OrderType {
   FZ @map("ФЗ")
   VZ @map("ВЗ")
@@ -278,6 +307,7 @@ model Article {
   orderLines             OrderLine[]
   finishedGoodsMovements FinishedGoodsMovement[]
   minStockLevel          MinStockLevel?
+  acceptanceActLines     AcceptanceActLine[]
   productionPlanItems    ProductionPlanItem[]
   deals                  Deal[]
   routingOperations      RoutingOperation[]
@@ -1186,6 +1216,9 @@ model Payment {
 }
 
 // AcceptanceAct
+/// Акт приёмки-передачи = «Реализация товаров и услуг» из 1С (26.08.2026).
+/// Раньше таблица существовала пустой: ни импорта, ни строк состава —
+/// на вопрос «что отгружено и на сколько» сервис не отвечал вовсе.
 model AcceptanceAct {
   id          String   @id @default(uuid()) @db.Uuid
   appNumber   String   @unique @map("app_number") @db.VarChar(30)
@@ -1194,10 +1227,45 @@ model AcceptanceAct {
   actDate     DateTime @map("act_date") @db.Date
   totalAmount Decimal  @map("total_amount") @db.Decimal(14, 2)
 
-  customer Customer @relation(fields: [customerId], references: [id])
-  order    Order?   @relation(fields: [orderId], references: [id])
+  warehouse         String?  @db.VarChar(60)
+  division          String?  @db.VarChar(60)
+  businessDirection String?  @map("business_direction") @db.VarChar(60)
+  managerName       String?  @map("manager_name") @db.VarChar(120)
+  managerId         String?  @map("manager_id") @db.Uuid
+  status            String?  @db.VarChar(30)
+  isPosted          Boolean  @default(true) @map("is_posted")
+  rawColumns        Json?    @map("raw_columns")
+  createdAt         DateTime @default(now()) @map("created_at")
 
+  customer Customer            @relation(fields: [customerId], references: [id])
+  order    Order?              @relation(fields: [orderId], references: [id])
+  manager  Employee?           @relation(fields: [managerId], references: [id])
+  lines    AcceptanceActLine[]
+
+  @@index([orderId])
+  @@index([actDate])
   @@map("acceptance_acts")
+}
+
+/// Строка акта: конкретная позиция, что и сколько отгружено. Без неё
+/// акт был просто суммой без состава — сверить с заказом было нечем.
+model AcceptanceActLine {
+  id          String   @id @default(uuid()) @db.Uuid
+  actId       String   @map("act_id") @db.Uuid
+  lineNo      Int      @map("line_no")
+  itemName    String   @map("item_name") @db.Text
+  articleId   String?  @map("article_id") @db.Uuid
+  qty         Decimal? @db.Decimal(14, 3)
+  unitPrice   Decimal? @map("unit_price") @db.Decimal(14, 2)
+  amount      Decimal? @db.Decimal(14, 2)
+  vatRate     String?  @map("vat_rate") @db.VarChar(20)
+  orderNumber String?  @map("order_number") @db.VarChar(30)
+
+  act     AcceptanceAct @relation(fields: [actId], references: [id], onDelete: Cascade)
+  article Article?      @relation(fields: [articleId], references: [id])
+
+  @@index([actId])
+  @@map("acceptance_act_lines")
 }
 
 // 3.8 Movements
@@ -1428,6 +1496,7 @@ model Employee {
   completedStages   ProductionStage[]
   managedDeals      Deal[]             @relation("DealManager")
   supplierDocuments SupplierDocument[] @relation("SupplierDocumentBuyer")
+  acceptanceActs    AcceptanceAct[]
 
   @@map("employees")
 }

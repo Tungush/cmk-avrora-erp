@@ -73,6 +73,8 @@ export async function wipeOperationalData(prisma: PrismaClient) {
     ['резервы партий', () => prisma.batchReservation.deleteMany()],
     ['подрядные работы', () => prisma.contractorWork.deleteMany()],
     ['заявки на подряд', () => prisma.contractorRequest.deleteMany()],
+    ['строки актов приёмки-передачи', () => prisma.acceptanceActLine.deleteMany()],
+    ['акты приёмки-передачи', () => prisma.acceptanceAct.deleteMany()],
     ['труд калькуляций', () => prisma.orderCostingLabor.deleteMany()],
     ['материалы калькуляций', () => prisma.orderCostingMaterial.deleteMany()],
     ['калькуляции заказов', () => prisma.orderCosting.deleteMany()],
