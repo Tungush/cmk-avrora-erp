@@ -2790,6 +2790,44 @@
         ]
       }
     },
+    "/api/v1/production-plan/matrix": {
+      "get": {
+        "operationId": "ProductionPlanController_matrix",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "План по изделиям: план / факт / потребность по месяцам",
+        "tags": [
+          "Production Plan"
+        ]
+      },
+      "patch": {
+        "operationId": "ProductionPlanController_setPlanCell",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Задать план изделия на месяц",
+        "tags": [
+          "Production Plan"
+        ]
+      }
+    },
     "/api/v1/production-plan/weekly": {
       "get": {
         "operationId": "ProductionPlanController_weekly",
@@ -3070,7 +3108,7 @@
             "bearer": []
           }
         ],
-        "summary": "List min stock levels",
+        "summary": "Минимальные остатки: норматив против живого остатка ГП",
         "tags": [
           "Min Stock Levels"
         ]
@@ -3099,7 +3137,34 @@
             "bearer": []
           }
         ],
-        "summary": "Update min stock level",
+        "summary": "Задать норматив минимального остатка",
+        "tags": [
+          "Min Stock Levels"
+        ]
+      },
+      "delete": {
+        "operationId": "MinStockController_remove",
+        "parameters": [
+          {
+            "name": "articleId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Снять норматив с изделия",
         "tags": [
           "Min Stock Levels"
         ]
@@ -3276,7 +3341,7 @@
             "bearer": []
           }
         ],
-        "summary": "Get finished goods stock balance",
+        "summary": "Остатки готовой продукции по движениям",
         "tags": [
           "Warehouse"
         ]
@@ -3296,7 +3361,7 @@
             "bearer": []
           }
         ],
-        "summary": "Record finished goods movement",
+        "summary": "Записать движение готовой продукции",
         "tags": [
           "Warehouse"
         ]
@@ -3447,6 +3512,91 @@
         ]
       }
     },
+    "/api/v1/orders/{orderId}/customer-payments": {
+      "get": {
+        "operationId": "CustomerPaymentsController_list",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Платежи заказчика по заказу",
+        "tags": [
+          "Customer Payments"
+        ]
+      },
+      "post": {
+        "operationId": "CustomerPaymentsController_create",
+        "parameters": [
+          {
+            "name": "orderId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Записать оплату от заказчика",
+        "tags": [
+          "Customer Payments"
+        ]
+      }
+    },
+    "/api/v1/customer-payments/{id}": {
+      "delete": {
+        "operationId": "CustomerPaymentsController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Удалить оплату (только занесённую вручную)",
+        "tags": [
+          "Customer Payments"
+        ]
+      }
+    },
     "/api/v1/payment-documents": {
       "get": {
         "operationId": "PaymentDocumentsController_findAll",
@@ -3577,7 +3727,7 @@
             "bearer": []
           }
         ],
-        "summary": "Record payment against document",
+        "summary": "Записать оплату по заказу поставщику",
         "tags": [
           "Finance - Payment Documents"
         ]
@@ -3637,9 +3787,9 @@
             "bearer": []
           }
         ],
-        "summary": "List acceptance acts",
+        "summary": "Реестр актов приёмки-передачи",
         "tags": [
-          "Finance - Acceptance Acts"
+          "Acceptance Acts"
         ]
       },
       "post": {
@@ -3655,9 +3805,9 @@
             "bearer": []
           }
         ],
-        "summary": "Create acceptance act (APP)",
+        "summary": "Оформить акт приёмки-передачи по заказу",
         "tags": [
-          "Finance - Acceptance Acts"
+          "Acceptance Acts"
         ]
       }
     },
@@ -3678,6 +3828,122 @@
         "summary": "Get audit log",
         "tags": [
           "Platform - Audit Log"
+        ]
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "operationId": "UsersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Список пользователей с ролями",
+        "tags": [
+          "Users"
+        ]
+      },
+      "post": {
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Завести пользователя",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/roles": {
+      "get": {
+        "operationId": "UsersController_roles",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Справочник ролей",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "patch": {
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Роли, активность, привязка к сотруднику",
+        "tags": [
+          "Users"
+        ]
+      }
+    },
+    "/api/v1/users/{id}/reset-password": {
+      "post": {
+        "operationId": "UsersController_resetPassword",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Задать новый пароль",
+        "tags": [
+          "Users"
         ]
       }
     },

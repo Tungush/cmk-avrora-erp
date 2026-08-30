@@ -48,6 +48,7 @@ import { PaymentDocumentsController } from './modules/finance/payment-documents.
 import { PurchasesController } from './modules/finance/purchases.controller';
 import { AcceptanceActsController } from './modules/finance/acceptance-acts.controller';
 import { AuditLogController } from './modules/platform/audit-log.controller';
+import { UsersController } from './modules/platform/users.controller';
 import { DashboardsController } from './modules/dashboards/dashboards.controller';
 import { DealsController } from './modules/sales/deals.controller';
 
@@ -83,6 +84,7 @@ import { DealsController } from './modules/sales/deals.controller';
     PurchasesController,
     AcceptanceActsController,
     AuditLogController,
+    UsersController,
     DashboardsController,
     DealsController,
   ],

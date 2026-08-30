@@ -1,8 +1,9 @@
 import React from 'react';
 import { Stack, Text, Tabs } from '@mantine/core';
-import { IconPlugConnected, IconShieldLock, IconCalculator } from '@tabler/icons-react';
+import { IconPlugConnected, IconShieldLock, IconCalculator, IconUsers } from '@tabler/icons-react';
 import { Integration } from './Integration';
 import { CostingSettings } from './Settings/CostingSettings';
+import { UsersAdmin } from './Settings/UsersAdmin';
 
 /**
  * Настройки: то, куда заходят редко — обмен с 1С, аудит (решение
@@ -25,11 +26,13 @@ export function Settings() {
         <Tabs.List mb="md">
           <Tabs.Tab value="integration" leftSection={<IconPlugConnected size={15} />}>Обмен с 1С</Tabs.Tab>
           <Tabs.Tab value="costing" leftSection={<IconCalculator size={15} />}>Маржа и себестоимость</Tabs.Tab>
+          <Tabs.Tab value="users" leftSection={<IconUsers size={15} />}>Пользователи</Tabs.Tab>
           <Tabs.Tab value="audit" leftSection={<IconShieldLock size={15} />}>Аудит</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="integration"><Integration /></Tabs.Panel>
         <Tabs.Panel value="costing"><CostingSettings /></Tabs.Panel>
+        <Tabs.Panel value="users"><UsersAdmin /></Tabs.Panel>
         <Tabs.Panel value="audit">
           <Text size="sm" c="dimmed">Журнал действий — в работе</Text>
         </Tabs.Panel>

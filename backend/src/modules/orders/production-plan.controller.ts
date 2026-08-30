@@ -238,6 +238,149 @@ export class ProductionPlanController {
     );
   }
 
+  /**
+   * План производства матрицей «изделие × месяц» (28.08.2026). Модель
+   * ProductionPlanItem существовала с нуля строк и без единого GET —
+   * в Excel этот разрез держал 59 137 формул, у нас его не было вовсе.
+   *
+   * Три числа на ячейку: план (вводит плановик), факт (живой, из
+   * движений ГП «с производства») и потребность заказов (по плану
+   * вывоза). Факт и потребность не хранятся — считаются на лету,
+   * храним только то, что решил человек.
+   */
+  @Get('matrix')
+  @ApiOperation({ summary: 'План по изделиям: план / факт / потребность по месяцам' })
+  async matrix(@Query() query: { year?: string }) {
+    const year = Number(query.year) || new Date().getFullYear();
+    const months = Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`);
+
+    return runWithFallback(
+      this.prisma,
+      async () => {
+        const [planned, releases, demands] = await Promise.all([
+          this.prisma.productionPlanItem.findMany({
+            where: { periodType: 'MONTH', periodKey: { in: months } },
+            include: { article: { select: { id: true, articleCode: true, name: true } } },
+          }),
+          // Факт: выпуск ГП по месяцам
+          this.prisma.finishedGoodsMovement.findMany({
+            where: {
+              movementType: 'FROM_PRODUCTION',
+              movementDate: { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) },
+            },
+            select: { itemId: true, qty: true, movementDate: true },
+          }),
+          // Потребность: позиции активных заказов по месяцу плана вывоза
+          this.prisma.orderLine.findMany({
+            where: {
+              articleId: { not: null },
+              order: {
+                status: { in: ['CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP'] },
+                plannedShipmentDate: { gte: new Date(year, 0, 1), lt: new Date(year + 1, 0, 1) },
+              },
+            },
+            select: {
+              articleId: true, qty: true,
+              order: { select: { plannedShipmentDate: true } },
+              article: { select: { id: true, articleCode: true, name: true, isMaterialResale: true } },
+            },
+          }),
+        ]);
+
+        const monthOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        type Row = {
+          article: { id: string; articleCode: string; name: string };
+          cells: Record<string, { plan: number; fact: number; demand: number }>;
+        };
+        const rows = new Map<string, Row>();
+        const rowFor = (a: { id: string; articleCode: string; name: string }) => {
+          let r = rows.get(a.id);
+          if (!r) {
+            r = { article: a, cells: {} };
+            for (const m of months) r.cells[m] = { plan: 0, fact: 0, demand: 0 };
+            rows.set(a.id, r);
+          }
+          return r;
+        };
+
+        for (const p of planned) {
+          rowFor(p.article).cells[p.periodKey].plan = Number(p.qtyToProduce);
+        }
+        for (const m of releases) {
+          const key = monthOf(m.movementDate);
+          const r = rows.get(m.itemId);
+          // Факт по изделию без плана тоже показываем: цех делал то,
+          // чего в плане не было — это находка, а не мусор
+          if (r) r.cells[key].fact += Number(m.qty);
+          else {
+            const art = await this.prisma.article.findUnique({
+              where: { id: m.itemId },
+              select: { id: true, articleCode: true, name: true },
+            });
+            if (art) rowFor(art).cells[key].fact += Number(m.qty);
+          }
+        }
+        for (const d of demands) {
+          if (!d.article || d.article.isMaterialResale) continue;
+          const key = monthOf(d.order.plannedShipmentDate!);
+          rowFor(d.article).cells[key].demand += Number(d.qty);
+        }
+
+        const data = [...rows.values()]
+          .map((r) => ({
+            ...r,
+            cells: Object.fromEntries(Object.entries(r.cells).map(([k, c]) => [k, {
+              plan: round3(c.plan), fact: round3(c.fact), demand: round3(c.demand),
+            }])),
+          }))
+          .sort((a, b) => a.article.articleCode.localeCompare(b.article.articleCode));
+        return { year, months, data };
+      },
+      () => ({ year, months, data: [] }),
+    );
+  }
+
+  /**
+   * Ячейка плана: «в этом месяце изготовить столько». Ноль стирает
+   * запись — пустая клетка честнее нуля, который читается как решение.
+   */
+  @Patch('matrix')
+  @Roles('planner', 'admin')
+  @ApiOperation({ summary: 'Задать план изделия на месяц' })
+  async setPlanCell(@Body() body: { articleId: string; periodKey: string; qty: number }) {
+    if (!/^\d{4}-\d{2}$/.test(body.periodKey ?? '')) {
+      throw new BadRequestException({ code: 'INVALID_PERIOD', message: 'Период — в формате ГГГГ-ММ' });
+    }
+    const article = await this.prisma.article.findUnique({
+      where: { id: body.articleId }, select: { id: true, articleCode: true },
+    });
+    if (!article) throw new NotFoundException({ code: 'NOT_FOUND', message: `Article ${body.articleId} not found` });
+    const qty = Number(body.qty);
+    if (!(qty >= 0)) {
+      throw new BadRequestException({ code: 'INVALID_QTY', message: 'План не может быть отрицательным' });
+    }
+
+    const where = {
+      articleId_periodType_periodKey: {
+        articleId: body.articleId, periodType: 'MONTH' as const, periodKey: body.periodKey,
+      },
+    };
+    if (qty === 0) {
+      await this.prisma.productionPlanItem.deleteMany({
+        where: { articleId: body.articleId, periodType: 'MONTH', periodKey: body.periodKey },
+      });
+      return { articleCode: article.articleCode, periodKey: body.periodKey, qty: 0, cleared: true };
+    }
+    await this.prisma.productionPlanItem.upsert({
+      where,
+      create: {
+        articleId: body.articleId, periodType: 'MONTH', periodKey: body.periodKey, qtyToProduce: qty,
+      },
+      update: { qtyToProduce: qty },
+    });
+    return { articleCode: article.articleCode, periodKey: body.periodKey, qty };
+  }
+
   @Get('weekly')
   @ApiOperation({ summary: 'План по неделям: активные заказы по неделе плановой отгрузки' })
   async weekly() {
