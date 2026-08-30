@@ -28,6 +28,8 @@ interface ProductRow {
   missingNorms: boolean;
   articleCode: string;
   articleName: string;
+  /** Объект/БС — мастер видит, для какой площадки изделие */
+  siteCode: string | null;
   qty: number;
   unit: string;
   status: string;
@@ -684,6 +686,11 @@ export function ShopFloor() {
                       {/* Две одинаковые строки в заказе — иначе не понять, какую отметил */}
                       {p.isDuplicateCode && (
                         <Badge size="xs" variant="default" radius="xl">поз. {p.lineNo}</Badge>
+                      )}
+                      {p.siteCode && (
+                        <Badge color="blue" variant="light" radius="xl" size="xs">
+                          {p.siteCode}
+                        </Badge>
                       )}
                       {p.contractors.length > 0 && (
                         <Badge color="orange" variant="light" radius="xl" size="xs"

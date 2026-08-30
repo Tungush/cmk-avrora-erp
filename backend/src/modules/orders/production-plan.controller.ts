@@ -72,7 +72,7 @@ export class ProductionPlanController {
             productionStages: { select: { orderLineId: true, status: true, actualHours: true } },
             orderLines: {
               select: {
-                id: true, qty: true, unit: true, articleId: true,
+                id: true, qty: true, unit: true, articleId: true, siteCode: true,
                 article: {
                   select: {
                     id: true, articleCode: true, name: true, isMaterialResale: true,
@@ -145,6 +145,8 @@ export class ProductionPlanController {
               articleId: l.article?.id ?? null,
               articleCode: l.article?.articleCode ?? '—',
               articleName: l.article?.name ?? '—',
+              /** Объект/БС — мастеру видно, для какой площадки изделие */
+              siteCode: l.siteCode ?? null,
               // Без состава и норм отметить изготовление нельзя (правило
               // 26.08.2026). Мастер должен видеть это ДО клика, а не ловить
               // отказ, когда работа уже сделана

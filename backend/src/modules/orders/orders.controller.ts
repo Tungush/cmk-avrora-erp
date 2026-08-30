@@ -93,6 +93,8 @@ export class OrdersController {
       where.OR = [
         { orderNumber: { contains: query.search, mode: 'insensitive' } },
         { customer: { name: { contains: query.search, mode: 'insensitive' } } },
+        // Объект/БС (28.08.2026): «что мы должны на ALM_Kalina» ищется отсюда
+        { orderLines: { some: { siteCode: { contains: query.search, mode: 'insensitive' } } } },
       ];
     }
 
@@ -242,6 +244,38 @@ export class OrdersController {
       return rest;
     }
     return order;
+  }
+
+  /**
+   * Объект / базовая станция на позиции (28.08.2026). Телеком работает
+   * объектами: «что мы должны на ALM_Kalina» — вопрос, на который заказ
+   * без этого поля не отвечает. Правится руками, пока 1С-ник не скажет,
+   * в каком поле 1С живёт номер БС.
+   */
+  @Patch(':id/lines/:lineId/site')
+  @Roles('sales_manager', 'planner', 'admin')
+  @ApiOperation({ summary: 'Указать объект/БС на позиции заказа' })
+  async setLineSite(
+    @Param('id') id: string,
+    @Param('lineId') lineId: string,
+    @Body() body: { siteCode?: string | null },
+  ) {
+    const line = await this.prisma.orderLine.findUnique({
+      where: { id: lineId }, select: { id: true, orderId: true },
+    });
+    if (!line || line.orderId !== id) {
+      throw new NotFoundException({ code: 'NOT_FOUND', message: 'Позиция не найдена в этом заказе' });
+    }
+    const siteCode = body.siteCode?.trim() || null;
+    if (siteCode && siteCode.length > 60) {
+      throw new BadRequestException({ code: 'TOO_LONG', message: 'Код объекта — до 60 символов' });
+    }
+    const updated = await this.prisma.orderLine.update({
+      where: { id: lineId },
+      data: { siteCode },
+      select: { id: true, siteCode: true },
+    });
+    return updated;
   }
 
   // Создания заказа руками здесь нет намеренно (решение 23.08.2026).

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Stack, Group, Text, Card, Badge, Button, Textarea, Divider, Table, Skeleton, Box,
-  Popover, ActionIcon, Timeline, Select, Progress, Tooltip, Modal, NumberInput, Alert,
+  Popover, ActionIcon, Timeline, Select, Progress, Tooltip, Modal, NumberInput, Alert, TextInput,
 } from '@mantine/core';
 import {
   IconLock, IconAlertTriangle, IconHelpCircle, IconWand, IconCheck,
@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import api from '../../api/client';
 import { ordersApi } from '../../api/orders';
 import { contractorRequestsApi } from '../../api/contractorRequests';
 import { useOrder, useTransitionOrderStatus } from '../../hooks/useOrders';
@@ -25,6 +26,52 @@ import {
 } from '../../utils/formatters';
 
 const ORDER_TYPE_LABELS: Record<string, string> = { FZ: 'ФЗ', VZ: 'ВЗ' };
+
+/**
+ * Объект / базовая станция на позиции (28.08.2026): телеком работает
+ * объектами, и «что мы должны на ALM_Kalina» без этого поля не спросить.
+ * Правится по клику; пусто — честное «не указан».
+ */
+function SiteCell({ orderId, line, canEdit }: { orderId: string; line: any; canEdit: boolean }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState<string>(line.siteCode ?? '');
+  const save = useMutation({
+    mutationFn: () => api.patch(`/orders/${orderId}/lines/${line.id}/site`, { siteCode: value }).then((r: any) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['order', orderId] });
+      setEditing(false);
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Не сохранено',
+      message: e?.response?.data?.error?.message ?? 'Ошибка',
+      color: 'danger',
+    }),
+  });
+  if (editing) {
+    return (
+      <TextInput
+        size="xs" w={120} autoFocus
+        value={value}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
+        placeholder="Б_103860"
+        onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') save.mutate(); if (e.key === 'Escape') setEditing(false); }}
+        onBlur={() => save.mutate()}
+        disabled={save.isPending}
+      />
+    );
+  }
+  return (
+    <Text
+      size="xs" ff="monospace"
+      c={line.siteCode ? undefined : 'dimmed'}
+      style={canEdit ? { cursor: 'pointer' } : undefined}
+      onClick={canEdit ? () => { setValue(line.siteCode ?? ''); setEditing(true); } : undefined}
+    >
+      {line.siteCode ?? (canEdit ? '— указать' : '—')}
+    </Text>
+  );
+}
 
 /** Пусто — это «нет данных», а не ноль. Ноль читается как факт и врёт */
 const orDash = (v: React.ReactNode, empty: boolean) =>
@@ -582,6 +629,7 @@ export function OrderDetail({
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Артикул</Table.Th>
+                  <Table.Th>Объект / БС</Table.Th>
                   <Table.Th ta="right">Кол-во</Table.Th>
                   {canCommercial && <Table.Th ta="right">Цена</Table.Th>}
                   {canCommercial && <Table.Th ta="right">Сумма с НДС</Table.Th>}
@@ -610,6 +658,9 @@ export function OrderDetail({
                           )}
                         </Group>
                       )}
+                    </Table.Td>
+                    <Table.Td>
+                      <SiteCell orderId={id} line={l} canEdit={can('write', 'order.core') || canProduction} />
                     </Table.Td>
                     <Table.Td ff="monospace" ta="right">{Number(l.qty)} {l.unit}</Table.Td>
                     {canCommercial && (

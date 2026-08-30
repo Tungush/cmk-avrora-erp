@@ -265,6 +265,26 @@ export class WarehouseController {
    * которое потом никто не объяснит. Списание в производство остаётся:
    * в таком разрезе 1С учёт не ведёт.
    */
+  /**
+   * Справочник складов из 1С (28.08.2026) — для выбора в формах движения.
+   * ЦМК-склады идут первыми: кладовщик почти всегда работает на них.
+   */
+  @Get('warehouses')
+  @ApiOperation({ summary: 'Справочник складов' })
+  async warehouses(@Query() query: { search?: string }) {
+    const search = query.search?.trim();
+    const rows = await this.prisma.warehouse.findMany({
+      where: {
+        isDeleted: false,
+        ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
+      },
+      select: { id: true, name: true, division: true },
+      orderBy: { name: 'asc' },
+    });
+    const isCmk = (n: string) => n.includes('74п') || n.includes('ЦМК');
+    return rows.sort((a, b) => Number(isCmk(b.name)) - Number(isCmk(a.name)) || a.name.localeCompare(b.name));
+  }
+
   @Post('materials/movements')
   @Roles('warehouse_material', 'admin')
   @ApiOperation({ summary: 'Списание материала в производство (приход — только из 1С)' })
@@ -281,15 +301,23 @@ export class WarehouseController {
     }
     const qtyChange = isExpense ? -Math.abs(body.qty) : Math.abs(body.qty);
 
+    // Склад — по справочнику из 1С; история без склада остаётся честным NULL
+    if (body.warehouseId) {
+      const wh = await this.prisma.warehouse.findUnique({ where: { id: body.warehouseId }, select: { id: true } });
+      if (!wh) throw new NotFoundException({ code: 'NOT_FOUND', message: 'Склад не найден' });
+    }
+
     const movement = await this.prisma.materialStockMovement.create({
       data: {
         itemId: body.materialId,
+        warehouseId: body.warehouseId ?? null,
         movementType: body.movementType,
         qty: Math.abs(body.qty),
         unitPrice: body.unitPrice || mat.purchasePrice,
         movementDate: new Date(body.movementDate || Date.now()),
         project: body.project || null,
-      }
+      },
+      include: { warehouse: { select: { name: true } }, material: { select: { materialCode: true, name: true } } },
     });
 
     await this.prisma.material.update({

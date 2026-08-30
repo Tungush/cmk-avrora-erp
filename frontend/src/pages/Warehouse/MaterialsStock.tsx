@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import {
   Card, Stack, Group, Text, Table, Badge, TextInput, Select, Skeleton, Box,
-  SimpleGrid, Drawer, Divider,
+  SimpleGrid, Drawer, Divider, Button, Modal, NumberInput,
 } from '@mantine/core';
-import { IconSearch, IconHistory } from '@tabler/icons-react';
+import { IconSearch, IconHistory, IconArrowBarToDown, IconCheck } from '@tabler/icons-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { notifications } from '@mantine/notifications';
+import api from '../../api/client';
+import { useAuthStore } from '../../store/auth';
 import { useMaterials } from '../../hooks/useCatalog';
 import { useMaterialMovements } from '../../hooks/useWarehouse';
 import { formatDate } from '../../utils/formatters';
@@ -18,6 +22,103 @@ const CATEGORIES = [
   { value: 'INSTRUMENTS', label: 'Инструменты' },
 ];
 const CATEGORY_LABELS = Object.fromEntries(CATEGORIES.map((c) => [c.value, c.label]));
+
+/**
+ * Списание сырья в производство (28.08.2026). Формы не существовало —
+ * API был с первого дня, но вызвать его было неоткуда. Приход по-прежнему
+ * не заводится руками: он приезжает из «Заказа поставщику» 1С с ценой.
+ * Склад — из справочника 1С: две площадки перестают сливаться в одну цифру.
+ */
+function IssueModal({ opened, onClose, material }: { opened: boolean; onClose: () => void; material: any | null }) {
+  const qc = useQueryClient();
+  const [qty, setQty] = useState<number | string>('');
+  const [warehouseId, setWarehouseId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState('');
+
+  const { data: warehouses } = useQuery({
+    queryKey: ['warehouses'],
+    queryFn: () => api.get('/warehouse/warehouses').then((r) => r.data),
+    enabled: opened,
+    staleTime: 300_000,
+  });
+
+  const issue = useMutation({
+    mutationFn: async () => {
+      const q = Number(qty);
+      if (!(q > 0)) throw new Error('Укажите количество');
+      let orderId: string | null = null;
+      if (orderNumber.trim()) {
+        const res = await api.get('/orders', { params: { search: orderNumber.trim(), pageSize: 5 } });
+        const hit = (res.data?.data ?? []).find(
+          (o: any) => o.orderNumber.toLowerCase() === orderNumber.trim().toLowerCase(),
+        ) ?? (res.data?.data ?? [])[0];
+        if (!hit) throw new Error(`Заказ «${orderNumber}» не найден`);
+        orderId = hit.id;
+      }
+      return api.post('/warehouse/materials/movements', {
+        materialId: material.id,
+        movementType: 'TO_PRODUCTION',
+        qty: q,
+        warehouseId,
+        orderId,
+      }).then((r) => r.data);
+    },
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['materials'] });
+      qc.invalidateQueries({ queryKey: ['material-movements'] });
+      notifications.show({
+        title: 'Списано в производство',
+        message: `${res.material?.materialCode ?? ''} — ${Number(res.qty)}`
+          + (res.warehouse?.name ? ` · ${res.warehouse.name}` : ''),
+        color: 'success',
+        icon: <IconCheck size={16} />,
+      });
+      onClose(); setQty(''); setOrderNumber('');
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Не списано',
+      message: e?.response?.data?.error?.message ?? e?.message ?? 'Ошибка',
+      color: 'danger',
+    }),
+  });
+
+  if (!material) return null;
+  return (
+    <Modal opened={opened} onClose={onClose} radius="md" centered
+      title={<Text fw={700}>Списать: {material.materialCode}</Text>}>
+      <Stack gap="md">
+        <Text size="sm" c="dimmed" lineClamp={2}>{material.name}</Text>
+        <NumberInput
+          label={`Количество, ${material.unit ?? ''}`}
+          description={`на складе ${Number(material.stockQty).toLocaleString('ru-RU')}`}
+          value={qty} onChange={setQty} min={0} decimalScale={3} autoFocus
+        />
+        <Select
+          label="С какого склада"
+          placeholder="не указан"
+          data={(warehouses ?? []).map((w: any) => ({ value: w.id, label: w.name }))}
+          value={warehouseId}
+          onChange={setWarehouseId}
+          searchable clearable
+        />
+        <TextInput
+          label="Под заказ (необязательно)"
+          placeholder="Т7АА-002412"
+          value={orderNumber}
+          onChange={(e) => setOrderNumber(e.target.value)}
+        />
+        <Text size="xs" c="dimmed">
+          Приход руками не заводится — он приезжает из «Заказа поставщику» 1С
+          с фактической ценой. Здесь только выдача в цех.
+        </Text>
+        <Group justify="flex-end">
+          <Button variant="default" onClick={onClose}>Отмена</Button>
+          <Button loading={issue.isPending} onClick={() => issue.mutate()}>Списать</Button>
+        </Group>
+      </Stack>
+    </Modal>
+  );
+}
 
 /** История закупок одного материала — «когда и почём брали» */
 function MovementHistory({ materialId, material }: { materialId: string; material: any }) {
@@ -99,6 +200,9 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [selected, setSelected] = useState<any>(null);
+  const [issueFor, setIssueFor] = useState<any>(null);
+  const hasRole = useAuthStore((s) => s.hasRole);
+  const canIssue = hasRole(['warehouse_material', 'admin']);
 
   const visibleCategories = only
     ? CATEGORIES.filter((c) => only.includes(c.value))
@@ -166,6 +270,7 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
                   <Table.Th style={{ textAlign: 'right' }}>Учётная цена</Table.Th>
                   <Table.Th style={{ textAlign: 'right' }}>Последний закуп</Table.Th>
                   <Table.Th style={{ textAlign: 'right' }}>Стоимость запаса</Table.Th>
+                  {canIssue && <Table.Th w={90} />}
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -207,6 +312,18 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
                       <Table.Td ff="monospace" fw={600} style={{ textAlign: 'right' }}>
                         {num(stock * price, 0)} ₸
                       </Table.Td>
+                      {canIssue && (
+                        <Table.Td>
+                          <Button
+                            size="compact-xs"
+                            variant="light"
+                            leftSection={<IconArrowBarToDown size={13} />}
+                            onClick={(e) => { e.stopPropagation(); setIssueFor(m); }}
+                          >
+                            Списать
+                          </Button>
+                        </Table.Td>
+                      )}
                     </Table.Tr>
                   );
                 })}
@@ -238,6 +355,7 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
       >
         {selected && <MovementHistory materialId={selected.id} material={selected} />}
       </Drawer>
+      <IssueModal opened={issueFor !== null} onClose={() => setIssueFor(null)} material={issueFor} />
     </Stack>
   );
 }

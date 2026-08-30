@@ -178,7 +178,7 @@ export function OrdersRegistry() {
       <Group justify="space-between" wrap="wrap" gap="sm">
         <Group gap="sm" wrap="wrap">
           <TextInput
-            placeholder="№ заказа или заказчик..."
+            placeholder="№ заказа, заказчик или БС..."
             leftSection={<IconSearch size={15} />}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}

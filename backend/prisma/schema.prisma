@@ -64,6 +64,9 @@ model Warehouse {
   isDeleted     Boolean  @default(false) @map("is_deleted")
   createdAt     DateTime @default(now()) @map("created_at")
 
+  batches   MaterialBatch[]
+  movements MaterialStockMovement[]
+
   @@map("warehouses")
 }
 
@@ -577,6 +580,9 @@ model PriceReviewRequest {
 model MaterialBatch {
   id           String   @id @default(uuid()) @db.Uuid
   materialId   String   @map("material_id") @db.Uuid
+  /// Где партия лежит физически. NULL — склад в источнике не указан
+  /// (выгрузка остатков 1С колонку склада не несёт)
+  warehouseId  String?  @map("warehouse_id") @db.Uuid
   receiptDate  DateTime @map("receipt_date") @db.Date
   unitPrice    Decimal  @map("unit_price") @db.Decimal(14, 2)
   qtyReceived  Decimal  @map("qty_received") @db.Decimal(14, 3)
@@ -610,6 +616,7 @@ model MaterialBatch {
 
   createdAt DateTime @default(now()) @map("created_at")
 
+  warehouse       Warehouse?         @relation(fields: [warehouseId], references: [id])
   material        Material           @relation(fields: [materialId], references: [id], onDelete: Cascade)
   ownerOrder      Order?             @relation("TollingBatches", fields: [ownerOrderId], references: [id])
   paymentDocument PaymentDocument?   @relation(fields: [paymentDocumentId], references: [id])
@@ -1105,6 +1112,11 @@ model OrderLine {
   reservedQty Decimal @default(0) @map("reserved_qty") @db.Decimal(12, 3)
   shippedQty  Decimal @default(0) @map("shipped_qty") @db.Decimal(12, 3)
 
+  /// Объект / базовая станция (28.08.2026): телеком работает объектами,
+  /// а не заказами — у 144 заказов Excel в одном заказе до четырёх БС.
+  /// Заполняется руками или будущей выгрузкой, когда 1С скажет, где живёт
+  siteCode String? @map("site_code") @db.VarChar(60)
+
   // Full fidelity import from Google Sheets
   sourceSheet     String? @map("source_sheet") @db.VarChar(100)
   sourceRowNumber Int?    @map("source_row_number")
@@ -1119,6 +1131,7 @@ model OrderLine {
   costings         OrderCosting[]
 
   @@index([sourceSheet, sourceRowNumber])
+  @@index([siteCode])
   @@map("order_lines")
 }
 
@@ -1300,6 +1313,8 @@ model AcceptanceActLine {
 model MaterialStockMovement {
   id               String            @id @default(uuid()) @db.Uuid
   itemId           String            @map("item_id") @db.Uuid
+  /// С какого / на какой склад. NULL — не указан (история до 28.08.2026)
+  warehouseId      String?           @map("warehouse_id") @db.Uuid
   movementType     StockMovementType @map("movement_type")
   qty              Decimal           @db.Decimal(14, 3)
   unitPrice        Decimal           @default(0) @map("unit_price") @db.Decimal(14, 2)
@@ -1312,7 +1327,8 @@ model MaterialStockMovement {
   comment          String?           @db.Text
   createdAt        DateTime          @default(now()) @map("created_at")
 
-  material Material @relation(fields: [itemId], references: [id])
+  warehouse Warehouse? @relation(fields: [warehouseId], references: [id])
+  material  Material   @relation(fields: [itemId], references: [id])
 
   @@index([itemId, movementDate])
   @@map("material_stock_movements")

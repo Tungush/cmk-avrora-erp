@@ -2096,6 +2096,43 @@
         ]
       }
     },
+    "/api/v1/orders/{id}/lines/{lineId}/site": {
+      "patch": {
+        "operationId": "OrdersController_setLineSite",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "lineId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Указать объект/БС на позиции заказа",
+        "tags": [
+          "Orders"
+        ]
+      }
+    },
     "/api/v1/orders/{id}/status": {
       "post": {
         "operationId": "OrdersController_transitionStatus",
@@ -3302,6 +3339,26 @@
           }
         ],
         "summary": "Приход давальческого сырья: партия заказа, цена 0",
+        "tags": [
+          "Warehouse"
+        ]
+      }
+    },
+    "/api/v1/warehouse/warehouses": {
+      "get": {
+        "operationId": "WarehouseController_warehouses",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Справочник складов",
         "tags": [
           "Warehouse"
         ]
