@@ -1043,6 +1043,7 @@ model Order {
   manager                Employee?               @relation("OrderManager", fields: [managerId], references: [id])
   orderLines             OrderLine[]
   paymentDocuments       PaymentDocument[]
+  customerPayments       CustomerPayment[]
   acceptanceActs         AcceptanceAct[]
   productionStages       ProductionStage[]
   finishedGoodsMovements FinishedGoodsMovement[]
@@ -1209,10 +1210,37 @@ model Payment {
   amount            Decimal  @db.Decimal(14, 2)
   paymentDate       DateTime @map("payment_date") @db.Date
   paymentType       String?  @map("payment_type") @db.VarChar(30)
+  /// Основание: № платёжного поручения. Раньше ручной ввод оплаты
+  /// выбрасывал его молча — оставалось голое число без следа
+  reference         String?  @db.VarChar(120)
+  createdAt         DateTime @default(now()) @map("created_at")
 
   paymentDocument PaymentDocument @relation(fields: [paymentDocumentId], references: [id], onDelete: Cascade)
 
   @@map("payments")
+}
+
+/// Оплата от заказчика по заказу (28.08.2026). Раньше деньги клиента жили
+/// одним числом onecPaidAmount «из 1С» — ни списка платежей, ни ручного
+/// ввода. Теперь onecPaidAmount — денормализованная Σ этих строк, а сами
+/// строки различают источник: из выгрузки 1С или занесено руками.
+model CustomerPayment {
+  id          String   @id @default(uuid()) @db.Uuid
+  orderId     String   @map("order_id") @db.Uuid
+  amount      Decimal  @db.Decimal(14, 2)
+  paidAt      DateTime @map("paid_at") @db.Date
+  /// MANUAL — занесено в сервисе; ONEC — из выгрузки «ОплатыПриход»
+  source      String   @default("MANUAL") @db.VarChar(10)
+  /// № платёжного поручения из 1С — ключ идемпотентности повторной заливки
+  reference   String?  @db.VarChar(120)
+  note        String?  @db.Text
+  createdById String?  @map("created_by_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("customer_payments")
 }
 
 // AcceptanceAct

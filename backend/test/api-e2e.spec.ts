@@ -273,16 +273,19 @@ describe('Stage 3 REST API E2E Lifecycle & RBAC Integration Test', () => {
       .send({ amount: 280000 })
       .expect(201);
 
-    await request(app.getHttpServer())
+    // Акт по новому контракту (28.08.2026): состав обязателен — акт без
+    // позиций фиксировал бы сумму, не говоря, что именно передано
+    const actRes = await request(app.getHttpServer())
       .post('/api/v1/acceptance-acts')
       .set('Authorization', `Bearer ${tokens.sales}`)
       .send({
         appNumber: `APP-E2E-${runId}`,
         orderId,
-        customerId,
-        totalAmount: 280000,
+        lines: [{ orderLineId: lineId, qty: 5, unitPrice: 56000 }],
       })
       .expect(201);
+    expect(actRes.body.totalAmount).toBe(280000);
+    expect(actRes.body.lines).toHaveLength(1);
 
     // 11. Accountant transitions order to CLOSED
     const closedRes = await request(app.getHttpServer())

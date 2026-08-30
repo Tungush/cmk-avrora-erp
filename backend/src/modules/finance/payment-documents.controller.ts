@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Query, Body, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Post, Param, Query, Body, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Resource } from '../../common/decorators/resource.decorator';
@@ -203,19 +203,49 @@ export class PaymentDocumentsController {
     });
   }
 
+  /**
+   * Оплата по заказу поставщику. До 28.08.2026 эндпоинт молча терял данные:
+   * прибавлял сумму к paidAmount и выбрасывал дату с основанием — строка
+   * Payment не создавалась вовсе (в таблице было 0 записей). Теперь платёж —
+   * запись со своей датой и платёжкой, а paidAmount — производное от них.
+   */
   @Post(':id/payments')
   @Roles('accountant', 'admin')
-  @ApiOperation({ summary: 'Record payment against document' })
+  @ApiOperation({ summary: 'Записать оплату по заказу поставщику' })
   async addPayment(@Param('id') id: string, @Body() body: { amount: number; paidAt?: string; reference?: string }) {
     const doc = await this.prisma.paymentDocument.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException({ code: 'NOT_FOUND', message: `Payment document ${id} not found` });
 
-    const newPaid = Number(doc.paidAmount) + body.amount;
+    const amount = Number(body.amount);
+    if (!(amount > 0)) {
+      throw new BadRequestException({ code: 'INVALID_AMOUNT', message: 'Сумма оплаты должна быть больше нуля' });
+    }
+    const paidAt = body.paidAt ? new Date(body.paidAt) : new Date();
+    if (Number.isNaN(paidAt.getTime())) {
+      throw new BadRequestException({ code: 'INVALID_DATE', message: 'Дата оплаты не распознана' });
+    }
+
+    const newPaid = Number(doc.paidAmount) + amount;
     const newStatus = newPaid >= Number(doc.totalAmount) ? 'PAID' : 'PARTIALLY_PAID';
 
-    return this.prisma.paymentDocument.update({
-      where: { id },
-      data: { paidAmount: newPaid, status: newStatus as any },
-    });
+    const [payment, updated] = await this.prisma.$transaction([
+      this.prisma.payment.create({
+        data: {
+          paymentDocumentId: id,
+          amount,
+          paymentDate: paidAt,
+          reference: body.reference?.trim() || null,
+        },
+      }),
+      this.prisma.paymentDocument.update({
+        where: { id },
+        data: {
+          paidAmount: newPaid,
+          unpaidAmount: Math.max(0, Number(doc.totalAmount) - newPaid),
+          status: newStatus as any,
+        },
+      }),
+    ]);
+    return { ...updated, payment };
   }
 }

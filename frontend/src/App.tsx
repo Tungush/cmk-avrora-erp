@@ -14,6 +14,7 @@ import { ContractorWork } from './pages/Production/ContractorWork';
 import { Warehouse } from './pages/Warehouse';
 import { Finance } from './pages/Finance';
 import { Purchases } from './pages/Purchases';
+import { Prices } from './pages/Prices';
 import { Integration } from './pages/Integration';
 import { Specifications } from './pages/Specifications';
 import { Pipeline } from './pages/Sales/Pipeline';
@@ -49,6 +50,7 @@ export default function App() {
             <Route path="sales/pipeline" element={<Pipeline />} />
             <Route path="warehouse" element={<Warehouse />} />
             <Route path="purchases" element={<Purchases />} />
+            <Route path="prices" element={<Prices />} />
             <Route path="finance" element={<Finance />} />
             <Route path="specs" element={<Specifications />} />
             <Route path="integration" element={<Integration />} />

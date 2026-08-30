@@ -307,37 +307,84 @@ export class WarehouseController {
     return { ...movement, batchConsumption };
   }
 
+  /**
+   * Остатки ГП считаются из движений, а не хранятся числом (28.08.2026).
+   * Раньше здесь стоял захардкоженный ноль — экран честно писал «пусто»,
+   * но и после заливки истории из 1С показывал бы нули. Приход — плюс,
+   * отгрузка и расход — минус, коррекция — со знаком, как записана.
+   */
   @Get('finished-goods/balance')
-  @ApiOperation({ summary: 'Get finished goods stock balance' })
-  async getFGBalance(@Query() query: { search?: string; page?: string; pageSize?: string }) {
-    const page = Number(query.page) || 1;
-    const pageSize = Number(query.pageSize) || 100;
-    const skip = (page - 1) * pageSize;
+  @ApiOperation({ summary: 'Остатки готовой продукции по движениям' })
+  async getFGBalance(@Query() query: { search?: string }) {
+    return runWithFallback(
+      this.prisma,
+      async () => {
+        const grouped = await this.prisma.finishedGoodsMovement.groupBy({
+          by: ['itemId', 'movementType'],
+          _sum: { qty: true },
+          _max: { movementDate: true },
+        });
 
-    const where: any = {};
-    if (query.search) {
-      where.OR = [
-        { name: { contains: query.search, mode: 'insensitive' } },
-        { articleCode: { contains: query.search, mode: 'insensitive' } },
-      ];
-    }
+        const PLUS = new Set(['RECEIPT', 'FROM_PRODUCTION', 'RETURN']);
+        const MINUS = new Set(['EXPENSE', 'TO_PRODUCTION', 'SHIPMENT']);
+        const byItem = new Map<string, { qty: number; last: Date | null }>();
+        for (const g of grouped) {
+          const cur = byItem.get(g.itemId) ?? { qty: 0, last: null };
+          const q = Number(g._sum.qty ?? 0);
+          if (PLUS.has(g.movementType)) cur.qty += q;
+          else if (MINUS.has(g.movementType)) cur.qty -= q;
+          else cur.qty += q; // CORRECTION — знак уже в количестве
+          if (g._max.movementDate && (!cur.last || g._max.movementDate > cur.last)) {
+            cur.last = g._max.movementDate;
+          }
+          byItem.set(g.itemId, cur);
+        }
 
-    const articles = await this.prisma.article.findMany({
-      where, skip, take: pageSize, orderBy: { name: 'asc' },
-    });
+        const ids = [...byItem.keys()];
+        if (ids.length === 0) return { data: [], totalValue: 0 };
+        const articles = await this.prisma.article.findMany({
+          where: { id: { in: ids } },
+          select: { id: true, articleCode: true, name: true, approvedPrice: true },
+        });
 
-    return articles.map(a => ({
-      articleId: a.id,
-      articleCode: a.articleCode,
-      name: a.name,
-      stockQty: 0,
-      approvedPrice: Number(a.approvedPrice),
-    }));
+        const search = query.search?.trim().toLowerCase();
+        const rows = articles
+          .map((a) => {
+            const b = byItem.get(a.id)!;
+            const qty = Math.round(b.qty * 1000) / 1000;
+            return {
+              articleId: a.id,
+              articleCode: a.articleCode,
+              name: a.name,
+              stockQty: qty,
+              approvedPrice: Number(a.approvedPrice),
+              // Оценка по утверждённой цене: себестоимости движений у нас нет
+              valueEstimate: Math.round(qty * Number(a.approvedPrice) * 100) / 100,
+              lastMovementAt: b.last,
+            };
+          })
+          .filter((r) => !search
+            || r.articleCode.toLowerCase().includes(search)
+            || r.name.toLowerCase().includes(search))
+          .sort((x, y) => Math.abs(y.valueEstimate) - Math.abs(x.valueEstimate));
+
+        return {
+          data: rows,
+          totalValue: Math.round(rows.reduce((sum, r) => sum + r.valueEstimate, 0) * 100) / 100,
+        };
+      },
+      () => ({ data: [], totalValue: 0 }),
+    );
   }
 
+  /**
+   * Ручное движение ГП: кладовщик принимает выпуск, отгружает, правит
+   * коррекцией. До 28.08.2026 формы не существовало — экран был только
+   * на просмотр, и «сдал на склад 10 штук» ввести было физически некуда.
+   */
   @Post('finished-goods/movements')
-  @Roles('warehouse_fg', 'admin')
-  @ApiOperation({ summary: 'Record finished goods movement' })
+  @Roles('warehouse_fg', 'shop_foreman', 'admin')
+  @ApiOperation({ summary: 'Записать движение готовой продукции' })
   async postFGMovement(@Body() body: any) {
     const article = await this.prisma.article.findUnique({ where: { id: body.articleId } });
     if (!article) throw new NotFoundException({ code: 'NOT_FOUND', message: `Article ${body.articleId} not found` });
@@ -349,16 +396,34 @@ export class WarehouseController {
       'отгрузка': 'SHIPMENT',
     };
     const movementType = MOVEMENT_TYPE_MAP[body.movementType] ?? body.movementType;
+    const KNOWN = new Set(['RECEIPT', 'EXPENSE', 'TO_PRODUCTION', 'FROM_PRODUCTION', 'RETURN', 'CORRECTION', 'SHIPMENT']);
+    if (!KNOWN.has(movementType)) {
+      throw new BadRequestException({ code: 'INVALID_TYPE', message: `Неизвестный тип движения: ${body.movementType}` });
+    }
+    const qty = Number(body.qty);
+    // Коррекция — единственный тип со знаком: «на складе оказалось меньше»
+    if (!Number.isFinite(qty) || qty === 0 || (movementType !== 'CORRECTION' && qty < 0)) {
+      throw new BadRequestException({ code: 'INVALID_QTY', message: 'Количество должно быть больше нуля' });
+    }
+
+    if (body.orderId) {
+      const order = await this.prisma.order.findUnique({ where: { id: body.orderId }, select: { id: true } });
+      if (!order) throw new NotFoundException({ code: 'NOT_FOUND', message: `Order ${body.orderId} not found` });
+    }
 
     return this.prisma.finishedGoodsMovement.create({
       data: {
         itemId: body.articleId,
         orderId: body.orderId ?? null,
         movementType,
-        qty: body.qty,
+        qty,
         unitPrice: body.unitPrice || article.approvedPrice,
         movementDate: new Date(body.movementDate || Date.now()),
-      }
+      },
+      include: {
+        article: { select: { articleCode: true, name: true } },
+        order: { select: { orderNumber: true } },
+      },
     });
   }
 }

@@ -19,6 +19,7 @@ import { OrderCostingPanel } from '../../components/OrderCostingPanel';
 import { ArchivedHint, OrderCardFocus } from '../../components/OrderCard/OrderCardProvider';
 import { RequestNomenclatureModal } from '../Specifications/NomenclaturePanel';
 import { Collapse } from '../../components/motion';
+import { CustomerPaymentsBlock, AcceptanceActsBlock } from '../../components/OrderCard/OrderMoneyExtras';
 import {
   formatCurrency, formatDate, ORDER_STATUS_LABELS,
 } from '../../utils/formatters';
@@ -668,6 +669,10 @@ export function OrderDetail({
               )}
             </Stack>
           )}
+          {/* Платежи и акты живут и без ДО: ручной ввод — как раз для
+              случая, когда 1С ещё ничего не прислала (28.08.2026) */}
+          <CustomerPaymentsBlock orderId={id} />
+          <AcceptanceActsBlock orderId={id} lines={lines} />
         </Card>
       ) : (
         <LockedSection title="Деньги" roleName={roleName} />

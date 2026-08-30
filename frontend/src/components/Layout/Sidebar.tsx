@@ -10,7 +10,7 @@ import {
   IconBuildingBank,
   IconRuler2,
   IconTruckDelivery,
-  IconHammer, IconTruck,
+  IconHammer, IconTruck, IconCoin,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { LogoLockup } from '../Brand';
@@ -36,6 +36,8 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     // было только с плитки «Моей работы», хотя это прямые деньги наружу
     { to: '/production/contractors', icon: IconTruck, label: 'Подряд', module: 'production' },
     { to: '/specs', icon: IconRuler2, label: 'Изделия', module: 'specs' },
+    // Прайс — коммерция, а не инженерия: цену видит тот, кто видит деньги заказа
+    { to: '/prices', icon: IconCoin, label: 'Прайс', module: 'money' },
     { to: '/warehouse', icon: IconPackage, label: 'Материалы', module: 'materials' },
     { to: '/purchases', icon: IconTruckDelivery, label: 'Закупки', module: 'purchases' },
     { to: '/finance', icon: IconBuildingBank, label: 'Деньги', module: 'money' },

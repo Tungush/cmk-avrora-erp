@@ -43,6 +43,7 @@ import { ProductionPlanController } from './modules/orders/production-plan.contr
 import { MinStockController } from './modules/orders/min-stock.controller';
 import { WarehouseController } from './modules/warehouse/warehouse.controller';
 import { PurchaseRequestsController } from './modules/warehouse/purchase-requests.controller';
+import { CustomerPaymentsController } from './modules/finance/customer-payments.controller';
 import { PaymentDocumentsController } from './modules/finance/payment-documents.controller';
 import { PurchasesController } from './modules/finance/purchases.controller';
 import { AcceptanceActsController } from './modules/finance/acceptance-acts.controller';
@@ -77,6 +78,7 @@ import { DealsController } from './modules/sales/deals.controller';
     MinStockController,
     WarehouseController,
     PurchaseRequestsController,
+    CustomerPaymentsController,
     PaymentDocumentsController,
     PurchasesController,
     AcceptanceActsController,
