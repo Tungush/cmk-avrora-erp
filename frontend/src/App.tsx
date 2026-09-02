@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Layout } from './components/Layout/Layout';
+import { SectionErrorBoundary } from './components/ErrorBoundary';
 import { Login } from './pages/Login';
 import { MyWork } from './pages/MyWork';
 import { Settings } from './pages/Settings';
@@ -37,7 +38,9 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/" element={<Layout />}>
+          {/* Граница ошибок на корне: что бы ни упало в оболочке (шапка,
+              меню), человек увидит сообщение, а не пустой холст */}
+          <Route path="/" element={<SectionErrorBoundary><Layout /></SectionErrorBoundary>}>
             {/* «Моя работа» — точка входа: очередь своей роли, а не общий дашборд */}
             <Route index element={<MyWork />} />
             <Route path="settings" element={<Settings />} />

@@ -11,6 +11,7 @@ import { motion } from 'framer-motion';
 import { SPRING, useMotionOff } from '../motion';
 import { AuroraCanvas } from '../Aurora';
 import { LoadBar } from './LoadBar';
+import { SectionErrorBoundary } from '../ErrorBoundary';
 
 export const NAV_WIDTH = 260;
 export const NAV_RAIL_WIDTH = 76;
@@ -94,7 +95,9 @@ export function Layout() {
             animate={{ opacity: 1, y: 0 }}
             transition={SPRING}
           >
-            <Outlet />
+            <SectionErrorBoundary resetKey={pathname}>
+              <Outlet />
+            </SectionErrorBoundary>
           </motion.div>
         </Box>
       </AppShell.Main>

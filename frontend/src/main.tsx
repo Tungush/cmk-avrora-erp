@@ -16,6 +16,7 @@ import '@mantine/notifications/styles.css';
 import './index.css';
 // Слой «тёплое стекло» — последним: он переопределяет базовые поверхности
 import './styles/aurora.css';
+import { isDesignMode, enterDesignMode } from './dev/designMode';
 
 /**
  * Дизайн-система «горячий металл»: тёплая бумага + графитовые нейтральные +
@@ -237,6 +238,9 @@ const theme = createTheme({
 // Плотность интерфейса: кладовщику — крупно, плановику — 40 строк
 document.documentElement.dataset.density = localStorage.getItem('ui-density') ?? 'normal';
 document.documentElement.dataset.motion = localStorage.getItem('ui-motion') === 'off' ? 'off' : 'on';
+
+// Режим дизайна: псевдо-вход до первого рендера, чтобы Layout не отправил на /login
+if (isDesignMode()) enterDesignMode();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

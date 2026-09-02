@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
 import { API_BASE, IS_CROSS_ORIGIN } from './base';
+import { isDesignMode, designAdapter } from '../dev/designMode';
 
 // Через интернет (фронт на Vercel, бэкенд на VPS) 2 с мало: к времени
 // запроса добавляются RTT и TLS-хендшейк. На том же origin оставляем
@@ -11,6 +12,8 @@ const api = axios.create({
   baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
   timeout: API_TIMEOUT_MS,
+  // Режим дизайна (?design=1): ответы из фикстур, бэкенд не нужен
+  ...(isDesignMode() ? { adapter: designAdapter } : {}),
 });
 
 // Attach JWT token to every request
