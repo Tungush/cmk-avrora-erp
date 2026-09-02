@@ -138,7 +138,7 @@ export function MinStock() {
                           {r.deficitQty > 0 ? (
                             <Text span fw={700} c="danger">{num(r.deficitQty, 2)}</Text>
                           ) : (
-                            <Badge size="sm" variant="light" color="teal">хватает</Badge>
+                            <Badge size="sm" variant="light" color="success">хватает</Badge>
                           )}
                         </Table.Td>
                         <Table.Td data-priority="2">

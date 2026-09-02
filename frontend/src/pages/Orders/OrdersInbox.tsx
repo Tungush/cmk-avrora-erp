@@ -95,7 +95,7 @@ export function OrdersInbox() {
       {orders.length === 0 ? (
         <Card withBorder padding="xl" radius="lg">
           <Stack align="center" gap="sm" py="xl">
-            <ThemeIcon size={56} radius="xl" variant="light" color="teal">
+            <ThemeIcon size={56} radius="xl" variant="light" color="success">
               <IconInbox size={28} />
             </ThemeIcon>
             <Text fw={700}>Инбокс пуст</Text>
@@ -119,7 +119,7 @@ export function OrdersInbox() {
                           <Badge variant="outline" color="gray" radius="xl" size="lg">1С: {o.onecNum}</Badge>
                         )}
                         {o.onecStatus && (
-                          <Badge variant="light" color="cyan" radius="xl" size="lg">{o.onecStatus}</Badge>
+                          <Badge variant="light" color="brand" radius="xl" size="lg">{o.onecStatus}</Badge>
                         )}
                       </Group>
                       <Text size="sm" c="dimmed">

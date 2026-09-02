@@ -92,7 +92,7 @@ export function OffcutHint({ orderId, orderNumber }: { orderId: string; orderNum
               </Stack>
             ))}
             {anyTaken && (
-              <Button size="md" variant="light" color="yellow"
+              <Button size="md" variant="light" color="warning"
                 loading={save.isPending} onClick={() => save.mutate()}>
                 Записать обрезки на заказ
               </Button>

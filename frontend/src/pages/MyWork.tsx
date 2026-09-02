@@ -144,7 +144,7 @@ export function MyWork() {
 
         <Stack gap="xs">
           <Group gap="sm">
-            <ThemeIcon variant="light" color="orange" radius="md" size="sm">
+            <ThemeIcon variant="light" color="warning" radius="md" size="sm">
               <IconTruck size={14} />
             </ThemeIcon>
             <Text fw={700} size="lg">Подряд</Text>

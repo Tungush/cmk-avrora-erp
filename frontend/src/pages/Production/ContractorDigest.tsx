@@ -4,7 +4,7 @@ import { IconClipboardList, IconUserQuestion, IconChecks, IconCoin } from '@tabl
 import api from '../../api/client';
 import { contractorRequestsApi } from '../../api/contractorRequests';
 import { DigestCard, DigestGrid } from '../../components/Digest';
-import { formatMoney, formatDate } from '../../utils/formatters';
+import { formatMoney, formatCompactMoney, formatDate } from '../../utils/formatters';
 
 /**
  * Сводка подряда (02.09.2026) — раздел открывается деньгами, которые
@@ -108,7 +108,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         tone="brand"
         icon={<IconCoin size={19} />}
         value={byContractor.reduce((sum, c) => sum + Number(c.amount ?? 0), 0)}
-        format={(v) => `${formatMoney(v)} ₸`}
+        format={(v) => formatCompactMoney(v)}
         caption={`по ${num(byContractor.length)} подрядчикам`}
         loading={work.isLoading}
         items={[...byContractor]

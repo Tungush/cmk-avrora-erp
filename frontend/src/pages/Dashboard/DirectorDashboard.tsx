@@ -150,7 +150,7 @@ export function DirectorDashboard() {
                 <Text size="sm" c="dimmed">Оплачено</Text>
                 <Text size="sm" fw={700}>{formatCurrency(money.totalPaid)} · {paidPct.toFixed(0)}%</Text>
               </Group>
-              <Progress value={paidPct} size="lg" radius="xl" color="teal" />
+              <Progress value={paidPct} size="lg" radius="xl" color="success" />
             </Box>
             <Group justify="space-between">
               <Text size="sm" c="dimmed">Законтрактовано</Text>
@@ -158,15 +158,15 @@ export function DirectorDashboard() {
             </Group>
             <Group justify="space-between">
               <Text size="sm" c="dimmed">Остаток к оплате</Text>
-              <Text fw={700} c="orange.7">{formatCurrency(money.totalUnpaid)}</Text>
+              <Text fw={700} c="warning.8">{formatCurrency(money.totalUnpaid)}</Text>
             </Group>
             {overdue.length > 0 && (
               <Box>
-                <Text size="sm" fw={700} c="red.7" mb={4}>Просроченные заказы</Text>
+                <Text size="sm" fw={700} c="danger.7" mb={4}>Просроченные заказы</Text>
                 {overdue.map((o) => (
                   <Group key={o.id} justify="space-between">
                     <Group gap={6}><OrderRef id={o.id} number={o.orderNumber} /><Text size="sm" c="dimmed">{o.customer.name}</Text></Group>
-                    <Badge color="red" variant="light">{o.overdueDays} дн</Badge>
+                    <Badge color="danger" variant="light">{o.overdueDays} дн</Badge>
                   </Group>
                 ))}
               </Box>
@@ -181,7 +181,7 @@ export function DirectorDashboard() {
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         <Card padding="lg" radius="lg">
           <Group gap="xs" mb="md">
-            <ThemeIcon variant="light" color="blue" radius="md"><IconBuildingBank size={18} /></ThemeIcon>
+            <ThemeIcon variant="light" color="brand" radius="md"><IconBuildingBank size={18} /></ThemeIcon>
             <Text fw={800} size="lg">Заказчики (нам должны)</Text>
           </Group>
           {!cash ? (
@@ -198,7 +198,7 @@ export function DirectorDashboard() {
               </Group>
               <Group justify="space-between">
                 <Text size="sm" c="dimmed">Должны нам</Text>
-                <Text fw={700} c="blue.7">{formatCurrency(cash.receivables.owed)}</Text>
+                <Text fw={700} c="brand.7">{formatCurrency(cash.receivables.owed)}</Text>
               </Group>
               {cash.receivables.ordersWithoutPaymentData > 0 && (
                 <Group gap={6} wrap="nowrap" align="flex-start">

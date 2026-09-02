@@ -191,7 +191,7 @@ export function PlanMatrix() {
                       <Table.Td key={months[i]} ta="center" style={stickyTotal}>
                         <Stack gap={0}>
                           <Text size="sm" ff="monospace" fw={700}>{t.plan ? num(t.plan) : '—'}</Text>
-                          <Text size="xs" ff="monospace" c="teal.7">{t.fact ? num(t.fact) : ''}</Text>
+                          <Text size="xs" ff="monospace" c="success.7">{t.fact ? num(t.fact) : ''}</Text>
                         </Stack>
                       </Table.Td>
                     ))}
@@ -216,7 +216,7 @@ export function PlanMatrix() {
       )}
 
       <Text size="sm" c="dimmed">
-        В ячейке: <Text span fw={700}>план</Text> / <Text span c="teal.7">факт выпуска</Text> /
+        В ячейке: <Text span fw={700}>план</Text> / <Text span c="success.7">факт выпуска</Text> /
         <Text span c="dimmed"> з: потребность заказов</Text>. Жёлтая заливка — факт отстаёт от плана.
       </Text>
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs, Stack, Text } from '@mantine/core';
+import { Tabs, Text, Group } from '@mantine/core';
 import {
   IconGavel,
   IconBoxSeam,
@@ -17,6 +17,8 @@ import { MinStock } from './MinStock';
 import { Offcuts } from './Offcuts';
 import { WarehouseDigest } from './WarehouseDigest';
 import { FadeSwap } from '../../components/motion';
+import { FitScreen } from '../../components/FitScreen';
+import { TextReveal } from '../../components/motion';
 
 /** Склад сырья — то, из чего делают изделия */
 const RAW = ['METAL', 'HARDWARE', 'COMPONENTS'];
@@ -38,17 +40,19 @@ export function Warehouse() {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
 
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <Stack gap={4}>
-        <Text fw={700} style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
-          Склад
-        </Text>
-        <Text size="sm" c="dimmed">
-          Сырьё с ценами закупа — отсюда берётся себестоимость в спецификациях
-        </Text>
-      </Stack>
+  const header = (
+    <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
+      <Text className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+        <TextReveal text="Склад" />
+      </Text>
+      <Text size="sm" c="dimmed" lineClamp={1}>
+        сырьё с ценами закупа — отсюда берётся себестоимость в спецификациях
+      </Text>
+    </Group>
+  );
 
+  return (
+    <FitScreen header={header}>
       {/* Панели рисуем сами под списком вкладок: так смена вкладки
           анимируется одним FadeSwap, а не «мигает» при перемонтировании */}
       <Tabs value={tab} onChange={(v) => setTab(v ?? 'digest')} radius="md">
@@ -63,6 +67,7 @@ export function Warehouse() {
         </Tabs.List>
       </Tabs>
 
+      <div className="section-body">
       <FadeSwap swapKey={tab} style={{ minWidth: 0 }}>
         {tab === 'digest' && <WarehouseDigest onGoTab={setTab} />}
         {tab === 'stock' && <MaterialsStock only={RAW} pageKey="warehouse-stock" />}
@@ -72,6 +77,7 @@ export function Warehouse() {
         {tab === 'minstock' && <MinStock />}
         {tab === 'offcuts' && <Offcuts />}
       </FadeSwap>
-    </Stack>
+      </div>
+    </FitScreen>
   );
 }

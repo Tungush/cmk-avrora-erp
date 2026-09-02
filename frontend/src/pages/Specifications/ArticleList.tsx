@@ -44,7 +44,7 @@ function ArticleRow({
         {a.isMaterialResale ? (
           <Badge {...rowBadge} color="gray">сырьё</Badge>
         ) : (
-          noBom && <Badge {...rowBadge} color="yellow">нет состава</Badge>
+          noBom && <Badge {...rowBadge} color="warning">нет состава</Badge>
         )}
       </Group>
       <Text size="sm" lineClamp={1}>{a.name}</Text>

@@ -33,6 +33,8 @@ import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { ContractorDigest } from './ContractorDigest';
+import { FitScreen } from '../../components/FitScreen';
+import { TextReveal } from '../../components/motion';
 
 const STAGE_OPTIONS = (Object.keys(ROUTING_STAGE_LABELS) as RoutingStageCode[])
   .map((value) => ({ value, label: ROUTING_STAGE_LABELS[value] }));
@@ -1288,14 +1290,14 @@ function RequestsTab() {
                             {r.bitrixDealId && (
                               <Tooltip label={`Сделка в воронке «Заказ на Работы»`
                                 + (sentDays != null ? `, в Б24 ${sentDays} ${daysWord(sentDays)}` : '')}>
-                                <Badge size="sm" variant="light" color="blue">
+                                <Badge size="sm" variant="light" color="brand">
                                   Б24 №{r.bitrixDealId}
                                 </Badge>
                               </Tooltip>
                             )}
                             {r.supplierDoc && (
                               <Tooltip label={`Заказ поставщику из 1С на ${formatCurrency(r.supplierDoc.totalAmount)} — сумма приёмки из него`}>
-                                <Badge size="sm" variant="light" color="teal">
+                                <Badge size="sm" variant="light" color="success">
                                   ДО {r.supplierDoc.doNumber}
                                 </Badge>
                               </Tooltip>
@@ -1305,7 +1307,7 @@ function RequestsTab() {
                             {!r.supplierDoc && r.candidateDoc && (
                               <Tooltip label={`Похоже, 1С оформила заказ поставщику: ${r.candidateDoc.doNumber}`
                                 + ` на ${formatCurrency(r.candidateDoc.totalAmount)}. Принять — через акт`}>
-                                <Badge size="sm" variant="filled" color="teal">
+                                <Badge size="sm" variant="filled" color="success">
                                   пришёл ДО из 1С
                                 </Badge>
                               </Tooltip>
@@ -1574,7 +1576,7 @@ function AllocatedTab() {
           {data.byContractor.map((c) => (
             <Card key={c.id} withBorder radius="md" padding="md">
               <Group gap="xs" mb={6} wrap="nowrap">
-                <ThemeIcon variant="light" color="orange" radius="md" size="sm">
+                <ThemeIcon variant="light" color="warning" radius="md" size="sm">
                   <IconBuildingFactory size={14} />
                 </ThemeIcon>
                 <Text fw={700} size="sm" truncate>{c.name}</Text>
@@ -1789,21 +1791,28 @@ export function ContractorWork() {
     return next;
   }, { replace: true });
 
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <Stack gap={4}>
-        <Text size="xs" fw={600} c="dimmed" tt="uppercase" style={{ letterSpacing: '0.08em' }}>
-          Производство · Подряд
-        </Text>
-        <Text fw={700} size="xl">Кто делает наши работы на стороне</Text>
-        <Text size="sm" c="dimmed">
-          Штат считается по нормам спецификации и здесь не показывается — тут только то,
-          что отдано подрядчикам
-        </Text>
-      </Stack>
+  const header = (
+    <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
+      <Text className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+        <TextReveal text="Подряд" />
+      </Text>
+      <Text size="sm" c="dimmed" lineClamp={1}>
+        кто делает наши работы на стороне — штат считается по нормам и сюда не попадает
+      </Text>
+    </Group>
+  );
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'digest')} radius="md" keepMounted={false}>
-        <Tabs.List mb="md">
+  return (
+    <FitScreen header={header}>
+
+      <Tabs
+        value={tab}
+        onChange={(v) => setTab(v ?? 'digest')}
+        radius="md"
+        keepMounted={false}
+        style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
+      >
+        <Tabs.List mb="sm">
           <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} />}>
             Что требует решения
           </Tabs.Tab>
@@ -1815,10 +1824,12 @@ export function ContractorWork() {
           </Tabs.Tab>
         </Tabs.List>
 
-        <Tabs.Panel value="digest"><ContractorDigest onGoTab={setTab} /></Tabs.Panel>
-        <Tabs.Panel value="requests"><RequestsTab /></Tabs.Panel>
-        <Tabs.Panel value="allocated"><AllocatedTab /></Tabs.Panel>
+        <div className="section-body">
+          <Tabs.Panel value="digest"><ContractorDigest onGoTab={setTab} /></Tabs.Panel>
+          <Tabs.Panel value="requests"><RequestsTab /></Tabs.Panel>
+          <Tabs.Panel value="allocated"><AllocatedTab /></Tabs.Panel>
+        </div>
       </Tabs>
-    </Stack>
+    </FitScreen>
   );
 }

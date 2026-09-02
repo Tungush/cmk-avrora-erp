@@ -150,9 +150,9 @@ export function BatchesReserves() {
       {/* ===== Перехваты: решает директор ===== */}
       <Card withBorder radius="md" padding="md" id="overrides">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="red" radius="md" size="md"><IconGavel size={16} /></ThemeIcon>
+          <ThemeIcon variant="light" color="danger" radius="md" size="md"><IconGavel size={16} /></ThemeIcon>
           <Text fw={700} size="md">Перехваты резервов</Text>
-          {ov.length > 0 && <Badge color="red" variant="filled" radius="xl" size="md">{ov.length}</Badge>}
+          {ov.length > 0 && <Badge color="danger" variant="filled" radius="xl" size="md">{ov.length}</Badge>}
         </Group>
         {ov.length === 0 ? (
           <Text size="sm" c="dimmed">Запросов нет — металл никто ни у кого не просит</Text>
@@ -173,7 +173,7 @@ export function BatchesReserves() {
                             <OrderRef id={o.holderOrder.id} number={o.holderOrder.orderNumber} />
                           )}
                           {o.ageHours > 24 && (
-                            <Badge color="orange" variant="light" radius="xl" size="sm">
+                            <Badge color="warning" variant="light" radius="xl" size="sm">
                               ждёт {Math.floor(o.ageHours / 24)} дн
                             </Badge>
                           )}
@@ -218,9 +218,9 @@ export function BatchesReserves() {
       {/* ===== Карантин цен: подтверждает снабжение ===== */}
       <Card withBorder radius="md" padding="md" id="quarantine">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="yellow" radius="md" size="md"><IconFlask size={16} /></ThemeIcon>
+          <ThemeIcon variant="light" color="warning" radius="md" size="md"><IconFlask size={16} /></ThemeIcon>
           <Text fw={700} size="md">Карантин цен</Text>
-          {an.length > 0 && <Badge color="yellow" variant="filled" radius="xl" size="md">{an.length}</Badge>}
+          {an.length > 0 && <Badge color="warning" variant="filled" radius="xl" size="md">{an.length}</Badge>}
         </Group>
         <Text size="sm" c="dimmed" mb="sm">
           Цена партии разошлась с медианой по материалу — в расчёты она не попадёт,
@@ -252,7 +252,7 @@ export function BatchesReserves() {
                         <Table.Td ta="right" ff="monospace" fw={600}>{formatCurrency(a.unitPrice)}</Table.Td>
                         <Table.Td ta="right">
                           <Tooltip label={a.hint}>
-                            <Badge color="red" variant="light" radius="xl" size="sm">
+                            <Badge color="danger" variant="light" radius="xl" size="sm">
                               ×{a.anomalyFactor ?? '—'}
                             </Badge>
                           </Tooltip>
@@ -297,9 +297,9 @@ export function BatchesReserves() {
       {/* ===== Истекающие резервы ===== */}
       <Card withBorder radius="md" padding="md" id="expiring">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="orange" radius="md" size="md"><IconClockExclamation size={16} /></ThemeIcon>
+          <ThemeIcon variant="light" color="warning" radius="md" size="md"><IconClockExclamation size={16} /></ThemeIcon>
           <Text fw={700} size="md">Резервы истекают</Text>
-          {ex.length > 0 && <Badge color="orange" variant="filled" radius="xl" size="md">{ex.length}</Badge>}
+          {ex.length > 0 && <Badge color="warning" variant="filled" radius="xl" size="md">{ex.length}</Badge>}
         </Group>
         <Text size="sm" c="dimmed" mb="sm">
           Резерв без движения снимается через 30 дней сам — металл вернётся

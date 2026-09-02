@@ -176,7 +176,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
               {costingIsStale && (
                 <Tooltip label="Подряд разнесён или принят позже этого расчёта — деньги подрядчика в нём старые">
                   <Badge
-                    color="orange"
+                    color="warning"
                     variant="filled"
                     style={{ cursor: 'pointer' }}
                     onClick={() => build.mutate()}
@@ -186,13 +186,13 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                 </Tooltip>
               )}
               {detail.hasShortage && (
-                <Badge color="red" variant="light">есть дефицит материалов</Badge>
+                <Badge color="danger" variant="light">есть дефицит материалов</Badge>
               )}
               {detail.hasMissingBom && (
-                <Badge color="red" variant="light">нет состава — себестоимость материалов не посчитана</Badge>
+                <Badge color="danger" variant="light">нет состава — себестоимость материалов не посчитана</Badge>
               )}
               {detail.hasMissingNorm && (
-                <Badge color="orange" variant="light">нет нормы труда — себестоимость труда не посчитана</Badge>
+                <Badge color="warning" variant="light">нет нормы труда — себестоимость труда не посчитана</Badge>
               )}
             </Group>
 
@@ -241,7 +241,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                                   {PRICE_STATE_LABELS[m.priceState]}
                                 </Badge>
                                 {m.batch?.batchType === 'TOLLING' && (
-                                  <Badge size="sm" color="orange" variant="light" radius="xl">давалец</Badge>
+                                  <Badge size="sm" color="warning" variant="light" radius="xl">давалец</Badge>
                                 )}
                               </Group>
                               {source && <Text size="xs" ff="monospace" c="dimmed">{source}</Text>}
@@ -276,7 +276,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                             {l.laborKind === 'CONTRACTOR' ? (
                               <Tooltip label={l.contractor?.name ?? 'подрядчик'} disabled={!l.contractor?.name}>
                                 <Stack gap={2}>
-                                  <Badge size="sm" variant="light" color="orange" radius="xl">
+                                  <Badge size="sm" variant="light" color="warning" radius="xl">
                                     подряд · {Math.round(l.share * 100)}%
                                   </Badge>
                                   {l.contractor?.name && (

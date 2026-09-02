@@ -49,7 +49,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
   }
   if (data.ok) {
     return (
-      <Badge size="lg" color="teal" variant="light" radius="xl" leftSection={<IconCheck size={13} />}>
+      <Badge size="lg" color="success" variant="light" radius="xl" leftSection={<IconCheck size={13} />}>
         сырья хватает
       </Badge>
     );
@@ -71,7 +71,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
         <Button
           size="sm"
           variant="light"
-          color="orange"
+          color="warning"
           onClick={() => setConfirmOpen(true)}
         >
           В заявку на закуп
@@ -149,7 +149,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
             <Button size="md" variant="default" onClick={() => setConfirmOpen(false)}>Отмена</Button>
             <Button
               size="md"
-              color="orange"
+              color="warning"
               loading={toQueue.isPending}
               onClick={() => toQueue.mutate()}
             >

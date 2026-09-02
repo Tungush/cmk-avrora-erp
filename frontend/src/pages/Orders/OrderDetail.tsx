@@ -421,7 +421,7 @@ function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNum
                   <Table.Tr>
                     <Table.Td><Text size="sm" fw={700}>Итого</Text></Table.Td>
                     <Table.Td ta="right" ff="monospace" fw={700}>{totals.normHours} ч</Table.Td>
-                    <Table.Td ta="right" ff="monospace" fw={700} c="orange.7">
+                    <Table.Td ta="right" ff="monospace" fw={700} c="warning.8">
                       {totals.contractorHours > 0 ? `−${totals.contractorHours} ч` : '—'}
                     </Table.Td>
                     <Table.Td ta="right" ff="monospace" fw={700}>{totals.staffHours} ч</Table.Td>
@@ -678,7 +678,7 @@ export function OrderDetail({
                           </Text>
                           {!l.articleId && (
                             <Group gap={6} mt={2}>
-                              <Badge size="xs" color="orange" variant="light">нет в справочнике</Badge>
+                              <Badge size="xs" color="warning" variant="light">нет в справочнике</Badge>
                               {canProduction && (
                                 <Text
                                   size="xs" c="brand.7" fw={600} style={{ cursor: 'pointer' }}
@@ -759,7 +759,7 @@ export function OrderDetail({
                 </Text>
               </Group>
               {contracted > 0 && (
-                <Progress value={(paid / contracted) * 100} size="sm" radius="xl" color="teal" mt={4} />
+                <Progress value={(paid / contracted) * 100} size="sm" radius="xl" color="success" mt={4} />
               )}
             </Stack>
           )}

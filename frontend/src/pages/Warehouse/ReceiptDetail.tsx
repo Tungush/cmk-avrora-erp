@@ -170,7 +170,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         )}
         <Row
           label="Утвердитель"
-          value={d.approver ?? <Text span size="sm" c="orange.7">не указан</Text>}
+          value={d.approver ?? <Text span size="sm" c="warning.8">не указан</Text>}
         />
       </Section>
 
@@ -187,7 +187,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         <Row label="Номер по данным поставщика" value={d.supplierDocNumber} mono />
         <Row label="Дата по данным поставщика" value={formatDate(d.supplierDocDate)} />
         {backdatedDays != null && backdatedDays > 0 && (
-          <Alert color="orange" variant="light" p="xs" icon={<IconInfoCircle size={15} />}>
+          <Alert color="warning" variant="light" p="xs" icon={<IconInfoCircle size={15} />}>
             <Text size="sm">
               Документ поставщика датирован на {backdatedDays} дн. раньше нашего заказа —
               закуп оформлен задним числом.

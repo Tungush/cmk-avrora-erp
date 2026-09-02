@@ -9,7 +9,7 @@ import { PulseRow } from '../../components/SectionHeader';
 import { FitScreen, useFitGrid, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
-import { formatDate } from '../../utils/formatters';
+import { formatDate, formatCompactMoney } from '../../utils/formatters';
 import { TextReveal } from '../../components/motion';
 
 /**
@@ -124,7 +124,7 @@ export function Sites() {
             onClick: () => setSlice('ready'), active: slice === 'ready',
           },
           {
-            key: 'money', label: 'Сумма по объектам', value: money(totalAmount),
+            key: 'money', label: 'Сумма по объектам', value: formatCompactMoney(totalAmount),
             hint: '₸ по позициям заказов', tone: 'brand', icon: <IconCurrencyTenge size={17} />,
           },
         ]}

@@ -618,15 +618,17 @@ a:hover > .mantine-Card-root,
   color: var(--ref-muted);
   border: 1px solid var(--ref-line);
 }
+/* Значки состояний: «просрочено» — приглушённый кирпичный, «внимание» —
+   кислотный маркер референса с чёрным текстом */
 .worklist__chip[data-tone='danger'] {
-  background: rgba(221, 253, 44, 0.26);
-  color: var(--ref-coral-ink);
-  border-color: rgba(221, 253, 44, 0.34);
+  background: rgba(214, 69, 47, 0.10);
+  color: var(--c-danger-ink);
+  border-color: rgba(214, 69, 47, 0.22);
 }
 .worklist__chip[data-tone='warn'] {
-  background: rgba(221, 253, 44, 0.35);
-  color: var(--ref-amber-ink);
-  border-color: rgba(221, 253, 44, 0.5);
+  background: var(--c-yellow);
+  color: #000;
+  border-color: transparent;
 }
 .worklist__chip[data-tone='info'] {
   background: rgba(0, 0, 0, 0.05);
@@ -1264,7 +1266,8 @@ a:hover > .mantine-Card-root,
   font-weight: 300;
   letter-spacing: -0.035em;
 }
-.digest-card__value { font-size: 34px; }
+/* Страховка на случай длинной строки: число не вылезает из карточки */
+.digest-card__value { font-size: 28px; overflow: hidden; text-overflow: ellipsis; }
 .page-title, .login-title { font-weight: 300 !important; letter-spacing: -0.03em; }
 h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 
@@ -1326,3 +1329,13 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 
 /* Иконка показателя — светло-серый круг, без цветной заливки */
 .kpi-icon, .pulse-tile__icon { background: var(--ref-surface-sub); border-color: var(--ref-line); color: #000; }
+
+/* Тело раздела с вкладками: занимает остаток высоты. Прокрутка, если она
+   нужна тяжёлой вкладке, живёт ВНУТРИ панели — страница не двигается */
+.section-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  container-type: inline-size;
+}

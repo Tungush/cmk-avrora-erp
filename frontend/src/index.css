@@ -50,35 +50,46 @@ h1, h2, h3, h4, h5, h6, p {
    --------------------------------------------------------------- */
 
 :root {
-  /* Нейтральные — тёплый графит на бумаге, без синевы */
-  --gray-0: #FAFBFA; --gray-1: #F7F8F7; --gray-2: #E8E9E7; --gray-3: #D9DBD9;
-  --gray-5: #A8ADA9; --gray-6: #888E89; --gray-7: #5C625E; --gray-9: #070A08;
+  /* Палитра референса Callivio (значения с их страницы «Typography &
+     Color»). Имена токенов остались прежними — их зовут по всему коду,
+     менялись только значения (03.09.2026).
 
-  /* Акцент — раскалённый металл: единственный насыщенный цвет системы */
-  --brand-6: #FD6941; --brand-7: #E24E27; --brand-0: #FFF0EC;
+     ВАЖНО: раньше здесь жила прошлая система — коралловый #FD6941,
+     зелёный #1FA847, бирюзовый #0891B2 — и она спорила с новой палитрой
+     в aurora.css. Из-за этого интерфейс и выглядел собранным из двух
+     разных сервисов. Источник цвета теперь один. */
 
-  /* Статусы — чернильные, не спорят с акцентом */
-  --ok-6: #1FA847;   --ok-0: #EAFBEF;
-  --warn-6: #C88A05; --warn-0: #FEF6E4;
-  --err-6: #E24E27;  --err-0: #FFF0EC;
-  --info-6: #0891B2; --info-0: #E6F6FA;
+  /* Нейтральные: тёплый серый холст, чернила чёрные */
+  --gray-0: #FFFFFF; --gray-1: #F7F7F4; --gray-2: #E6E6E2; --gray-3: #D3D3CD;
+  --gray-5: #B0B0A9; --gray-6: #8A8A85; --gray-7: #5E5E59; --gray-9: #000000;
 
-  /* Поверхности (референс 02.09.2026): светлый холст, белые карточки,
-     глубина — мягкой тенью, а не рамками */
-  --app-bg: #F4F4F1;
+  /* Акцент — голубой референса #82ADD4; для текста его тёмный брат */
+  --brand-6: #82ADD4; --brand-7: #4E7FA8; --brand-0: #F1F6FA;
+
+  /* Маркер — кислотный жёлтый #DDFD2C. Текст по нему только чёрный */
+  --mark: #DDFD2C; --mark-ink: #6E8500;
+
+  /* Статусы: у референса их нет, заведены нами и приглушены под тон */
+  --ok-6: #5F8C5A;   --ok-0: #F0F5EF;
+  --warn-6: #6E8500; --warn-0: #FBFFE6;
+  --err-6: #D6452F;  --err-0: #FCEDEA;
+  --info-6: #4E7FA8; --info-0: #F1F6FA;
+
+  /* Поверхности: светло-серый холст, белые карточки, обводок почти нет */
+  --app-bg: #F0F0ED;
   --app-surface: #FFFFFF;
-  --ink: #1B1A17;
-  --pill-dark: #1E1D19;
+  --ink: #000000;
+  --pill-dark: #000000;
 
-  /* Палитра графиков — валидирована (CVD + контраст) для светлой поверхности */
-  --chart-cat1: #D9480F; --chart-cat2: #0891B2;
-  --chart-cat3: #96700A; --chart-cat4: #8A4FBF;
-  --chart-grid: rgba(107, 103, 93, .14);
-  --chart-tick: #6B675D;
+  /* Палитра графиков — из тех же пяти цветов, чтобы диаграммы не
+     выпадали из системы: голубой, жёлтый, чернила, серый */
+  --chart-cat1: #82ADD4; --chart-cat2: #DDFD2C;
+  --chart-cat3: #4E7FA8; --chart-cat4: #8A8A85;
+  --chart-grid: rgba(0, 0, 0, .10);
+  --chart-tick: #8A8A85;
 
-  /* Типографика: 6 размеров, больше не нужно */
-  /* 02.09.2026: шаг вверх — 11/13 px в таблицах читались с трудом,
-     а таблицы здесь читают весь день. Ничего мельче 12 px. */
+  /* Типографика: 6 размеров, больше не нужно.
+     Референс: Heading 30 / Subheading 20 / Body 15 */
   --fz-xs: 12px;  /* подписи, метки колонок */
   --fz-sm: 14px;  /* таблицы, вспомогательный текст */
   --fz-md: 15px;  /* основной */
@@ -88,14 +99,14 @@ h1, h2, h3, h4, h5, h6, p {
 
   /* Числа — моноширинный с табличными цифрами */
   --ff-num: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
-  --pill-dark: #070A08;
 
-  --r-sm: 8px; --r-md: 14px; --r-lg: 18px; --r-xl: 24px; --r-full: 999px;
+  /* Скругления референса: 12 / 16 / 20 / 24 */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-xl: 20px; --r-full: 999px;
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
 
-  /* Тени — карточка в покое чуть отделена от холста, в движении — заметнее */
-  --sh-sm: 0 1px 2px rgba(20, 20, 18, .04), 0 4px 14px rgba(20, 20, 18, .05);
-  --sh-md: 0 2px 4px rgba(20, 20, 18, .04), 0 10px 28px rgba(20, 20, 18, .07);
+  /* Тени почти нет: карточки держатся на белом и воздухе */
+  --sh-sm: 0 1px 2px rgba(0, 0, 0, .02), 0 8px 22px -16px rgba(0, 0, 0, .16);
+  --sh-md: 0 2px 4px rgba(0, 0, 0, .03), 0 18px 38px -22px rgba(0, 0, 0, .22);
 }
 
 /* ---------------------------------------------------------------
@@ -497,12 +508,12 @@ textarea.input-field {
   opacity: 0.35;
 }
 .aurora::before {
-  background: radial-gradient(circle, #D9480F, transparent 65%);
+  background: radial-gradient(circle, var(--brand-6), transparent 65%);
   top: -18vmax; right: -12vmax;
   animation: aurora-a 16s ease-in-out infinite;
 }
 .aurora::after {
-  background: radial-gradient(circle, #B93B0B, transparent 62%);
+  background: radial-gradient(circle, var(--mark), transparent 62%);
   bottom: -20vmax; left: -14vmax;
   animation: aurora-b 21s ease-in-out infinite;
 }
@@ -697,7 +708,7 @@ textarea.input-field {
 /* Прогресс: жёлто-оранжевый градиент, как «Today Order Complete» */
 .mantine-Progress-section[data-gradient] ,
 .mantine-Progress-section:not([style*='background']) {
-  background: linear-gradient(90deg, #F5C542 0%, var(--brand-5) 100%);
+  background: linear-gradient(90deg, var(--mark) 0%, var(--brand-6) 100%);
 }
 .mantine-Progress-root { background: var(--gray-1); }
 
