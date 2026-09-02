@@ -13,18 +13,23 @@ interface KpiCardProps {
 
 /**
  * Размер цифры подбирается под её длину, а не наоборот.
- * «37.5%» получает 30px, «8 689 933 104,74 ₸» — 20px и всё равно
+ * «37.5%» получает 34px, «8 689 933 104,74 ₸» — 22px и всё равно
  * остаётся одной строкой: рвать число переносом нельзя вообще,
  * «8 689 933 10 / 4,74» читается как два разных числа.
  */
 function valueFontSize(v: string | number): number {
   const len = String(v).length;
-  if (len <= 8) return 30;
-  if (len <= 12) return 26;
-  if (len <= 16) return 22;
-  return 19;
+  if (len <= 6) return 34;
+  if (len <= 10) return 30;
+  if (len <= 14) return 26;
+  if (len <= 18) return 22;
+  return 20;
 }
 
+/**
+ * KPI-плитка в духе референса 02.09.2026: иконка в мягком квадрате,
+ * крупное число, подпись серым под ним. Белая карточка без рамки.
+ */
 export function KpiCard({ title, value, subtitle, icon, trend }: KpiCardProps) {
   const isPositive = trend ? trend.value >= 0 : true;
 
@@ -35,70 +40,41 @@ export function KpiCard({ title, value, subtitle, icon, trend }: KpiCardProps) {
     : value;
 
   return (
-    <Card padding="lg" radius="lg" h="100%" withBorder className="kpi-glow">
-      {/* Жёсткая сетка: шапка → значение → подвал, прижатый к низу.
-          Раньше шапка была Group с переносом: широкое значение сталкивало
-          иконку вниз, и в ряду из четырёх карточек иконки оказывались
-          на четырёх разных местах — тот самый «разброс» */}
-      <Stack gap={6} justify="space-between" h="100%">
-        <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+    <Card padding="lg" radius="lg" h="100%" className="kpi-glow" style={{ minWidth: 0 }}>
+      <Stack gap="md" justify="space-between" h="100%">
+        <Group gap="sm" wrap="nowrap" align="center">
+          {icon && <div className="kpi-icon" aria-hidden>{icon}</div>}
           <Text
-            size="xs" fw={700} c="dimmed" tt="uppercase"
-            style={{ letterSpacing: '0.08em', lineHeight: 1.35 }}
+            size="sm" fw={600} c="dimmed"
+            style={{ lineHeight: 1.3, minWidth: 0 }}
+            lineClamp={2}
           >
             {title}
           </Text>
-          {icon && (
-            <ThemeIcon
-              variant="gradient"
-              gradient={{ from: 'brand.5', to: 'brand.7', deg: 135 }}
-              size={40}
-              radius="md"
-              style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.25)', flexShrink: 0 }}
-            >
-              {icon}
-            </ThemeIcon>
-          )}
         </Group>
 
-        <Text
-          fw={800}
-          style={{
-            fontSize: valueFontSize(value),
-            lineHeight: 1.1,
-            letterSpacing: '-0.02em',
-            fontVariantNumeric: 'tabular-nums',
-            // Глобальный перенос «anywhere» рвал сумму внутри числа —
-            // для значения он выключен явно
-            overflowWrap: 'normal',
-            wordBreak: 'keep-all',
-            whiteSpace: 'nowrap',
-          }}
-        >
+        <Text className="kpi-value" style={{ fontSize: valueFontSize(value) }}>
           {rendered}
         </Text>
 
-        <Group
-          gap="xs" align="center" wrap="nowrap" mt="auto" pt="sm"
-          style={{ borderTop: '1px solid var(--mantine-color-default-border)', minHeight: 34 }}
-        >
+        <Group gap="xs" align="center" wrap="nowrap" style={{ minHeight: 24 }}>
           {trend && (
             <ThemeIcon
               variant="light"
               color={isPositive ? 'success' : 'danger'}
-              size="sm"
+              size="md"
               radius="xl"
               px="xs"
               style={{ width: 'auto', gap: 4, flexShrink: 0 }}
             >
-              {isPositive ? <IconTrendingUp size={12} /> : <IconTrendingDown size={12} />}
+              {isPositive ? <IconTrendingUp size={14} /> : <IconTrendingDown size={14} />}
               <Text size="xs" fw={800} component="span">
                 {isPositive ? '+' : ''}{trend.value}%
               </Text>
             </ThemeIcon>
           )}
-          <Text size="xs" c="dimmed" fw={500} lineClamp={1}>
-            {subtitle || trend?.label || ' '}
+          <Text size="sm" c="dimmed" fw={500} lineClamp={1}>
+            {subtitle || trend?.label || ' '}
           </Text>
         </Group>
       </Stack>

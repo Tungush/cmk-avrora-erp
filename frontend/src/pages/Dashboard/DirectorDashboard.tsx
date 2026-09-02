@@ -15,7 +15,9 @@ import { KpiCard } from '../../components/KpiCard';
 import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency } from '../../utils/formatters';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { FadeRise, Stagger } from '../../components/motion';
+import { FadeRise, Stagger, FadeSwap } from '../../components/motion';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 
 const HEALTH_COLORS: Record<string, string> = {
   OK: 'teal', WARN: 'yellow', CRITICAL: 'red', NO_COSTING: 'gray',
@@ -41,11 +43,16 @@ export function DirectorDashboard() {
     refetchInterval: 60_000,
   });
 
+  // Маржа по заказам: 50 строк на экране директора — слишком много за раз;
+  // худшие сверху остаются худшими сверху, дальше — страницами
+  const marginOrders = data?.margin.orders ?? [];
+  const marginPaged = usePagedList(marginOrders, 10, marginOrders.length);
+
   if (isLoading || !data) {
     return (
       <Stack gap="lg">
         <Skeleton height={60} radius="lg" />
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="lg">
           {[...Array(4)].map((_, i) => <Skeleton key={i} height={140} radius="lg" />)}
         </SimpleGrid>
         <Skeleton height={400} radius="lg" />
@@ -81,7 +88,7 @@ export function DirectorDashboard() {
         </Text>
       </Group>
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+      <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="lg">
         <Stagger>
         <KpiCard
           title="Маржа портфеля"
@@ -110,9 +117,10 @@ export function DirectorDashboard() {
         </Stagger>
       </SimpleGrid>
 
+      <FadeRise delay={0.05}>
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
         {/* Лента «требует решения» — то, ради чего директор открывает систему */}
-        <Card withBorder padding="lg" radius="lg">
+        <Card padding="lg" radius="lg">
           <Text fw={800} size="lg" mb="md">Требует решения</Text>
           {decisions.length === 0 ? (
             <Text c="dimmed" size="sm">Всё разобрано — решений не ждёт ничего.</Text>
@@ -120,10 +128,10 @@ export function DirectorDashboard() {
             <Stack gap="sm">
               {decisions.map((d) => (
                 <Anchor component={Link} to={d.to} key={d.label} underline="never" c="inherit">
-                  <Group justify="space-between" p="sm" style={{ borderRadius: 12, border: '1px solid var(--mantine-color-default-border)' }}>
+                  <Group justify="space-between" p="md" style={{ borderRadius: 'var(--r-md)', background: 'var(--gray-0)' }}>
                     <Group gap="sm">
-                      <ThemeIcon variant="light" color={d.color} radius="md">{d.icon}</ThemeIcon>
-                      <Text size="sm" fw={600}>{d.label}</Text>
+                      <ThemeIcon variant="light" color={d.color} radius="md" size="lg">{d.icon}</ThemeIcon>
+                      <Text size="md" fw={600}>{d.label}</Text>
                     </Group>
                     <Badge size="lg" variant="filled" color={d.color} radius="xl">{d.count}</Badge>
                   </Group>
@@ -134,7 +142,7 @@ export function DirectorDashboard() {
         </Card>
 
         {/* Деньги по ДО закупа — то, что МЫ должны поставщикам */}
-        <Card withBorder padding="lg" radius="lg">
+        <Card padding="lg" radius="lg">
           <Text fw={800} size="lg" mb="md">Поставщикам (закуп по ДО)</Text>
           <Stack gap="md">
             <Box>
@@ -166,10 +174,12 @@ export function DirectorDashboard() {
           </Stack>
         </Card>
       </SimpleGrid>
+      </FadeRise>
 
       {/* Заказчики нам должны (запрос «сам прогнозировал», 24.08.2026) */}
+      <FadeRise delay={0.1}>
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg">
-        <Card withBorder padding="lg" radius="lg">
+        <Card padding="lg" radius="lg">
           <Group gap="xs" mb="md">
             <ThemeIcon variant="light" color="blue" radius="md"><IconBuildingBank size={18} /></ThemeIcon>
             <Text fw={800} size="lg">Заказчики (нам должны)</Text>
@@ -206,9 +216,11 @@ export function DirectorDashboard() {
             мощность цеха — демо-цифра, показ отложен до следующей итерации.
             Эндпоинт workload-forecast жив — вернуть виджет одним коммитом. */}
       </SimpleGrid>
+      </FadeRise>
 
       {/* Маржа по заказам: отсортировано от худшего — проблемы сверху */}
-      <Card withBorder padding="lg" radius="lg">
+      <FadeRise delay={0.15}>
+      <Card padding="lg" radius="lg">
         <Group justify="space-between" mb="md">
           <Stack gap={2}>
             <Text fw={800} size="lg">Маржа по активным заказам</Text>
@@ -220,28 +232,29 @@ export function DirectorDashboard() {
             </Text>
           </Stack>
         </Group>
-        <Table.ScrollContainer minWidth={720}>
+        <TableScroll minWidth={760}>
+          <FadeSwap swapKey={marginPaged.page}>
           <Table verticalSpacing="sm" highlightOnHover>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Заказ</Table.Th>
                 <Table.Th>Заказчик</Table.Th>
-                <Table.Th>Статус</Table.Th>
-                <Table.Th ta="right">Себестоимость</Table.Th>
-                <Table.Th ta="right">Цена</Table.Th>
+                <Table.Th data-priority="3">Статус</Table.Th>
+                <Table.Th ta="right" data-priority="2">Себестоимость</Table.Th>
+                <Table.Th ta="right" data-priority="2">Цена</Table.Th>
                 <Table.Th ta="right">Маржа</Table.Th>
                 <Table.Th>Здоровье</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {margin.orders.map((o) => (
+              {marginPaged.slice.map((o) => (
                 <Table.Tr key={o.id}>
                   <Table.Td><OrderRef id={o.id} number={o.orderNumber} focus="cost" /></Table.Td>
                   <Table.Td><Text size="sm">{o.customer.name}</Text></Table.Td>
-                  <Table.Td><StatusBadge status={o.status} /></Table.Td>
-                  <Table.Td ta="right" ff="monospace">{o.totalCost !== null ? formatCurrency(o.totalCost) : '—'}</Table.Td>
-                  <Table.Td ta="right" ff="monospace">{o.totalPrice !== null ? formatCurrency(o.totalPrice) : '—'}</Table.Td>
-                  <Table.Td ta="right" ff="monospace">
+                  <Table.Td data-priority="3"><StatusBadge status={o.status} /></Table.Td>
+                  <Table.Td ta="right" ff="monospace" data-priority="2">{o.totalCost !== null ? formatCurrency(o.totalCost) : '—'}</Table.Td>
+                  <Table.Td ta="right" ff="monospace" data-priority="2">{o.totalPrice !== null ? formatCurrency(o.totalPrice) : '—'}</Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={700}>
                     {o.marginPct !== null ? `${o.marginPct}%` : '—'}
                   </Table.Td>
                   <Table.Td>
@@ -255,8 +268,18 @@ export function DirectorDashboard() {
               ))}
             </Table.Tbody>
           </Table>
-        </Table.ScrollContainer>
+          </FadeSwap>
+        </TableScroll>
+        <PaginationBar
+          page={marginPaged.page}
+          total={marginPaged.total}
+          pageSize={10}
+          onPageChange={marginPaged.setPage}
+          noun="заказов"
+          variant="compact"
+        />
       </Card>
+      </FadeRise>
     </Stack>
   );
 }

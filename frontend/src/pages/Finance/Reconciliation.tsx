@@ -1,12 +1,15 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Card, Stack, Group, Text, Badge, SimpleGrid, Skeleton, Table, Box, Alert,
+  Card, Stack, Group, Text, Badge, SimpleGrid, Skeleton, Table, Alert, Box,
 } from '@mantine/core';
 import { IconScale, IconAlertTriangle, IconFileOff } from '@tabler/icons-react';
 import api from '../../api/client';
 import { formatCurrency } from '../../utils/formatters';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 interface ReconciliationResponse {
   customers: Array<{
@@ -41,6 +44,7 @@ interface ReconciliationResponse {
 }
 
 const num = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+const EMPTY: never[] = [];
 
 /**
  * Сверка «заказ ↔ ДО» (Этап 5): долг по заказам против неоплаченного по
@@ -53,6 +57,13 @@ export function Reconciliation() {
     queryFn: () => api.get<ReconciliationResponse>('/payment-documents/reconciliation').then((r) => r.data),
   });
 
+  // Оба списка приходят целиком — страницы режем на клиенте, у каждой
+  // таблицы своя память размера страницы
+  const [custPageSize, setCustPageSize] = usePageSize('finance-reconciliation-customers', 25);
+  const [ordPageSize, setOrdPageSize] = usePageSize('finance-reconciliation-orders', 25);
+  const custPaged = usePagedList(data?.customers ?? EMPTY, custPageSize);
+  const ordPaged = usePagedList(data?.orders ?? EMPTY, ordPageSize);
+
   if (isLoading || !data) {
     return (
       <Stack gap="md">
@@ -64,24 +75,24 @@ export function Reconciliation() {
     );
   }
 
-  const { customers, orders, totals } = data;
+  const { orders, totals } = data;
 
   return (
     <Stack gap="md">
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-        <Card withBorder radius="md" padding="md">
+        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
           <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb={4}>Долг по заказам</Text>
           <Text size="xl" fw={800} ff="monospace">{formatCurrency(totals.balanceDueOrders)}</Text>
           <Text size="xs" c="dimmed">{totals.customersWithDebt} заказчиков с долгом</Text>
         </Card>
-        <Card withBorder radius="md" padding="md">
+        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
           <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb={4}>Закуп: не оплачено по ДО</Text>
           <Text size="xl" fw={800} ff="monospace">{formatCurrency(totals.unpaidByDo)}</Text>
           <Text size="xs" c="dimmed">
             из {formatCurrency(totals.procurementTotal)} по {totals.docsCount.toLocaleString('ru-RU')} ДО
           </Text>
         </Card>
-        <Card withBorder radius="md" padding="md">
+        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
           <Group gap="xs" mb={4}>
             <IconFileOff size={15} style={{ color: 'var(--warn-6, #FF9500)' }} />
             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Пробелы данных</Text>
@@ -96,7 +107,7 @@ export function Reconciliation() {
       </SimpleGrid>
 
       <Card withBorder radius="md" padding={0}>
-        <Group gap="xs" p="md" pb="sm">
+        <Group gap="xs" p="md" pb="sm" wrap="wrap">
           <IconScale size={17} style={{ color: 'var(--brand-6, #0057FF)' }} />
           <Text fw={700} size="sm">Встречные долги по контрагентам</Text>
           <Text size="xs" c="dimmed">
@@ -104,61 +115,77 @@ export function Reconciliation() {
             и заказчиком, и поставщиком одновременно
           </Text>
         </Group>
-        <Box style={{ overflowX: 'auto' }}>
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Заказчик</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Заказов</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>ДО</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Они должны нам</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Мы должны им</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Сальдо</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {customers.map((c) => {
-                const big = Math.abs(c.discrepancy) > 1;
-                return (
-                  <Table.Tr key={c.customerId}>
-                    <Table.Td><Text size="sm" lineClamp={1}>{c.customerName}</Text></Table.Td>
-                    <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{c.ordersCount}</Table.Td>
-                    <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{c.paymentDocsCount}</Table.Td>
-                    <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {c.balanceDueOrders > 0 ? `${num(c.balanceDueOrders)} ₸` : <Text span c="dimmed">—</Text>}
-                      {c.unknownAmount > 0 && (
-                        <Text size="xs" c="dimmed">+{num(c.unknownAmount)} ₸ неизв.</Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                      {c.unpaidByDo > 0 ? `${num(c.unpaidByDo)} ₸` : <Text span c="dimmed">—</Text>}
-                    </Table.Td>
-                    <Table.Td style={{ textAlign: 'right' }}>
-                      {big ? (
-                        <Badge
-                          color={c.discrepancy > 0 ? 'success' : 'warning'}
-                          variant="light"
-                          radius="xl"
-                          leftSection={<IconAlertTriangle size={11} />}
-                        >
-                          {c.discrepancy > 0 ? '+' : ''}{num(c.discrepancy)} ₸
-                        </Badge>
-                      ) : (
-                        <Badge color="gray" variant="light" radius="xl">в ноль</Badge>
-                      )}
+        <FadeSwap swapKey={custPaged.page}>
+          <TableScroll minWidth={860}>
+            <Table highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Заказчик</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }} data-priority="3">Заказов</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }} data-priority="3">ДО</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Они должны нам</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Мы должны им</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Сальдо</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {custPaged.slice.map((c) => {
+                  const big = Math.abs(c.discrepancy) > 1;
+                  return (
+                    <Table.Tr key={c.customerId}>
+                      <Table.Td>
+                        <Text size="sm" lineClamp={1}>{c.customerName}</Text>
+                        {/* Счётчики дублируем подстрокой: на ноутбуке их колонки спрятаны */}
+                        <Text size="xs" c="dimmed">{c.ordersCount} зак. · {c.paymentDocsCount} ДО</Text>
+                      </Table.Td>
+                      <Table.Td ff="monospace" style={{ textAlign: 'right' }} data-priority="3">{c.ordersCount}</Table.Td>
+                      <Table.Td ff="monospace" style={{ textAlign: 'right' }} data-priority="3">{c.paymentDocsCount}</Table.Td>
+                      <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {c.balanceDueOrders > 0 ? `${num(c.balanceDueOrders)} ₸` : <Text span c="dimmed">—</Text>}
+                        {c.unknownAmount > 0 && (
+                          <Text size="xs" c="dimmed">+{num(c.unknownAmount)} ₸ неизв.</Text>
+                        )}
+                      </Table.Td>
+                      <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        {c.unpaidByDo > 0 ? `${num(c.unpaidByDo)} ₸` : <Text span c="dimmed">—</Text>}
+                      </Table.Td>
+                      <Table.Td style={{ textAlign: 'right' }}>
+                        {big ? (
+                          <Badge
+                            color={c.discrepancy > 0 ? 'success' : 'warning'}
+                            variant="light"
+                            radius="xl"
+                            leftSection={<IconAlertTriangle size={11} />}
+                          >
+                            {c.discrepancy > 0 ? '+' : ''}{num(c.discrepancy)} ₸
+                          </Badge>
+                        ) : (
+                          <Badge color="gray" variant="light" radius="xl">в ноль</Badge>
+                        )}
+                      </Table.Td>
+                    </Table.Tr>
+                  );
+                })}
+                {custPaged.slice.length === 0 && (
+                  <Table.Tr>
+                    <Table.Td colSpan={6}>
+                      <Text size="sm" c="dimmed" ta="center" py="lg">Долгов нет — сверять нечего</Text>
                     </Table.Td>
                   </Table.Tr>
-                );
-              })}
-              {customers.length === 0 && (
-                <Table.Tr>
-                  <Table.Td colSpan={6}>
-                    <Text size="sm" c="dimmed" ta="center" py="lg">Долгов нет — сверять нечего</Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
+                )}
+              </Table.Tbody>
+            </Table>
+          </TableScroll>
+        </FadeSwap>
+        <Box px="md">
+          <PaginationBar
+            page={custPaged.page}
+            total={custPaged.total}
+            pageSize={custPageSize}
+            onPageChange={custPaged.setPage}
+            onPageSizeChange={setCustPageSize}
+            noun="контрагентов"
+          />
         </Box>
       </Card>
 
@@ -174,44 +201,56 @@ export function Reconciliation() {
         </Alert>
       ) : (
       <Card withBorder radius="md" padding={0}>
-        <Group gap="xs" p="md" pb="sm">
+        <Group gap="xs" p="md" pb="sm" wrap="wrap">
           <IconScale size={17} style={{ color: 'var(--warn-6, #FF9500)' }} />
           <Text fw={700} size="sm">Закуп под заказы</Text>
           <Text size="xs" c="dimmed">— ДО из «19.20-7п», привязанные к заказу на продажу</Text>
         </Group>
-        <Box style={{ overflowX: 'auto' }}>
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>№ заказа</Table.Th>
-                <Table.Th>Заказчик</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>ДО</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Сумма заказа</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Закуп по ДО</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Не оплачено</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {orders.map((o) => (
-                <Table.Tr key={o.orderId}>
-                  <Table.Td><OrderRef id={o.orderId} number={o.orderNumber} focus="money" /></Table.Td>
-                  <Table.Td><Text size="sm" lineClamp={1}>{o.customerName}</Text></Table.Td>
-                  <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{o.docsCount}</Table.Td>
-                  <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(o.orderTotal)} ₸</Table.Td>
-                  <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(o.procurementTotal)} ₸</Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    {o.procurementUnpaid > 0 ? (
-                      <Badge color="warning" variant="light" radius="xl" ff="monospace">
-                        {num(o.procurementUnpaid)} ₸
-                      </Badge>
-                    ) : (
-                      <Badge color="success" variant="light" radius="xl">оплачено</Badge>
-                    )}
-                  </Table.Td>
+        <FadeSwap swapKey={ordPaged.page}>
+          <TableScroll minWidth={860}>
+            <Table highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>№ заказа</Table.Th>
+                  <Table.Th>Заказчик</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }} data-priority="3">ДО</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Сумма заказа</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Закуп по ДО</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Не оплачено</Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {ordPaged.slice.map((o) => (
+                  <Table.Tr key={o.orderId}>
+                    <Table.Td><OrderRef id={o.orderId} number={o.orderNumber} focus="money" /></Table.Td>
+                    <Table.Td><Text size="sm" lineClamp={1}>{o.customerName}</Text></Table.Td>
+                    <Table.Td ff="monospace" style={{ textAlign: 'right' }} data-priority="3">{o.docsCount}</Table.Td>
+                    <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{num(o.orderTotal)} ₸</Table.Td>
+                    <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>{num(o.procurementTotal)} ₸</Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      {o.procurementUnpaid > 0 ? (
+                        <Badge color="warning" variant="light" radius="xl" ff="monospace">
+                          {num(o.procurementUnpaid)} ₸
+                        </Badge>
+                      ) : (
+                        <Badge color="success" variant="light" radius="xl">оплачено</Badge>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </TableScroll>
+        </FadeSwap>
+        <Box px="md">
+          <PaginationBar
+            page={ordPaged.page}
+            total={ordPaged.total}
+            pageSize={ordPageSize}
+            onPageChange={ordPaged.setPage}
+            onPageSizeChange={setOrdPageSize}
+            noun="заказов"
+          />
         </Box>
       </Card>
       )}

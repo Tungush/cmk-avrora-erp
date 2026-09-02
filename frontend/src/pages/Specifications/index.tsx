@@ -1,12 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Stack, Group, Text, Card, TextInput, NumberInput, Select, Button, Badge,
-  Skeleton, Box, Progress, Divider, ActionIcon, Tooltip, ScrollArea, Modal, Table, Tabs,
+  Stack, Group, Text, Card, NumberInput, Select, Button, Badge,
+  Skeleton, Box, Progress, Divider, ActionIcon, Tooltip, Modal, Table, Tabs,
+  Popover, UnstyledButton,
 } from '@mantine/core';
 import {
-  IconSearch, IconLock, IconRefresh, IconCheck, IconAlertTriangle,
+  IconLock, IconRefresh, IconCheck, IconAlertTriangle,
   IconArrowUp, IconScissors, IconFlame, IconBrush, IconHelpCircle,
-  IconHistory,
+  IconHistory, IconChevronDown, IconChevronUp,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
@@ -19,7 +20,13 @@ import { useAuthStore } from '../../store/auth';
 import { useLiveCostUpdates } from '../../hooks/useLiveEvents';
 import { BomPanel } from './BomPanel';
 import { NomenclatureRequestsButton } from './NomenclaturePanel';
+import { ArticleListPane, ARTICLE_ROW_H } from './ArticleList';
+import { FitScreen, useFitRows } from '../../components/FitScreen';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FadeSwap, Collapse } from '../../components/motion';
 import type { CostingPreviewResponse, RoutingStageCode, RoutingStageRow } from '../../api/routing';
+import type { Article } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 const STAGE_ICONS: Record<RoutingStageCode, React.ComponentType<{ size?: number }>> = {
@@ -30,6 +37,12 @@ const STAGE_ICONS: Record<RoutingStageCode, React.ComponentType<{ size?: number 
 
 const num = (n: number, digits = 2) =>
   n.toLocaleString('ru-RU', { maximumFractionDigits: digits });
+
+/** Строк в таблицах истории на одной странице */
+const HISTORY_PAGE_SIZE = 25;
+
+/** Бейдж вне таблицы: lg — 13 px, единственный размер не мельче 12 px; высота под строку текста */
+const tagProps = { size: 'lg', h: 22, px: 8, variant: 'light' } as const;
 
 /**
  * Предпросмотр влияния (§2.3 ④): последствия правки нормы до сохранения —
@@ -80,9 +93,8 @@ function ImpactPreviewModal({
                 </Text>
                 {l.deltaPct != null && l.deltaPct !== 0 && (
                   <Badge
-                    size="sm"
+                    {...tagProps}
                     radius="xl"
-                    variant="light"
                     color={l.delta > 0 ? 'warning' : 'success'}
                   >
                     {l.delta > 0 ? '+' : ''}{num(l.deltaPct, 1)} %
@@ -114,7 +126,7 @@ function ImpactPreviewModal({
             </Group>
             <Stack gap={2}>
               {affected.negativeMarginOrders.slice(0, 5).map((o) => (
-                <Text key={o.orderNumber} size="xs" c="danger.7" ff="monospace">
+                <Text key={o.orderNumber} size="sm" c="danger.7" ff="monospace">
                   {o.orderNumber} · {o.customer ?? '—'} · цена {num(o.unitPrice)} ₸ &lt; себест. {num(o.newCost)} ₸
                 </Text>
               ))}
@@ -138,8 +150,46 @@ function ImpactPreviewModal({
   );
 }
 
-/** Карточка одного передела: норма (engineer) + факт (shop_foreman) */
-function StageCard({
+/** Расчётное поле: выглядит как поле ввода md, но только для чтения — замок без замка */
+function CalcField({ label, value, strong }: { label: string; value: string; strong?: boolean }) {
+  return (
+    <Box style={{ minWidth: 0 }}>
+      <Text size="sm" fw={500} c="dimmed" mb={4}>{label}</Text>
+      <Box
+        px={12}
+        fz="md"
+        ff="monospace"
+        fw={strong ? 700 : 500}
+        style={{
+          height: 42,
+          lineHeight: '40px',
+          borderRadius: 8,
+          background: 'var(--mantine-color-default-hover)',
+          border: '1px solid var(--mantine-color-default-border)',
+          textAlign: 'right',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+        }}
+      >
+        {value}
+      </Box>
+    </Box>
+  );
+}
+
+/**
+ * Нормы по видам работ — ОДНА таблица, строка на передел (02.09.2026).
+ *
+ * Было три карточки по 220 px в столбик: чтобы увидеть покраску, надо было
+ * прокрутить мимо резки и сборки, а сравнить их между собой — вовсе никак.
+ * Теперь резка, сборка и покраска стоят рядом, как в исходном листе
+ * «Спецификации 2022», и весь редактор виден целиком.
+ *
+ * Факт цеха убран в поповер: его вводит мастер и редко, а норму правит
+ * инженер и часто — на главном пути должно быть то, что делают каждый день.
+ */
+function StageRow({
   row, articleId, workCenters,
 }: {
   row: RoutingStageRow;
@@ -155,6 +205,7 @@ function StageCard({
   const [workCenterId, setWorkCenterId] = useState<string | null>(row.workCenter?.id ?? null);
   const [actualWorkers, setActualWorkers] = useState<number | string>(row.actualWorkers ?? '');
   const [actualHours, setActualHours] = useState<number | string>(row.actualHours ?? '');
+  const [factOpen, setFactOpen] = useState(false);
 
   const saveNorm = useSaveNorm(articleId);
   const saveActual = useSaveActual(articleId);
@@ -198,92 +249,99 @@ function StageCard({
   const handleSaveActual = async () => {
     try {
       await saveActual.mutateAsync({ stage: row.stage, actualWorkers: Number(actualWorkers), actualHours: Number(actualHours) });
+      setFactOpen(false);
       notifications.show({ title: 'Факт зафиксирован', message: row.label, color: 'success', icon: <IconCheck size={16} /> });
     } catch {
       notifications.show({ title: 'Ошибка', message: 'Не удалось сохранить факт', color: 'danger' });
     }
   };
 
+  const dev = row.actualDeviationPct;
+
   return (
-    <Card withBorder radius="md" padding="md">
-      <Group justify="space-between" wrap="nowrap" mb="sm">
-        <Group gap="xs" wrap="nowrap">
-          <Icon size={18} />
-          <Text fw={700} size="sm">{row.label}</Text>
-          {!row.exists && (
-            <Badge color="warning" variant="light" size="sm" radius="xl">норма не задана</Badge>
-          )}
-        </Group>
-        <Text size="xs" c="dimmed" ff="monospace">{num(rate, 0)} ₸/час</Text>
+    <div className="stage-cell">
+      <div className="stage-cell__head">
+        <Icon size={17} />
+        <Text size="sm" fw={700} lh={1.2} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>{row.label}</Text>
+        {!row.exists && (
+          <Tooltip label="Норма не задана — себестоимость труда встанет в ноль">
+            <IconAlertTriangle size={15} style={{ color: 'var(--ref-amber-ink)', flexShrink: 0 }} />
+          </Tooltip>
+        )}
+      </div>
+
+      <Group gap={8} grow wrap="nowrap">
+        <NumberInput size="xs" label="Человек" value={workers} onChange={setWorkers} min={0} step={1}
+          disabled={!canNorm} hideControls placeholder="чел" />
+        <NumberInput size="xs" label="Часов на ед." value={hours} onChange={setHours} min={0} step={0.01}
+          decimalScale={3} disabled={!canNorm} hideControls placeholder="часов" />
       </Group>
 
-      <Group align="flex-end" gap="sm" wrap="wrap">
-        <NumberInput
-          label="Человек"
-          value={workers}
-          onChange={setWorkers}
-          min={0}
-          step={1}
-          w={110}
-          size="sm"
-          disabled={!canNorm}
-          rightSection={!canNorm ? <IconLock size={13} /> : undefined}
-        />
-        <NumberInput
-          label="Часов на ед."
-          value={hours}
-          onChange={setHours}
-          min={0}
-          step={0.01}
-          decimalScale={3}
-          w={130}
-          size="sm"
-          disabled={!canNorm}
-          rightSection={!canNorm ? <IconLock size={13} /> : undefined}
-        />
-        <Select
-          label="Участок"
-          data={stageCenters.map((wc) => ({ value: wc.id, label: `${wc.name} · ${num(wc.hourlyRate, 0)} ₸` }))}
-          value={workCenterId}
-          onChange={setWorkCenterId}
-          w={200}
-          size="sm"
-          clearable
-          disabled={!canNorm}
-          placeholder="Общая ставка"
-        />
+      <Select size="xs" label="Участок" placeholder="Общая ставка" clearable disabled={!canNorm}
+        data={stageCenters.map((wc) => ({ value: wc.id, label: `${wc.name} · ${num(wc.hourlyRate, 0)} ₸` }))}
+        value={workCenterId} onChange={setWorkCenterId} />
 
-        {/* Расчётные поля — серый фон, замок, живой пересчёт при вводе */}
-        <Box>
-          <Text size="xs" fw={500} c="dimmed" mb={4}>Чел/час</Text>
-          <Box px={12} py={7} fz="sm" ff="monospace" style={{
-            minWidth: 90, borderRadius: 8, background: 'var(--mantine-color-default-hover)',
-            border: '1px solid var(--mantine-color-default-border)', textAlign: 'right',
-          }}>
-            {num(manHours, 3)}
-          </Box>
-        </Box>
-        <Box>
-          <Text size="xs" fw={500} c="dimmed" mb={4}>Стоимость</Text>
-          <Box px={12} py={7} fz="sm" ff="monospace" fw={700} style={{
-            minWidth: 110, borderRadius: 8, background: 'var(--mantine-color-default-hover)',
-            border: '1px solid var(--mantine-color-default-border)', textAlign: 'right',
-          }}>
-            {num(stageCost)} ₸
-          </Box>
-        </Box>
+      {/* Живой пересчёт: цифры меняются, пока набирают норму */}
+      <div className="stage-cell__calc">
+        <span>{num(manHours, 3)} чел/час</span>
+        <b>{num(stageCost)} ₸</b>
+      </div>
+
+      <div className="stage-cell__foot">
+        <Popover opened={factOpen} onChange={setFactOpen} position="top-start" withArrow shadow="md" width={250}>
+          <Popover.Target>
+            <UnstyledButton
+              onClick={() => setFactOpen((o) => !o)}
+              disabled={!canActual && row.actualWorkers == null}
+              className="stage-cell__fact"
+            >
+              {row.actualWorkers != null ? (
+                <>
+                  <span>факт {num(row.actualWorkers, 1)}×{num(row.actualHours ?? 0, 2)}</span>
+                  {dev != null && (
+                    <span className="worklist__chip" data-tone={Math.abs(dev) <= 5 ? undefined : 'warn'}>
+                      {dev > 0 ? '+' : ''}{num(dev, 0)} %
+                    </span>
+                  )}
+                </>
+              ) : <span>внести факт</span>}
+            </UnstyledButton>
+          </Popover.Target>
+          <Popover.Dropdown>
+            <Stack gap="xs">
+              <Text size="sm" fw={700}>Факт цеха · {row.label}</Text>
+              {canActual ? (
+                <>
+                  <Group gap="xs" grow>
+                    <NumberInput size="xs" label="Человек" value={actualWorkers} onChange={setActualWorkers} min={0} hideControls />
+                    <NumberInput size="xs" label="Часов на ед." value={actualHours} onChange={setActualHours} min={0} step={0.01} decimalScale={3} hideControls />
+                  </Group>
+                  <Button size="xs" onClick={handleSaveActual}
+                    disabled={!Number(actualWorkers) || !Number(actualHours)} loading={saveActual.isPending}>
+                    Зафиксировать
+                  </Button>
+                </>
+              ) : (
+                <Text size="xs" c="dimmed">Вносит цех — у вашей роли только просмотр</Text>
+              )}
+              {canNorm && row.actualWorkers != null && dev !== 0 && (
+                <Button size="xs" variant="subtle" leftSection={<IconArrowUp size={14} />}
+                  onClick={() => promote.mutate(row.stage)} loading={promote.isPending}>
+                  Принять как норму
+                </Button>
+              )}
+            </Stack>
+          </Popover.Dropdown>
+        </Popover>
 
         {canNorm && (
-          <Button
-            size="sm"
-            onClick={handleSaveNorm}
+          <Button size="compact-sm" h={28} onClick={handleSaveNorm}
             disabled={!dirty || w <= 0}
-            loading={previewNorm.isPending || saveNorm.isPending}
-          >
+            loading={previewNorm.isPending || saveNorm.isPending}>
             Сохранить
           </Button>
         )}
-      </Group>
+      </div>
 
       <ImpactPreviewModal
         preview={preview}
@@ -293,57 +351,33 @@ function StageCard({
         onApply={applyNorm}
         applying={saveNorm.isPending}
       />
-
-      <Divider my="sm" />
-
-      {/* Факт из цеха: в Excel этих данных не было вовсе */}
-      <Group gap="sm" align="flex-end" wrap="wrap">
-        <Text size="xs" c="dimmed" fw={600} w={90} pb={8}>Факт (цех)</Text>
-        {canActual ? (
-          <>
-            <NumberInput value={actualWorkers} onChange={setActualWorkers} min={0} w={90} size="xs" placeholder="чел" />
-            <NumberInput value={actualHours} onChange={setActualHours} min={0} step={0.01} decimalScale={3} w={100} size="xs" placeholder="часов" />
-            <Button size="xs" variant="light" onClick={handleSaveActual}
-              disabled={!Number(actualWorkers) || !Number(actualHours)} loading={saveActual.isPending}>
-              Зафиксировать
-            </Button>
-          </>
-        ) : row.actualWorkers != null ? (
-          <Text size="sm" ff="monospace" pb={6}>
-            {num(row.actualWorkers, 1)} чел × {num(row.actualHours ?? 0, 3)} ч
-          </Text>
-        ) : (
-          <Text size="sm" c="dimmed" pb={6}>— не фиксировался</Text>
-        )}
-
-        {row.actualDeviationPct != null && (
-          <Badge
-            variant="light"
-            radius="xl"
-            color={Math.abs(row.actualDeviationPct) <= 5 ? 'success' : 'warning'}
-            leftSection={Math.abs(row.actualDeviationPct) <= 5 ? <IconCheck size={12} /> : <IconAlertTriangle size={12} />}
-          >
-            {row.actualDeviationPct > 0 ? '+' : ''}{num(row.actualDeviationPct, 1)} % к норме
-          </Badge>
-        )}
-
-        {canNorm && row.actualWorkers != null && row.actualDeviationPct !== 0 && (
-          <Tooltip label="Перенести факт в норму (с записью в историю)">
-            <Button
-              size="xs"
-              variant="subtle"
-              leftSection={<IconArrowUp size={14} />}
-              onClick={() => promote.mutate(row.stage)}
-              loading={promote.isPending}
-            >
-              Принять как норму
-            </Button>
-          </Tooltip>
-        )}
-      </Group>
-    </Card>
+    </div>
   );
 }
+
+/**
+ * Три передела рядом (02.09.2026). Ни таблицы, ни прокрутки: колонки
+ * складываются сами (auto-fit), поэтому и на ноутбуке, и на широком
+ * мониторе резка, сборка и покраска видны целиком и сразу.
+ */
+function StageTable({
+  stages, articleId, workCenters,
+}: {
+  stages: RoutingStageRow[];
+  articleId: string;
+  workCenters: Array<{ id: string; code: string; name: string; stage: RoutingStageCode; hourlyRate: number }>;
+}) {
+  return (
+    <div className="stage-grid">
+      {stages.map((row) => (
+        <StageRow key={`${articleId}-${row.stage}`} row={row} articleId={articleId} workCenters={workCenters} />
+      ))}
+    </div>
+  );
+}
+
+/** Строки-итоги: их показываем крупно и отдельно от слагаемых */
+const TOTAL_LINES = new Set(['Себестоимость', 'Расчётная цена']);
 
 /** Панель «Влияние на себестоимость» — разбор формулы вместо =VLOOKUP(...) */
 function CostingPanel({ articleId }: { articleId: string }) {
@@ -393,49 +427,58 @@ function CostingPanel({ articleId }: { articleId: string }) {
   const total = result.totalCost || 1;
 
   return (
-    <Card withBorder radius="md" padding="md">
-      <Group justify="space-between" mb="sm">
+    <Card withBorder radius="lg" padding="sm">
+      <Group justify="space-between" mb={6}>
         <Text fw={700} size="sm">Влияние на себестоимость</Text>
         <Tooltip label="Формулы листа «Спецификации 2022»: труд = Σ(чел × часы × ставка); логистика 3 % и энергия 1 % от материалов; маржа 10 %" multiline w={320}>
-          <ActionIcon variant="subtle" color="gray" size="sm"><IconHelpCircle size={16} /></ActionIcon>
+          <ActionIcon variant="subtle" color="gray" size="md"><IconHelpCircle size={18} /></ActionIcon>
         </Tooltip>
       </Group>
 
-      <Progress.Root size={18} radius="md" mb="md">
+      <Progress.Root size={14} radius="md" mb={10}>
         {parts.filter((p) => p.value > 0).map((p) => (
           <Progress.Section key={p.label} value={(p.value / total) * 100} color={p.color}>
-            {p.value / total > 0.15 && (
+            {p.value / total > 0.2 && (
               <Progress.Label style={{ fontSize: 10 }}>{Math.round((p.value / total) * 100)}%</Progress.Label>
             )}
           </Progress.Section>
         ))}
       </Progress.Root>
 
-      <Stack gap={6}>
-        {explain.lines.map((line) => {
-          const isTotal = line.label === 'Себестоимость' || line.label === 'Расчётная цена';
-          return (
-            <React.Fragment key={line.label}>
-              {isTotal && <Divider my={2} />}
-              <Group justify="space-between" wrap="nowrap" gap="xs">
-                <Box style={{ minWidth: 0 }}>
-                  <Text size="sm" fw={isTotal ? 700 : 400} truncate>{line.label}</Text>
-                  {line.formula && <Text size="xs" c="dimmed">{line.formula}</Text>}
-                </Box>
-                <Text size="sm" fw={isTotal ? 700 : 500} ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                  {num(line.value)} ₸
-                </Text>
-              </Group>
-            </React.Fragment>
-          );
-        })}
-      </Stack>
+      {/* Слагаемые — в две колонки, итоги — отдельной строкой снизу.
+          В столбик они занимали пол-экрана и выталкивали панель за край */}
+      <div className="cost-lines">
+        {explain.lines.filter((l) => !TOTAL_LINES.has(l.label)).map((line) => (
+          <div className="cost-lines__row" key={line.label}>
+            <div style={{ minWidth: 0 }}>
+              <Text size="sm" truncate>{line.label}</Text>
+              {line.formula && <Text size="xs" c="dimmed" truncate>{line.formula}</Text>}
+            </div>
+            <Text size="sm" fw={500} ff="var(--ff-num)" style={{ whiteSpace: 'nowrap' }}>
+              {num(line.value)} ₸
+            </Text>
+          </div>
+        ))}
+      </div>
 
-      <Group gap="xs" mt="sm">
-        <Badge variant="light" color="gray" radius="xl">
-          Трудоёмкость: {num(explain.totalManHours, 3)} чел/час
-        </Badge>
-      </Group>
+      <div className="cost-totals">
+        {explain.lines.filter((l) => TOTAL_LINES.has(l.label)).map((line) => (
+          <div className="cost-totals__item" key={line.label}>
+            <Text size="xs" c="dimmed" tt="uppercase" fw={700} style={{ letterSpacing: '0.06em' }}>
+              {line.label}
+            </Text>
+            <Text size="lg" fw={800} ff="var(--ff-num)" style={{ whiteSpace: 'nowrap' }}>
+              {num(line.value)} ₸
+            </Text>
+          </div>
+        ))}
+        <div className="cost-totals__item">
+          <Text size="xs" c="dimmed" tt="uppercase" fw={700} style={{ letterSpacing: '0.06em' }}>
+            Трудоёмкость
+          </Text>
+          <Text size="lg" fw={800} ff="var(--ff-num)">{num(explain.totalManHours, 3)} ч</Text>
+        </div>
+      </div>
 
       {explain.priceCheck && (
         <Card mt="md" padding="sm" radius="md" bg={explain.priceCheck.belowCost ? 'danger.0' : 'gray.0'} withBorder
@@ -453,7 +496,6 @@ function CostingPanel({ articleId }: { articleId: string }) {
             </Stack>
             {explain.priceCheck.belowCost && (
               <Button
-                size="xs"
                 variant="light"
                 color="danger"
                 onClick={handleRequestReview}
@@ -472,13 +514,36 @@ function CostingPanel({ articleId }: { articleId: string }) {
 /** «Где применяется» (§3.3): до правки видно, сколько заказов она зацепит */
 function UsagePanel({ articleId }: { articleId: string }) {
   const { data, isLoading } = useUsage(articleId);
+  // Первые 6 заказов видны сразу, остальные раскрываются — не растягиваем панель
+  const [expanded, setExpanded] = useState(false);
 
   if (isLoading || !data) return <Skeleton height={120} radius="md" />;
 
+  const first = data.orders.slice(0, 6);
+  const rest = data.orders.slice(6);
+  const hiddenCount = data.ordersCount - first.length;
+
+  const renderOrder = (o: (typeof data.orders)[number]) => (
+    <Group key={o.orderId} justify="space-between" wrap="nowrap" gap="xs">
+      <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
+        <Text size="sm" ff="monospace" c="brand.7" fw={600} style={{ whiteSpace: 'nowrap' }}>
+          {o.orderNumber}
+        </Text>
+        <Text size="sm" c="dimmed" truncate>{o.customer ?? '—'}</Text>
+      </Group>
+      <Group gap={8} wrap="nowrap">
+        <Text size="sm" ff="monospace">× {num(o.qty, 0)} шт</Text>
+        <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+          {o.plannedShipmentDate ? formatDate(o.plannedShipmentDate) : '—'}
+        </Text>
+      </Group>
+    </Group>
+  );
+
   return (
     <Card withBorder radius="md" padding="md">
-      <Group justify="space-between" mb="xs">
-        <Text fw={700} size="sm">Где применяется</Text>
+      <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
+        <Text fw={700} size="md">Где применяется</Text>
         {data.nearestShipment && (
           <Text size="xs" c="dimmed">
             Ближайшая отгрузка {formatDate(data.nearestShipment.date)} · заказ{' '}
@@ -494,27 +559,34 @@ function UsagePanel({ articleId }: { articleId: string }) {
           <Text size="sm" mb="sm">
             {data.linesCount} позиций в {data.ordersCount} активных заказах · всего {num(data.totalQty, 0)} шт
           </Text>
-          <Stack gap={4}>
-            {data.orders.slice(0, 6).map((o) => (
-              <Group key={o.orderId} justify="space-between" wrap="nowrap" gap="xs">
-                <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                  <Text size="xs" ff="monospace" c="brand.7" fw={600} style={{ whiteSpace: 'nowrap' }}>
-                    {o.orderNumber}
-                  </Text>
-                  <Text size="xs" c="dimmed" truncate>{o.customer ?? '—'}</Text>
-                </Group>
-                <Group gap={8} wrap="nowrap">
-                  <Text size="xs" ff="monospace">× {num(o.qty, 0)} шт</Text>
-                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                    {o.plannedShipmentDate ? formatDate(o.plannedShipmentDate) : '—'}
-                  </Text>
-                </Group>
-              </Group>
-            ))}
-            {data.orders.length > 6 && (
-              <Text size="xs" c="dimmed">… и ещё {data.ordersCount - 6}</Text>
-            )}
+          <Stack gap={6}>
+            {first.map(renderOrder)}
           </Stack>
+          {rest.length > 0 && (
+            <>
+              <Collapse opened={expanded}>
+                <Stack gap={6} pt={6}>
+                  {rest.map(renderOrder)}
+                  {data.ordersCount > data.orders.length && (
+                    <Text size="xs" c="dimmed">… и ещё {data.ordersCount - data.orders.length}</Text>
+                  )}
+                </Stack>
+              </Collapse>
+              <Button
+                variant="subtle"
+                size="sm"
+                mt={6}
+                px={6}
+                leftSection={expanded ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
+                onClick={() => setExpanded((v) => !v)}
+              >
+                {expanded ? 'Свернуть' : `… и ещё ${hiddenCount}`}
+              </Button>
+            </>
+          )}
+          {rest.length === 0 && data.ordersCount > data.orders.length && (
+            <Text size="xs" c="dimmed" mt={4}>… и ещё {data.ordersCount - data.orders.length}</Text>
+          )}
         </>
       )}
     </Card>
@@ -537,6 +609,8 @@ function HistoryModal({
 }) {
   const { data: norms, isLoading: normsLoading } = useNormHistory(articleId, opened);
   const { data: costings, isLoading: costingsLoading } = useCostingHistory(articleId, opened);
+  const normsPaged = usePagedList(norms ?? [], HISTORY_PAGE_SIZE, articleId);
+  const costingsPaged = usePagedList(costings ?? [], HISTORY_PAGE_SIZE, articleId);
 
   return (
     <Modal opened={opened} onClose={onClose} title={<Text fw={700}>История изменений</Text>} size="xl" radius="md" centered>
@@ -552,30 +626,42 @@ function HistoryModal({
           ) : !norms || norms.length === 0 ? (
             <Text size="sm" c="dimmed" py="md">Нормы ещё не менялись.</Text>
           ) : (
-            <ScrollArea.Autosize mah={420}>
-              <Table highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Когда</Table.Th>
-                    <Table.Th>Вид работ</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Человек</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Часов/ед.</Table.Th>
-                    <Table.Th>Причина</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {norms.map((h) => (
-                    <Table.Tr key={h.id}>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(h.changedAt)}</Table.Td>
-                      <Table.Td>{STAGE_SHORT[h.operation.stage] ?? h.operation.stage}</Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(h.workers), 1)}</Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(h.hoursPerUnit), 3)}</Table.Td>
-                      <Table.Td><Text size="xs" c="dimmed">{h.reason ?? '—'}</Text></Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea.Autosize>
+            <Stack gap="xs">
+              <FadeSwap swapKey={normsPaged.page}>
+                <TableScroll minWidth={640} maxHeight={440}>
+                  <Table highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Когда</Table.Th>
+                        <Table.Th>Вид работ</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Человек</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Часов/ед.</Table.Th>
+                        <Table.Th>Причина</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {normsPaged.slice.map((h) => (
+                        <Table.Tr key={h.id}>
+                          <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(h.changedAt)}</Table.Td>
+                          <Table.Td>{STAGE_SHORT[h.operation.stage] ?? h.operation.stage}</Table.Td>
+                          <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(h.workers), 1)}</Table.Td>
+                          <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(h.hoursPerUnit), 3)}</Table.Td>
+                          <Table.Td><Text size="sm" c="dimmed">{h.reason ?? '—'}</Text></Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </TableScroll>
+              </FadeSwap>
+              <PaginationBar
+                page={normsPaged.page}
+                total={normsPaged.total}
+                pageSize={HISTORY_PAGE_SIZE}
+                onPageChange={normsPaged.setPage}
+                variant="compact"
+                noun="записей"
+              />
+            </Stack>
           )}
         </Tabs.Panel>
 
@@ -585,36 +671,48 @@ function HistoryModal({
           ) : !costings || costings.length === 0 ? (
             <Text size="sm" c="dimmed" py="md">Снимков калькуляции ещё нет — они создаются при каждом пересчёте.</Text>
           ) : (
-            <ScrollArea.Autosize mah={420}>
-              <Table highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Когда</Table.Th>
-                    <Table.Th>Триггер</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Материалы</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Труд</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Чел/час</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Себест.</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Цена</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {costings.map((s) => (
-                    <Table.Tr key={s.id}>
-                      <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(s.calculatedAt)}</Table.Td>
-                      <Table.Td>
-                        <Badge size="xs" variant="light" color="gray" radius="xl">{s.trigger ?? '—'}</Badge>
-                      </Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.materialCost))}</Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.laborCost))}</Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.totalManHours), 3)}</Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.totalCost))}</Table.Td>
-                      <Table.Td ff="monospace" fw={700} style={{ textAlign: 'right' }}>{num(Number(s.price))}</Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </ScrollArea.Autosize>
+            <Stack gap="xs">
+              <FadeSwap swapKey={costingsPaged.page}>
+                <TableScroll minWidth={760} maxHeight={440}>
+                  <Table highlightOnHover>
+                    <Table.Thead>
+                      <Table.Tr>
+                        <Table.Th>Когда</Table.Th>
+                        <Table.Th>Триггер</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Материалы</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Труд</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Чел/час</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Себест.</Table.Th>
+                        <Table.Th style={{ textAlign: 'right' }}>Цена</Table.Th>
+                      </Table.Tr>
+                    </Table.Thead>
+                    <Table.Tbody>
+                      {costingsPaged.slice.map((s) => (
+                        <Table.Tr key={s.id}>
+                          <Table.Td style={{ whiteSpace: 'nowrap' }}>{formatDate(s.calculatedAt)}</Table.Td>
+                          <Table.Td>
+                            <Badge size="sm" variant="light" color="gray" radius="xl">{s.trigger ?? '—'}</Badge>
+                          </Table.Td>
+                          <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.materialCost))}</Table.Td>
+                          <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.laborCost))}</Table.Td>
+                          <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.totalManHours), 3)}</Table.Td>
+                          <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(s.totalCost))}</Table.Td>
+                          <Table.Td ff="monospace" fw={700} style={{ textAlign: 'right' }}>{num(Number(s.price))}</Table.Td>
+                        </Table.Tr>
+                      ))}
+                    </Table.Tbody>
+                  </Table>
+                </TableScroll>
+              </FadeSwap>
+              <PaginationBar
+                page={costingsPaged.page}
+                total={costingsPaged.total}
+                pageSize={HISTORY_PAGE_SIZE}
+                onPageChange={costingsPaged.setPage}
+                variant="compact"
+                noun="снимков"
+              />
+            </Stack>
           )}
         </Tabs.Panel>
       </Tabs>
@@ -625,177 +723,155 @@ function HistoryModal({
 export function Specifications() {
   // Пересчёт из другого окна (мастер зафиксировал факт) виден сразу (§3.4)
   useLiveCostUpdates();
-  // < 768px: список артикулов и калькулятор в столбик (§4.6)
-  const isMobile = useMediaQuery('(max-width: 767px)');
+  // Две панели рядом держатся до 1024 px: список 320 + редактор 660 — три
+  // передела в ряд помещаются. Раньше порог был 1200, и на ноутбуке экран
+  // раскладывался в столбик, отчего возвращалась вертикальная прокрутка
+  const stacked = useMediaQuery('(max-width: 1023px)', false, { getInitialValueInEffect: false });
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Карточка выбранного изделия хранится отдельно: после перехода на другую
+  // страницу списка её там уже нет, а шапка редактора должна остаться
+  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [historyOpened, setHistoryOpened] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('routing');
 
-  // Раньше жёсткий pageSize:30 без способа увидеть остальное — из 2315
-  // артикулов было видно 30 (1,3%), и поиск это не спасало (найденное
-  // тоже обрезалось). Теперь список растёт по кнопке, честно показывая,
-  // сколько всего и сколько ещё скрыто.
-  const [visibleCount, setVisibleCount] = useState(30);
+  // Список изделий занимает ровно ту высоту, что осталась от окна: сколько
+  // строк влезло — столько и запрашиваем с сервера (02.09.2026)
+  // 4 px — зазор между строками; своей шапки у списка нет, отсюда chrome = 0
+  const fit = useFitRows(ARTICLE_ROW_H + 4, 5, 40, 0);
+
   // «Изделия» — каталог ТОЛЬКО продукции. Сырьё, услуги и прочее, что завод
   // не изготавливает, сюда не попадает вовсе: переключателя нет намеренно
   // (26.08.2026 — «удали тут всё что сырьё и убери кнопку показать сырьё»).
   // Сырьё живёт в разделе «Материалы».
   const { data: articlesData, isLoading: articlesLoading } = useArticles({
-    search, pageSize: visibleCount,
+    search, page, pageSize: fit.rows,
   });
   const articles = articlesData?.data ?? [];
-  const articlesTotal = articlesData?.meta?.total ?? articles.length;
+  const articlesTotal = articlesData?.meta?.total;
   const activeId = selectedId ?? articles[0]?.id ?? null;
-  const activeArticle = useMemo(() => articles.find((a) => a.id === activeId), [articles, activeId]);
+  const activeArticle = useMemo(
+    () => articles.find((a) => a.id === activeId)
+      ?? (selectedArticle && selectedArticle.id === activeId ? selectedArticle : undefined),
+    [articles, activeId, selectedArticle],
+  );
 
   const { data: routing, isLoading: routingLoading, refetch } = useRouting(activeId);
   const { data: workCenters } = useWorkCenters();
 
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
-        <Stack gap={4}>
-          <Text fw={900} style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-            Спецификации · трудочасы
-          </Text>
-          <Text size="sm" c="dimmed">
-            Нормы по видам работ и калькуляция себестоимости — модуль листа «Спецификации 2022»
-          </Text>
-        </Stack>
-        <Group gap="sm">
-          <NomenclatureRequestsButton />
-          <Button
-            variant="default"
-            leftSection={<IconHistory size={16} />}
-            onClick={() => setHistoryOpened(true)}
-            disabled={!activeId}
-          >
-            История
-          </Button>
-          <Button variant="light" leftSection={<IconRefresh size={16} />} onClick={() => refetch()}>
-            Пересчитать
-          </Button>
-        </Group>
-      </Group>
+  const handleSearch = (value: string) => {
+    setSearch(value);
+    setPage(1);
+    setSelectedId(null);
+    setSelectedArticle(null);
+  };
 
+  const handleSelect = (a: Article) => {
+    setSelectedId(a.id);
+    setSelectedArticle(a);
+  };
+
+  const noBom = activeArticle && !activeArticle.isMaterialResale && !activeArticle.bomItems?.length;
+
+  const header = (
+    <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+        <Text fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+          Изделия
+        </Text>
+        <Text size="sm" c="dimmed" lineClamp={1}>
+          нормы труда и себестоимость по каждому артикулу
+        </Text>
+      </Group>
+      <Group gap="xs" wrap="nowrap">
+        <NomenclatureRequestsButton />
+        <Button variant="default" size="sm" leftSection={<IconHistory size={16} />}
+          onClick={() => setHistoryOpened(true)} disabled={!activeId}>
+          История
+        </Button>
+        <Button variant="light" size="sm" leftSection={<IconRefresh size={16} />} onClick={() => refetch()}>
+          Пересчитать
+        </Button>
+      </Group>
+    </Group>
+  );
+
+  return (
+    <FitScreen header={header}>
       {activeId && (
         <HistoryModal articleId={activeId} opened={historyOpened} onClose={() => setHistoryOpened(false)} />
       )}
 
-      <Group align="flex-start" gap="md" wrap={isMobile ? 'wrap' : 'nowrap'} style={{ minWidth: 0 }}>
-        {/* Список артикулов */}
-        <Card withBorder radius="md" padding="sm" w={isMobile ? '100%' : 280} style={{ flexShrink: 0 }}>
-          <TextInput
-            placeholder="Поиск артикула..."
-            leftSection={<IconSearch size={15} />}
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setSelectedId(null); setVisibleCount(30); }}
-            size="sm"
-            mb={4}
-          />
-          <Text size="xs" c="dimmed" mb="sm">
-            {articlesLoading ? ' ' : `Показано ${articles.length} из ${articlesTotal}`}
-          </Text>
-          <ScrollArea h={isMobile ? 220 : 560} scrollbarSize={6}>
-            <Stack gap={4}>
-              {articlesLoading
-                ? [...Array(8)].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)
-                : articles.map((a) => (
-                    <Box
-                      key={a.id}
-                      onClick={() => setSelectedId(a.id)}
-                      px="sm"
-                      py={8}
-                      style={{
-                        borderRadius: 8,
-                        cursor: 'pointer',
-                        background: a.id === activeId ? 'light-dark(var(--mantine-color-brand-0), rgba(90, 124, 255, 0.12))' : undefined,
-                        border: a.id === activeId ? '1px solid light-dark(var(--mantine-color-brand-2), rgba(90, 124, 255, 0.35))' : '1px solid transparent',
-                      }}
-                    >
-                      <Group gap={6} wrap="nowrap">
-                        <Text size="xs" ff="monospace" c="brand.7" fw={700}>{a.articleCode}</Text>
-                        {a.isMaterialResale ? (
-                          <Badge size="xs" variant="light" color="gray" radius="xl">сырьё, не изделие</Badge>
-                        ) : (
-                          !a.bomItems?.length && (
-                            <Badge size="xs" variant="light" color="yellow" radius="xl">нет состава</Badge>
-                          )
-                        )}
-                      </Group>
-                      <Text size="xs" lineClamp={1}>{a.name}</Text>
-                    </Box>
-                  ))}
-              {!articlesLoading && articles.length === 0 && (
-                <Stack gap="xs" py="md" align="center">
-                  <Text size="sm" c="dimmed" ta="center">Артикула нет в справочнике</Text>
-                  {/* Заявка на номенклатуру подаётся из карточки сделки —
-                      у позиции без артикула (решение 26.08.2026) */}
-                </Stack>
-              )}
-              {!articlesLoading && articles.length < articlesTotal && (
-                <Button
-                  size="xs"
-                  variant="subtle"
-                  fullWidth
-                  onClick={() => setVisibleCount((n) => n + 100)}
-                >
-                  Показать ещё {Math.min(100, articlesTotal - articles.length)}
-                </Button>
-              )}
-            </Stack>
-          </ScrollArea>
-        </Card>
+      <div className="specs-split" data-stacked={stacked ? 'true' : undefined}>
+        {/* Список артикулов — ровно по высоте окна */}
+        <ArticleListPane
+          articles={articles}
+          loading={articlesLoading}
+          total={articlesTotal}
+          page={page}
+          pageSize={fit.rows}
+          onPageChange={setPage}
+          search={search}
+          onSearchChange={handleSearch}
+          activeId={activeId}
+          onSelect={handleSelect}
+          stacked={stacked}
+          listRef={fit.ref}
+        />
 
-        {/* Калькулятор */}
-        <Stack gap="md" style={{ flex: 1, minWidth: 0 }}>
-          {activeArticle && (
-            <Group gap="sm">
-              <Badge variant="filled" color="dark" radius="md" size="lg" ff="monospace">
+        {/* Редактор: всё об изделии на одном экране, разделами-вкладками.
+            Раньше нормы, себестоимость и «где применяется» лежали в столбик
+            на полторы тысячи пикселей — до покраски надо было прокрутить */}
+        <div className="specs-editor">
+          {activeArticle ? (
+            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }} mb="xs">
+              <Badge variant="filled" color="dark" radius="md" size="lg" ff="var(--ff-num)" style={{ flexShrink: 0 }}>
                 {activeArticle.articleCode}
               </Badge>
               <Text fw={700} size="md" style={{ minWidth: 0 }} lineClamp={1}>
                 {activeArticle.name}
               </Text>
+              {noBom && (
+                <span className="worklist__chip" data-tone="danger" style={{ flexShrink: 0 }}>нет состава</span>
+              )}
             </Group>
-          )}
+          ) : <Skeleton height={28} width={320} radius="sm" mb="xs" />}
 
-          {/* Вкладки из макета §3.3: Материалы (состав) и Трудозатраты */}
           <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? 'routing')} radius="md" keepMounted={false}>
             <Tabs.List>
-              <Tabs.Tab value="routing">Трудозатраты</Tabs.Tab>
+              <Tabs.Tab value="routing">Трудозатраты и цена</Tabs.Tab>
               <Tabs.Tab value="bom">Материалы (состав)</Tabs.Tab>
+              <Tabs.Tab value="usage">Где применяется</Tabs.Tab>
             </Tabs.List>
           </Tabs>
 
-          {activeTab === 'bom' ? (
-            activeId && <BomPanel articleId={activeId} />
-          ) : routingLoading || !routing ? (
-            <Stack gap="md">
-              {[...Array(3)].map((_, i) => <Skeleton key={i} height={150} radius="md" />)}
-            </Stack>
-          ) : (
-            <>
-              {routing.stages.map((row) => (
-                <StageCard
-                  key={`${activeId}-${row.stage}`}
-                  row={row}
-                  articleId={activeId!}
-                  workCenters={workCenters ?? []}
-                />
-              ))}
-            </>
-          )}
-
-          {activeId && (
-            <>
-              <CostingPanel articleId={activeId} />
-              <UsagePanel articleId={activeId} />
-            </>
-          )}
-        </Stack>
-      </Group>
-    </Stack>
+          <div className="specs-editor__body">
+            <FadeSwap swapKey={`${activeId ?? 'none'}-${activeTab}`}>
+              {!activeId ? null
+                : activeTab === 'bom' ? <BomPanel articleId={activeId} />
+                  : activeTab === 'usage' ? <UsagePanel articleId={activeId} />
+                    : (
+                      /* Нормы и то, во что они выливаются, — на одном экране:
+                         инженер правит часы и тут же видит цену, а не ищет
+                         её во второй вкладке */
+                      <Stack gap="md">
+                        {routingLoading || !routing
+                          ? <Skeleton height={220} radius="lg" />
+                          : (
+                            <StageTable
+                              stages={routing.stages}
+                              articleId={activeId}
+                              workCenters={workCenters ?? []}
+                            />
+                          )}
+                        <CostingPanel articleId={activeId} />
+                      </Stack>
+                    )}
+            </FadeSwap>
+          </div>
+        </div>
+      </div>
+    </FitScreen>
   );
 }

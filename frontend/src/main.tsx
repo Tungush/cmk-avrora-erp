@@ -6,13 +6,16 @@ import { DatesProvider } from '@mantine/dates';
 import 'dayjs/locale/ru';
 // Локальные вариативные шрифты — без CDN: в цехе интернет не гарантирован.
 // Golos Text — гротеск с образцовой кириллицей (Paratype).
-import '@fontsource-variable/golos-text';
+// Onest — замена Urbanist из референса: та же геометрия, но с кириллицей
+import '@fontsource-variable/onest';
 import '@fontsource-variable/jetbrains-mono';
 import App from './App.tsx';
 import '@mantine/core/styles.css';
 import '@mantine/dates/styles.css';
 import '@mantine/notifications/styles.css';
 import './index.css';
+// Слой «тёплое стекло» — последним: он переопределяет базовые поверхности
+import './styles/aurora.css';
 
 /**
  * Дизайн-система «горячий металл»: тёплая бумага + графитовые нейтральные +
@@ -26,30 +29,31 @@ const theme = createTheme({
   autoContrast: true,
   colors: {
     // Акцент: раскалённый металл — сварка, резка, прокат
+    // Коралловый #FD6941 со страницы «Typography and Colour» референса
     brand: [
-      '#FDF1E8',
-      '#FBE0CE',
-      '#F6C3A1',
-      '#F0A272',
-      '#E98147',
-      '#E16323',
-      '#D9480F',
-      '#B93B0B',
-      '#8F2E09',
-      '#652106',
+      '#FFF0EC',
+      '#FFDCD2',
+      '#FFB9A5',
+      '#FE9576',
+      '#FE7A54',
+      '#FD6941',
+      '#F55529',
+      '#E24E27',
+      '#BC3F1F',
+      '#8E2F17',
     ],
     // Нейтральные: тёплый графит на бумаге, без синевы
     gray: [
-      '#FAF9F7',
-      '#F2F1ED',
-      '#E7E5DF',
-      '#D7D4CC',
-      '#B0ACA1',
-      '#8A867B',
-      '#6B675D',
-      '#504D45',
-      '#33312B',
-      '#1E1D19',
+      '#FAFBFA',
+      '#F7F8F7',
+      '#EFEFEE',
+      '#E8E9E7',
+      '#C9CCCA',
+      '#A8ADA9',
+      '#888E89',
+      '#5C625E',
+      '#2B302D',
+      '#070A08',
     ],
     dark: [
       '#D5D2CA',
@@ -64,29 +68,31 @@ const theme = createTheme({
       '#151410',
     ],
     // Статусы — чернильные, приглушённые: не спорят с акцентом
+    // Зелёный #36D161 — «всё хорошо», живые индикаторы
     success: [
-      '#EAF6EE',
-      '#D3EDDC',
-      '#A8DBBA',
-      '#7CC898',
-      '#54B478',
-      '#379D5D',
-      '#2B8A57',
-      '#227048',
-      '#1A5638',
-      '#123C28',
+      '#EAFBEF',
+      '#CFF6DA',
+      '#A0ECB8',
+      '#6EE193',
+      '#4AD876',
+      '#36D161',
+      '#28BC51',
+      '#1FA847',
+      '#178438',
+      '#0E5F28',
     ],
+    // Янтарный #F2AC11 — ожидание, требует внимания
     warning: [
-      '#FBF4DE',
-      '#F6E8BD',
-      '#EDD285',
-      '#E3BB4E',
-      '#D8A522',
-      '#C08F0E',
-      '#96700A',
-      '#7A5B08',
-      '#5E4606',
-      '#423104',
+      '#FEF6E4',
+      '#FCEAC0',
+      '#F9D683',
+      '#F6C44B',
+      '#F4B72A',
+      '#F2AC11',
+      '#DC9A08',
+      '#C88A05',
+      '#9C6B04',
+      '#6F4C03',
     ],
     danger: [
       '#FBEBEA',
@@ -101,30 +107,74 @@ const theme = createTheme({
       '#5E1313',
     ],
   },
-  fontFamily: "'Golos Text Variable', 'Golos Text', -apple-system, 'Segoe UI', sans-serif",
+  fontFamily: "'Onest Variable', 'Onest', -apple-system, 'Segoe UI', sans-serif",
+  // 02.09.2026: шаг вверх по всей шкале — xs 12→13, sm 14→15, md 16, lg 18, xl 22.
+  // Тексту size="xs" (подписи, второстепенное) 12 px не хватало на мониторе цеха.
+  fontSizes: { xs: '0.8125rem', sm: '0.9375rem', md: '1rem', lg: '1.125rem', xl: '1.375rem' },
+  lineHeights: { xs: '1.4', sm: '1.45', md: '1.5', lg: '1.5', xl: '1.45' },
   fontFamilyMonospace: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace",
   headings: {
-    fontFamily: "'Golos Text Variable', 'Golos Text', sans-serif",
+    fontFamily: "'Onest Variable', 'Onest', sans-serif",
     fontWeight: '700',
   },
+  // Референс 02.09.2026 (Behance «ERP UI – POS»): крупные скругления,
+  // белые карточки на светлом холсте с мягкой тенью вместо рамок, пилюли.
+  // Скругления референса: поле 14, плитка 20, карточка 24
+  radius: { xs: '8px', sm: '12px', md: '14px', lg: '20px', xl: '24px' },
   defaultRadius: 'md',
+  shadows: {
+    xs: '0 1px 2px rgba(20, 20, 18, 0.04)',
+    sm: '0 1px 2px rgba(20, 20, 18, 0.04), 0 4px 14px rgba(20, 20, 18, 0.05)',
+    md: '0 2px 4px rgba(20, 20, 18, 0.04), 0 10px 28px rgba(20, 20, 18, 0.07)',
+    lg: '0 4px 8px rgba(20, 20, 18, 0.05), 0 18px 44px rgba(20, 20, 18, 0.10)',
+    xl: '0 8px 16px rgba(20, 20, 18, 0.06), 0 28px 64px rgba(20, 20, 18, 0.14)',
+  },
   cursorType: 'pointer',
   components: {
-    // Рамка 1px вместо тени — данные важнее украшений
+    // Карточка — белая плоскость с едва заметной тенью, без рамки
     Card: {
       defaultProps: {
-        withBorder: true,
+        withBorder: false,
+        radius: 'lg',
+        shadow: 'sm',
+        padding: 'lg',
       },
+    },
+    Paper: {
+      defaultProps: { radius: 'lg' },
     },
     Button: {
       defaultProps: {
-        radius: 'md',
+        radius: 'xl',
+        fw: 600,
       },
+    },
+    ActionIcon: {
+      defaultProps: { radius: 'xl' },
     },
     Badge: {
       defaultProps: {
-        radius: 'sm',
+        radius: 'xl',
+        fw: 600,
       },
+    },
+    SegmentedControl: {
+      defaultProps: { radius: 'xl', size: 'md' },
+    },
+    Tabs: {
+      defaultProps: { variant: 'pills', radius: 'xl' },
+    },
+    Progress: {
+      defaultProps: { radius: 'xl' },
+    },
+    ThemeIcon: {
+      defaultProps: { radius: 'md' },
+    },
+    Menu: {
+      defaultProps: { radius: 'lg', shadow: 'md' },
+    },
+    Popover: {
+      defaultProps: { radius: 'lg', shadow: 'md' },
     },
     Tooltip: {
       defaultProps: {
@@ -149,11 +199,18 @@ const theme = createTheme({
     Skeleton: {
       defaultProps: { radius: 'md' },
     },
+    // Поля ввода и селекты — по умолчанию md: крупнее цель для пальца и глаза
+    TextInput: { defaultProps: { size: 'md', radius: 'md' } },
+    NumberInput: { defaultProps: { size: 'md', radius: 'md' } },
+    Select: { defaultProps: { size: 'md', radius: 'md', comboboxProps: { transitionProps: { transition: 'pop', duration: 140 }, radius: 'lg', shadow: 'md' } } },
+    Pagination: { defaultProps: { size: 'md', radius: 'xl' } },
+    Table: { defaultProps: { verticalSpacing: 'sm', horizontalSpacing: 'md' } },
   },
 });
 
 // Плотность интерфейса: кладовщику — крупно, плановику — 40 строк
 document.documentElement.dataset.density = localStorage.getItem('ui-density') ?? 'normal';
+document.documentElement.dataset.motion = localStorage.getItem('ui-motion') === 'off' ? 'off' : 'on';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

@@ -129,7 +129,7 @@ export function OrderRef({
 /** Заказ из Excel-миграции: данные исторические, их всё равно снесут */
 export function ArchivedHint() {
   return (
-    <Badge color="gray" variant="light" radius="xl" size="sm">
+    <Badge color="gray" variant="light" radius="xl" size="md" fz={12}>
       исторические данные из Excel
     </Badge>
   );

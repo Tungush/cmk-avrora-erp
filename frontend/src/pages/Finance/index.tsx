@@ -5,6 +5,7 @@ import { Receivables } from './Receivables';
 import { Reconciliation } from './Reconciliation';
 import { PaymentDocuments } from './PaymentDocuments';
 import { CreditLines } from './CreditLines';
+import { FadeSwap } from '../../components/motion';
 
 /**
  * Деньги (31.08.2026). До этого раздел был одной страницей сверки, которая
@@ -40,10 +41,13 @@ export function Finance() {
           <Tabs.Tab value="damu">ДАМУ</Tabs.Tab>
         </Tabs.List>
 
-        <Tabs.Panel value="receivables"><Receivables /></Tabs.Panel>
-        <Tabs.Panel value="reconciliation"><Reconciliation /></Tabs.Panel>
-        <Tabs.Panel value="documents"><PaymentDocuments /></Tabs.Panel>
-        <Tabs.Panel value="damu"><CreditLines /></Tabs.Panel>
+        {/* Смена вкладки — плавная: старое растворяется, новое поднимается */}
+        <FadeSwap swapKey={tab}>
+          <Tabs.Panel value="receivables"><Receivables /></Tabs.Panel>
+          <Tabs.Panel value="reconciliation"><Reconciliation /></Tabs.Panel>
+          <Tabs.Panel value="documents"><PaymentDocuments /></Tabs.Panel>
+          <Tabs.Panel value="damu"><CreditLines /></Tabs.Panel>
+        </FadeSwap>
       </Tabs>
     </Stack>
   );

@@ -5,7 +5,9 @@ import {
 import { IconInfoCircle } from '@tabler/icons-react';
 import { usePaymentDoc } from '../../hooks/useFinance';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { Collapse } from '../../components/motion';
+import { Collapse, FadeSwap } from '../../components/motion';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { formatMoney, formatDate } from '../../utils/formatters';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,6 +26,9 @@ const dayOf = (d: string) => {
   return Date.UTC(x.getFullYear(), x.getMonth(), x.getDate());
 };
 
+/** В шторке строк заказа бывает и по сотне — режем по 25 */
+const ROWS_PER_PAGE = 25;
+
 function Row({ label, value, mono = false }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <Group justify="space-between" wrap="nowrap" gap="md" align="flex-start">
@@ -41,7 +46,7 @@ function Section({ title, children, extra }: {
   return (
     <Card withBorder radius="md" padding="md">
       <Group justify="space-between" mb="xs">
-        <Text fw={700} size="sm">{title}</Text>
+        <Text fw={700} size="md">{title}</Text>
         {extra}
       </Group>
       <Stack gap={6}>{children}</Stack>
@@ -61,19 +66,23 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
   const [rawOpen, setRawOpen] = useState(false);
   const [showEmpty, setShowEmpty] = useState(false);
 
+  // Хуки пагинации — до раннего возврата, пока документ грузится
+  const d: any = doc ?? {};
+  const lines: any[] = d.lines ?? [];
+  const batches: any[] = d.batches ?? [];
+  const linesPaged = usePagedList(lines, ROWS_PER_PAGE, id);
+  const batchesPaged = usePagedList(batches, ROWS_PER_PAGE, id);
+
   if (isLoading || !doc) {
     return <Stack gap="md">{[...Array(3)].map((_, i) => <Skeleton key={i} height={100} radius="md" />)}</Stack>;
   }
 
-  const d: any = doc;
   const cur = d.currency ?? 'KZT';
   const total = Number(d.totalAmount ?? 0);
   const paid = Number(d.paidAmount ?? 0);
   const unpaid = Number(d.unpaidAmount ?? 0);
   const paidPct = total > 0 ? Math.min(100, (paid / total) * 100) : 0;
 
-  const lines: any[] = d.lines ?? [];
-  const batches: any[] = d.batches ?? [];
   const payments: any[] = d.payments ?? [];
   const raw: Record<string, string | null> = d.rawColumns ?? {};
 
@@ -114,30 +123,30 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
       </Section>
 
       <Card withBorder radius="md" padding="md">
-        <Text fw={700} size="sm" mb="xs">Деньги</Text>
+        <Text fw={700} size="md" mb="xs">Деньги</Text>
         <Stack gap={6}>
           <Group justify="space-between">
-            <Text size="xs" c="dimmed">Законтрактовано</Text>
-            <Text size="xs" ff="monospace" fw={700}>{formatMoney(total, cur)}</Text>
+            <Text size="sm" c="dimmed">Законтрактовано</Text>
+            <Text size="sm" ff="monospace" fw={700}>{formatMoney(total, cur)}</Text>
           </Group>
           <Group justify="space-between">
-            <Text size="xs" c="dimmed">Оплачено</Text>
-            <Text size="xs" ff="monospace" fw={700} c="success.7">{formatMoney(paid, cur)}</Text>
+            <Text size="sm" c="dimmed">Оплачено</Text>
+            <Text size="sm" ff="monospace" fw={700} c="success.7">{formatMoney(paid, cur)}</Text>
           </Group>
           <Group justify="space-between">
-            <Text size="xs" c="dimmed">Остаток</Text>
-            <Text size="xs" ff="monospace" fw={700} c={unpaid > 0 ? 'danger.7' : undefined}>
+            <Text size="sm" c="dimmed">Остаток</Text>
+            <Text size="sm" ff="monospace" fw={700} c={unpaid > 0 ? 'danger.7' : undefined}>
               {formatMoney(unpaid, cur)}
             </Text>
           </Group>
-          <Progress value={paidPct} size="sm" radius="xl" mt={4} color={paidPct >= 100 ? 'teal' : 'brand'} />
+          <Progress value={paidPct} size="md" radius="xl" mt={4} color={paidPct >= 100 ? 'teal' : 'brand'} />
           {payments.length > 0 && (
-            <Stack gap={2} mt="xs">
+            <Stack gap={4} mt="xs">
               <Text size="xs" c="dimmed" fw={600}>Платежи ({payments.length})</Text>
               {payments.slice(0, 8).map((p) => (
                 <Group key={p.id} justify="space-between">
-                  <Text size="xs" ff="monospace">{formatDate(p.paymentDate)}</Text>
-                  <Text size="xs" ff="monospace">{formatMoney(Number(p.amount), cur)}</Text>
+                  <Text size="sm" ff="monospace">{formatDate(p.paymentDate)}</Text>
+                  <Text size="sm" ff="monospace">{formatMoney(Number(p.amount), cur)}</Text>
                 </Group>
               ))}
             </Stack>
@@ -179,7 +188,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         <Row label="Дата по данным поставщика" value={formatDate(d.supplierDocDate)} />
         {backdatedDays != null && backdatedDays > 0 && (
           <Alert color="orange" variant="light" p="xs" icon={<IconInfoCircle size={15} />}>
-            <Text size="xs">
+            <Text size="sm">
               Документ поставщика датирован на {backdatedDays} дн. раньше нашего заказа —
               закуп оформлен задним числом.
             </Text>
@@ -199,9 +208,9 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
       {/* Что заказано — есть почти по всем ДО, в отличие от партий */}
       <Card withBorder radius="md" padding="md">
         <Group justify="space-between" mb="xs">
-          <Text fw={700} size="sm">Что заказано ({lines.length})</Text>
+          <Text fw={700} size="md">Что заказано ({lines.length})</Text>
           {linesTotal > 0 && (
-            <Text size="xs" c="dimmed" ff="monospace">итого {formatMoney(linesTotal, cur)}</Text>
+            <Text size="sm" c="dimmed" ff="monospace">итого {formatMoney(linesTotal, cur)}</Text>
           )}
         </Group>
         {lines.length === 0 ? (
@@ -210,90 +219,112 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
           <>
             {mismatchCount > 0 && (
               <Alert color="gray" variant="light" p="xs" mb="xs" icon={<IconInfoCircle size={15} />}>
-                <Text size="xs">
+                <Text size="sm">
                   В {mismatchCount} строках количество × цена ≠ сумма — цена, скорее всего,
                   за тонну при количестве в штуках. Итоги считаем по колонке «Сумма».
                 </Text>
               </Alert>
             )}
-            <Table.ScrollContainer minWidth={520}>
-              <Table highlightOnHover verticalSpacing="xs" fz="xs">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Номенклатура</Table.Th>
-                    <Table.Th ta="right">Кол-во</Table.Th>
-                    <Table.Th ta="right">Цена</Table.Th>
-                    <Table.Th ta="right">Сумма</Table.Th>
-                    <Table.Th>НДС</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {lines.map((l) => (
-                    <Table.Tr key={l.id}>
-                      <Table.Td>
-                        <Text size="xs" lineClamp={2}>{l.itemName}</Text>
-                        {l.expenseItem && <Text size="xs" c="dimmed">{l.expenseItem}</Text>}
-                        {l.amountMismatch && (
-                          <Badge size="xs" color="gray" variant="light" mt={2}>кол-во × цена ≠ сумма</Badge>
-                        )}
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                        {l.qty ? Number(l.qty).toLocaleString('ru-RU') : '—'} {l.packaging ?? ''}
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace">
-                        {l.unitPrice ? formatMoney(Number(l.unitPrice), cur) : '—'}
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace" fw={600}>
-                        {l.amount ? formatMoney(Number(l.amount), cur) : '—'}
-                      </Table.Td>
-                      <Table.Td>{l.vatRate ?? '—'}</Table.Td>
+            <FadeSwap swapKey={linesPaged.page}>
+              <TableScroll minWidth={620}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Номенклатура</Table.Th>
+                      <Table.Th ta="right">Кол-во</Table.Th>
+                      <Table.Th ta="right">Цена</Table.Th>
+                      <Table.Th ta="right">Сумма</Table.Th>
+                      <Table.Th>НДС</Table.Th>
                     </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </Table.ScrollContainer>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {linesPaged.slice.map((l) => (
+                      <Table.Tr key={l.id}>
+                        <Table.Td data-wrap="true" style={{ minWidth: 220 }}>
+                          <Text size="sm" lineClamp={2}>{l.itemName}</Text>
+                          {l.expenseItem && <Text size="xs" c="dimmed">{l.expenseItem}</Text>}
+                          {l.amountMismatch && (
+                            <Badge size="sm" color="gray" variant="light" mt={2}>кол-во × цена ≠ сумма</Badge>
+                          )}
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">
+                          {l.qty ? Number(l.qty).toLocaleString('ru-RU') : '—'} {l.packaging ?? ''}
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">
+                          {l.unitPrice ? formatMoney(Number(l.unitPrice), cur) : '—'}
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace" fw={600}>
+                          {l.amount ? formatMoney(Number(l.amount), cur) : '—'}
+                        </Table.Td>
+                        <Table.Td>{l.vatRate ?? '—'}</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            </FadeSwap>
+            <PaginationBar
+              page={linesPaged.page}
+              total={linesPaged.total}
+              pageSize={ROWS_PER_PAGE}
+              onPageChange={linesPaged.setPage}
+              noun="строк"
+              variant="compact"
+            />
           </>
         )}
       </Card>
 
       <Card withBorder radius="md" padding="md">
-        <Text fw={700} size="sm" mb="xs">Что пришло на склад ({batches.length})</Text>
+        <Text fw={700} size="md" mb="xs">Что пришло на склад ({batches.length})</Text>
         {batches.length === 0 ? (
           <Text size="sm" c="dimmed">
             Приход на склад по этому документу не зарегистрирован — это либо услуга или
             подряд, либо материал не был опознан при загрузке из 1С.
           </Text>
         ) : (
-          <Table.ScrollContainer minWidth={420}>
-            <Table highlightOnHover verticalSpacing="xs" fz="xs">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Материал</Table.Th>
-                  <Table.Th ta="right">Кол-во</Table.Th>
-                  <Table.Th ta="right">Цена</Table.Th>
-                  <Table.Th>Дата</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {batches.map((b) => (
-                  <Table.Tr key={b.id}>
-                    <Table.Td>
-                      <Text size="xs" ff="monospace" c="brand.7">{b.material.materialCode}</Text>
-                      <Text size="xs" c="dimmed" lineClamp={1}>{b.material.name}</Text>
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">
-                      {Number(b.qtyReceived).toLocaleString('ru-RU')} {b.material.unit}
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">
-                      {formatMoney(Number(b.unitPrice), cur)}
-                      {b.priceAnomaly && <Badge ml={4} size="xs" color="danger" variant="light">карантин</Badge>}
-                    </Table.Td>
-                    <Table.Td>{formatDate(b.receiptDate)}</Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+          <>
+            <FadeSwap swapKey={batchesPaged.page}>
+              <TableScroll minWidth={520}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Материал</Table.Th>
+                      <Table.Th ta="right">Кол-во</Table.Th>
+                      <Table.Th ta="right">Цена</Table.Th>
+                      <Table.Th>Дата</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {batchesPaged.slice.map((b) => (
+                      <Table.Tr key={b.id}>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{b.material.materialCode}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{b.material.name}</Text>
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">
+                          {Number(b.qtyReceived).toLocaleString('ru-RU')} {b.material.unit}
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">
+                          {formatMoney(Number(b.unitPrice), cur)}
+                          {b.priceAnomaly && <Badge ml={4} size="sm" color="danger" variant="light">карантин</Badge>}
+                        </Table.Td>
+                        <Table.Td ff="monospace">{formatDate(b.receiptDate)}</Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            </FadeSwap>
+            <PaginationBar
+              page={batchesPaged.page}
+              total={batchesPaged.total}
+              pageSize={ROWS_PER_PAGE}
+              onPageChange={batchesPaged.setPage}
+              noun="партий"
+              variant="compact"
+            />
+          </>
         )}
       </Card>
 
@@ -302,7 +333,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         <Section
           title="Все данные 1С"
           extra={
-            <Button variant="subtle" size="xs" onClick={() => setRawOpen((v) => !v)}>
+            <Button variant="subtle" size="sm" onClick={() => setRawOpen((v) => !v)}>
               {rawOpen ? 'Свернуть' : `Показать (${filledEntries.length})`}
             </Button>
           }
@@ -310,7 +341,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
           <Collapse opened={rawOpen}>
             <Stack gap={6} pt={2}>
               <Switch
-                size="xs" label="показать незаполненные"
+                size="sm" label="показать незаполненные"
                 checked={showEmpty}
                 onChange={(e) => setShowEmpty(e.currentTarget.checked)}
                 mb={4}

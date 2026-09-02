@@ -5,6 +5,7 @@ import { useSearchParams } from 'react-router-dom';
 import { PurchasesDashboard } from './PurchasesDashboard';
 import { PurchasesRegistry } from './PurchasesRegistry';
 import { PurchaseQueue } from './PurchaseQueue';
+import { FadeSwap } from '../../components/motion';
 
 /**
  * «Закупки» — заказы поставщику из 1С (26.08.2026).
@@ -45,15 +46,18 @@ export function Purchases() {
           <Tabs.Tab value="queue" leftSection={<IconShoppingCartPlus size={15} />}>На закуп</Tabs.Tab>
         </Tabs.List>
 
-        <Tabs.Panel value="dashboard">
-          <PurchasesDashboard onOpenRegistry={openRegistry} />
-        </Tabs.Panel>
-        <Tabs.Panel value="registry">
-          <PurchasesRegistry filters={filters} onFiltersChange={setFilters} />
-        </Tabs.Panel>
-        <Tabs.Panel value="queue">
-          <PurchaseQueue />
-        </Tabs.Panel>
+        {/* Смена вкладки — плавная: старое растворяется, новое поднимается */}
+        <FadeSwap swapKey={tab}>
+          <Tabs.Panel value="dashboard">
+            <PurchasesDashboard onOpenRegistry={openRegistry} />
+          </Tabs.Panel>
+          <Tabs.Panel value="registry">
+            <PurchasesRegistry filters={filters} onFiltersChange={setFilters} />
+          </Tabs.Panel>
+          <Tabs.Panel value="queue">
+            <PurchaseQueue />
+          </Tabs.Panel>
+        </FadeSwap>
       </Tabs>
     </Stack>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Stack, Group, Text, Card, Badge, Button, Textarea, Divider, Table, Skeleton, Box,
   Popover, ActionIcon, Timeline, Select, Progress, Tooltip, Modal, NumberInput, Alert, TextInput,
@@ -19,13 +19,19 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { OrderCostingPanel } from '../../components/OrderCostingPanel';
 import { ArchivedHint, OrderCardFocus } from '../../components/OrderCard/OrderCardProvider';
 import { RequestNomenclatureModal } from '../Specifications/NomenclaturePanel';
-import { Collapse } from '../../components/motion';
+import { Collapse, FadeSwap } from '../../components/motion';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { CustomerPaymentsBlock, AcceptanceActsBlock } from '../../components/OrderCard/OrderMoneyExtras';
 import {
   formatCurrency, formatDate, ORDER_STATUS_LABELS,
 } from '../../utils/formatters';
 
 const ORDER_TYPE_LABELS: Record<string, string> = { FZ: 'ФЗ', VZ: 'ВЗ' };
+
+const EMPTY_LINES: any[] = [];
+/** Длинные списки в шторке режем по 25 — короткие пагинацию не показывают */
+const DRAWER_PAGE = 25;
 
 /**
  * Объект / базовая станция на позиции (28.08.2026): телеком работает
@@ -51,7 +57,7 @@ function SiteCell({ orderId, line, canEdit }: { orderId: string; line: any; canE
   if (editing) {
     return (
       <TextInput
-        size="xs" w={120} autoFocus
+        size="sm" w={140} autoFocus
         value={value}
         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
         placeholder="Б_103860"
@@ -63,7 +69,7 @@ function SiteCell({ orderId, line, canEdit }: { orderId: string; line: any; canE
   }
   return (
     <Text
-      size="xs" ff="monospace"
+      size="sm" ff="monospace"
       c={line.siteCode ? undefined : 'dimmed'}
       style={canEdit ? { cursor: 'pointer' } : undefined}
       onClick={canEdit ? () => { setValue(line.siteCode ?? ''); setEditing(true); } : undefined}
@@ -157,7 +163,7 @@ function RawDataSection({ rawColumns }: { rawColumns: Record<string, string | nu
     <Section
       title="Все данные 1С"
       extra={
-        <Button variant="subtle" size="xs" onClick={() => setOpened((v) => !v)}>
+        <Button variant="subtle" size="compact-sm" onClick={() => setOpened((v) => !v)}>
           {opened ? 'Свернуть' : `Показать (${entries.length})`}
         </Button>
       }
@@ -221,7 +227,10 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
   });
 
   const doneCount = steps.filter((s) => s.status === 'DONE').length;
-  const active = steps.findIndex((s) => s.status !== 'DONE');
+  // Изделий бывает больше сотни — лента режется по 25, «текущее» ищем в
+  // пределах страницы: всё до него сделано, оно — первое незакрытое
+  const paged = usePagedList(steps, DRAWER_PAGE, stages);
+  const active = paged.slice.findIndex((s) => s.status !== 'DONE');
 
   return (
     <Section
@@ -242,36 +251,48 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
         </Text>
       ) : (
         <>
-          <Timeline active={active === -1 ? steps.length : active} bulletSize={22} lineWidth={2} mt={4}>
-            {steps.map((s) => (
-              <Timeline.Item
-                key={s.id}
-                title={
-                  <Group gap={6} wrap="nowrap">
-                    <Text size="sm" ff="monospace" fw={700} c="brand.7">{s.code}</Text>
-                    <Text size="sm" fw={s.status === 'IN_PROGRESS' ? 700 : 500} lineClamp={1}>{s.name}</Text>
+          <FadeSwap swapKey={paged.page}>
+            <Timeline active={active === -1 ? paged.slice.length : active} bulletSize={22} lineWidth={2} mt={4}>
+              {paged.slice.map((s) => (
+                <Timeline.Item
+                  key={s.id}
+                  title={
+                    <Group gap={6} wrap="nowrap">
+                      <Text size="sm" ff="monospace" fw={700} c="brand.7">{s.code}</Text>
+                      <Text size="sm" fw={s.status === 'IN_PROGRESS' ? 700 : 500} lineClamp={1}>{s.name}</Text>
+                    </Group>
+                  }
+                  color={s.status === 'DONE' ? 'teal' : s.status === 'IN_PROGRESS' ? 'brand' : 'gray'}
+                  bullet={
+                    s.status === 'DONE' ? <IconCheck size={12} />
+                      : s.status === 'IN_PROGRESS' ? <IconPlayerPlay size={12} />
+                        : <IconCircle size={10} />
+                  }
+                >
+                  <Group gap="sm">
+                    <Text size="xs" c="dimmed">
+                      {s.qty.toLocaleString('ru-RU')} {s.unit} ·{' '}
+                      {s.status === 'DONE' ? 'изготовлено' : s.status === 'IN_PROGRESS' ? 'в работе' : 'не начато'}
+                      {s.completedAt ? ` · ${formatDate(s.completedAt)}` : ''}
+                    </Text>
+                    {s.hours != null && s.hours > 0 && (
+                      <Text size="xs" c="dimmed" ff="monospace">{s.hours} ч факт</Text>
+                    )}
                   </Group>
-                }
-                color={s.status === 'DONE' ? 'teal' : s.status === 'IN_PROGRESS' ? 'brand' : 'gray'}
-                bullet={
-                  s.status === 'DONE' ? <IconCheck size={12} />
-                    : s.status === 'IN_PROGRESS' ? <IconPlayerPlay size={12} />
-                      : <IconCircle size={10} />
-                }
-              >
-                <Group gap="sm">
-                  <Text size="xs" c="dimmed">
-                    {s.qty.toLocaleString('ru-RU')} {s.unit} ·{' '}
-                    {s.status === 'DONE' ? 'изготовлено' : s.status === 'IN_PROGRESS' ? 'в работе' : 'не начато'}
-                    {s.completedAt ? ` · ${formatDate(s.completedAt)}` : ''}
-                  </Text>
-                  {s.hours != null && s.hours > 0 && (
-                    <Text size="xs" c="dimmed" ff="monospace">{s.hours} ч факт</Text>
-                  )}
-                </Group>
-              </Timeline.Item>
-            ))}
-          </Timeline>
+                </Timeline.Item>
+              ))}
+            </Timeline>
+            </FadeSwap>
+          {paged.total > DRAWER_PAGE && (
+            <PaginationBar
+              page={paged.page}
+              total={paged.total}
+              pageSize={DRAWER_PAGE}
+              onPageChange={paged.setPage}
+              noun="изделий"
+              variant="compact"
+            />
+          )}
           {resaleCount > 0 && (
             <Text size="xs" c="dimmed" mt="sm">
               Ещё {resaleCount} позиций — сырьё и ТМЦ, их не изготавливают
@@ -349,7 +370,7 @@ function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNum
       title="Подряд и трудозатраты"
       id="card-contractor"
       extra={
-        <Button size="compact-xs" variant="light" onClick={() => setAssigning(true)}>
+        <Button size="compact-sm" variant="light" onClick={() => setAssigning(true)}>
           Указать подряд
         </Button>
       }
@@ -362,54 +383,56 @@ function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNum
         </Text>
       ) : (
         <>
-          <Table verticalSpacing="xs" fz="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Вид работ</Table.Th>
-                <Table.Th ta="right">Норма</Table.Th>
-                <Table.Th ta="right">Забрал подряд</Table.Th>
-                <Table.Th ta="right">Осталось штату</Table.Th>
-                <Table.Th ta="right">Подрядчику, ₸</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {impact.map((r) => (
-                <Table.Tr key={r.stage}>
-                  <Table.Td>
-                    <Text size="sm">{r.stageLabel}</Text>
-                    {r.contractors.length > 0 && (
-                      <Text size="xs" c="dimmed" lineClamp={1}>
-                        {r.contractors.map((c) => `${c.name} — ${c.sharePct} %`).join('; ')}
-                      </Text>
-                    )}
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace">{r.normHours} ч</Table.Td>
-                  <Table.Td ta="right" ff="monospace" c={r.contractorSharePct > 0 ? 'orange.7' : 'dimmed'}>
-                    {r.contractorSharePct > 0
-                      ? `−${r.contractorHours} ч (${r.contractorSharePct} %)`
-                      : '—'}
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace" fw={600}>{r.staffHours} ч</Table.Td>
-                  <Table.Td ta="right" ff="monospace">
-                    {r.contractorAmount > 0 ? formatCurrency(r.contractorAmount) : '—'}
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-              {totals && (
+          <TableScroll minWidth={600}>
+            <Table verticalSpacing="xs">
+              <Table.Thead>
                 <Table.Tr>
-                  <Table.Td><Text size="sm" fw={700}>Итого</Text></Table.Td>
-                  <Table.Td ta="right" ff="monospace" fw={700}>{totals.normHours} ч</Table.Td>
-                  <Table.Td ta="right" ff="monospace" fw={700} c="orange.7">
-                    {totals.contractorHours > 0 ? `−${totals.contractorHours} ч` : '—'}
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace" fw={700}>{totals.staffHours} ч</Table.Td>
-                  <Table.Td ta="right" ff="monospace" fw={700}>
-                    {totals.contractorAmount > 0 ? formatCurrency(totals.contractorAmount) : '—'}
-                  </Table.Td>
+                  <Table.Th>Вид работ</Table.Th>
+                  <Table.Th ta="right">Норма</Table.Th>
+                  <Table.Th ta="right">Забрал подряд</Table.Th>
+                  <Table.Th ta="right">Осталось штату</Table.Th>
+                  <Table.Th ta="right">Подрядчику, ₸</Table.Th>
                 </Table.Tr>
-              )}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {impact.map((r) => (
+                  <Table.Tr key={r.stage}>
+                    <Table.Td>
+                      <Text size="sm">{r.stageLabel}</Text>
+                      {r.contractors.length > 0 && (
+                        <Text size="xs" c="dimmed" lineClamp={1}>
+                          {r.contractors.map((c) => `${c.name} — ${c.sharePct} %`).join('; ')}
+                        </Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td ta="right" ff="monospace">{r.normHours} ч</Table.Td>
+                    <Table.Td ta="right" ff="monospace" c={r.contractorSharePct > 0 ? 'orange.7' : 'dimmed'}>
+                      {r.contractorSharePct > 0
+                        ? `−${r.contractorHours} ч (${r.contractorSharePct} %)`
+                        : '—'}
+                    </Table.Td>
+                    <Table.Td ta="right" ff="monospace" fw={600}>{r.staffHours} ч</Table.Td>
+                    <Table.Td ta="right" ff="monospace">
+                      {r.contractorAmount > 0 ? formatCurrency(r.contractorAmount) : '—'}
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+                {totals && (
+                  <Table.Tr>
+                    <Table.Td><Text size="sm" fw={700}>Итого</Text></Table.Td>
+                    <Table.Td ta="right" ff="monospace" fw={700}>{totals.normHours} ч</Table.Td>
+                    <Table.Td ta="right" ff="monospace" fw={700} c="orange.7">
+                      {totals.contractorHours > 0 ? `−${totals.contractorHours} ч` : '—'}
+                    </Table.Td>
+                    <Table.Td ta="right" ff="monospace" fw={700}>{totals.staffHours} ч</Table.Td>
+                    <Table.Td ta="right" ff="monospace" fw={700}>
+                      {totals.contractorAmount > 0 ? formatCurrency(totals.contractorAmount) : '—'}
+                    </Table.Td>
+                  </Table.Tr>
+                )}
+              </Table.Tbody>
+            </Table>
+            </TableScroll>
           {works.length > 0 && (
             <Text size="xs" c="dimmed" mt="xs">
               Часы подряда в мощность цеха не идут, если работы на площадке
@@ -508,6 +531,13 @@ export function OrderDetail({
   const [nomenclatureFor, setNomenclatureFor] = useState<string | null>(null);
   const scrolled = useRef(false);
 
+  // Позиции нужны до раннего return: хук пагинации зовётся всегда
+  const lines: any[] = useMemo(
+    () => (order as any)?.orderLines ?? (order as any)?.lines ?? EMPTY_LINES,
+    [order],
+  );
+  const linesPaged = usePagedList(lines, DRAWER_PAGE, id);
+
   // Открыли из цеха — прокрутить к этапам, из финансов — к деньгам.
   // Секция не прячется, просто оказывается перед глазами
   useEffect(() => {
@@ -529,7 +559,6 @@ export function OrderDetail({
   }
 
   const o: any = order;
-  const lines: any[] = o.orderLines ?? o.lines ?? [];
   const docs: any[] = o.paymentDocuments ?? [];
   const stages: any[] = o.productionStages ?? [];
 
@@ -589,13 +618,13 @@ export function OrderDetail({
           <StatusBadge status={order.status} />
           {o.onecNum && (
             <Tooltip label={o.onecStatus ? `статус в 1С: ${o.onecStatus}` : '№ документа в 1С'}>
-              <Badge variant="outline" color="gray" radius="xl">1С: {o.onecNum}</Badge>
+              <Badge variant="outline" color="gray" radius="xl" size="lg">1С: {o.onecNum}</Badge>
             </Tooltip>
           )}
           {o.isArchived && <ArchivedHint />}
         </Group>
         {order.overdueDays > 0 && (
-          <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={12} />}>
+          <Badge color="danger" variant="light" radius="xl" size="lg" leftSection={<IconAlertTriangle size={13} />}>
             Просрочка {order.overdueDays} дн
           </Badge>
         )}
@@ -624,60 +653,74 @@ export function OrderDetail({
         {lines.length === 0 ? (
           <Text size="sm" c="dimmed">Позиций нет — не пришли из 1С</Text>
         ) : (
-          <Table.ScrollContainer minWidth={420}>
-            <Table highlightOnHover verticalSpacing="xs">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Артикул</Table.Th>
-                  <Table.Th>Объект / БС</Table.Th>
-                  <Table.Th ta="right">Кол-во</Table.Th>
-                  {canCommercial && <Table.Th ta="right">Цена</Table.Th>}
-                  {canCommercial && <Table.Th ta="right">Сумма с НДС</Table.Th>}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {lines.map((l) => (
-                  <Table.Tr key={l.id}>
-                    <Table.Td>
-                      <Text size="sm" ff="monospace">
-                        {l.article?.articleCode ?? l.articleCodeRaw ?? '—'}
-                      </Text>
-                      <Text size="xs" c="dimmed" lineClamp={1}>
-                        {l.article?.name ?? l.productNameRaw ?? 'без артикула'}
-                      </Text>
-                      {!l.articleId && (
-                        <Group gap={6} mt={2}>
-                          <Badge size="xs" color="orange" variant="light">нет в справочнике</Badge>
-                          {canProduction && (
-                            <Text
-                              size="xs" c="brand.7" fw={600} style={{ cursor: 'pointer' }}
-                              onClick={() => setNomenclatureFor(l.productNameRaw ?? l.articleCodeRaw ?? '')}
-                            >
-                              заявка в 1С
-                            </Text>
+          <>
+          <FadeSwap swapKey={linesPaged.page}>
+            <TableScroll minWidth={560}>
+                <Table highlightOnHover verticalSpacing="xs">
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Артикул</Table.Th>
+                      <Table.Th>Объект / БС</Table.Th>
+                      <Table.Th ta="right">Кол-во</Table.Th>
+                      {canCommercial && <Table.Th ta="right">Цена</Table.Th>}
+                      {canCommercial && <Table.Th ta="right">Сумма с НДС</Table.Th>}
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {linesPaged.slice.map((l) => (
+                      <Table.Tr key={l.id}>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace">
+                            {l.article?.articleCode ?? l.articleCodeRaw ?? '—'}
+                          </Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>
+                            {l.article?.name ?? l.productNameRaw ?? 'без артикула'}
+                          </Text>
+                          {!l.articleId && (
+                            <Group gap={6} mt={2}>
+                              <Badge size="xs" color="orange" variant="light">нет в справочнике</Badge>
+                              {canProduction && (
+                                <Text
+                                  size="xs" c="brand.7" fw={600} style={{ cursor: 'pointer' }}
+                                  onClick={() => setNomenclatureFor(l.productNameRaw ?? l.articleCodeRaw ?? '')}
+                                >
+                                  заявка в 1С
+                                </Text>
+                              )}
+                            </Group>
                           )}
-                        </Group>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <SiteCell orderId={id} line={l} canEdit={can('write', 'order.core') || canProduction} />
-                    </Table.Td>
-                    <Table.Td ff="monospace" ta="right">{Number(l.qty)} {l.unit}</Table.Td>
-                    {canCommercial && (
-                      <Table.Td ff="monospace" ta="right">
-                        {orDash(formatCurrency(Number(l.unitPrice ?? 0)), !Number(l.unitPrice))}
-                      </Table.Td>
-                    )}
-                    {canCommercial && (
-                      <Table.Td ff="monospace" ta="right">
-                        {orDash(formatCurrency(Number(l.lineTotalVat ?? 0)), !Number(l.lineTotalVat))}
-                      </Table.Td>
-                    )}
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+                        </Table.Td>
+                        <Table.Td>
+                          <SiteCell orderId={id} line={l} canEdit={can('write', 'order.core') || canProduction} />
+                        </Table.Td>
+                        <Table.Td ff="monospace" ta="right">{Number(l.qty)} {l.unit}</Table.Td>
+                        {canCommercial && (
+                          <Table.Td ff="monospace" ta="right">
+                            {orDash(formatCurrency(Number(l.unitPrice ?? 0)), !Number(l.unitPrice))}
+                          </Table.Td>
+                        )}
+                        {canCommercial && (
+                          <Table.Td ff="monospace" ta="right">
+                            {orDash(formatCurrency(Number(l.lineTotalVat ?? 0)), !Number(l.lineTotalVat))}
+                          </Table.Td>
+                        )}
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            </FadeSwap>
+          {linesPaged.total > DRAWER_PAGE && (
+            <PaginationBar
+              page={linesPaged.page}
+              total={linesPaged.total}
+              pageSize={DRAWER_PAGE}
+              onPageChange={linesPaged.setPage}
+              noun="позиций"
+              variant="compact"
+            />
+          )}
+          </>
         )}
       </Card>
 
@@ -755,7 +798,7 @@ export function OrderDetail({
           <Stack gap="xs" id="card-cost">
             {lines.length > 1 && (
               <Select
-                size="xs"
+                size="sm"
                 label="Себестоимость по позиции"
                 data={lines.filter((l) => l.id).map((l) => ({
                   value: l.id,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  Card, Stack, Text, Table, Skeleton, Box, Group, Button, Modal,
+  Card, Stack, Text, Table, Skeleton, Group, Button, Modal,
   Select, NumberInput, Progress, Badge, Alert,
 } from '@mantine/core';
 import { IconPlus, IconInfoCircle, IconCheck, IconTrash } from '@tabler/icons-react';
@@ -10,6 +10,9 @@ import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useArticles } from '../../hooks/useCatalog';
 import { formatMoney } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -58,22 +61,41 @@ export function MinStock() {
 
   const rows: any[] = Array.isArray(data) ? data : [];
   const totalDeficit = rows.reduce((s, r) => s + (r.deficitValue ?? 0), 0);
+  const deficitCount = rows.filter((r) => r.deficitQty > 0).length;
+
+  // Список приходит целиком — страницы режем на клиенте
+  const [pageSize, setPageSize] = usePageSize('warehouse-minstock', 50);
+  const paged = usePagedList(rows, pageSize);
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="sm">
-        <Text size="sm" c="dimmed">
-          Дефицит к нормативу:{' '}
-          <Text span fw={700} ff="monospace" c={totalDeficit > 0 ? 'danger' : undefined}>
-            {formatMoney(totalDeficit)}
-          </Text>
-        </Text>
-        {canEdit && (
-          <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => { setEditing(null); setArticleId(null); setTarget(''); setOpen(true); }}>
-            Задать норматив
-          </Button>
-        )}
-      </Group>
+      <div className="toolbar-sticky">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Group gap="lg" wrap="wrap">
+            <Text size="sm" c="dimmed">
+              Дефицит к нормативу:{' '}
+              <Text span fw={700} ff="monospace" c={totalDeficit > 0 ? 'danger' : 'var(--gray-9)'}>
+                {formatMoney(totalDeficit)}
+              </Text>
+            </Text>
+            <Text size="sm" c="dimmed">
+              Нормативов:{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{rows.length.toLocaleString('ru-RU')}</Text>
+              {deficitCount > 0 && (
+                <>
+                  , в дефиците{' '}
+                  <Text span fw={700} ff="monospace" c="danger">{deficitCount}</Text>
+                </>
+              )}
+            </Text>
+          </Group>
+          {canEdit && (
+            <Button leftSection={<IconPlus size={16} />} onClick={() => { setEditing(null); setArticleId(null); setTarget(''); setOpen(true); }}>
+              Задать норматив
+            </Button>
+          )}
+        </Group>
+      </div>
 
       {rows.length === 0 && !isLoading && (
         <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />} radius="md">
@@ -85,79 +107,96 @@ export function MinStock() {
         </Alert>
       )}
 
-      <Card withBorder radius="md" padding={0}>
-        {isLoading ? (
-          <Stack gap={4} p="md">{[...Array(5)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
-        ) : rows.length > 0 && (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Изделие</Table.Th>
-                  <Table.Th ta="right">Норматив</Table.Th>
-                  <Table.Th ta="right">На складе</Table.Th>
-                  <Table.Th ta="right">Дефицит</Table.Th>
-                  <Table.Th w={160}>Готовность</Table.Th>
-                  {canEdit && <Table.Th w={90} />}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((r) => (
-                  <Table.Tr key={r.id}>
-                    <Table.Td>
-                      <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.article?.articleCode}</Text>
-                      <Text size="xs" c="dimmed" lineClamp={1}>{r.article?.name}</Text>
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">{num(r.targetQty, 2)}</Table.Td>
-                    <Table.Td ta="right" ff="monospace">{num(r.actualQty, 2)}</Table.Td>
-                    <Table.Td ta="right" ff="monospace">
-                      {r.deficitQty > 0 ? (
-                        <Text span fw={700} c="danger">{num(r.deficitQty, 2)}</Text>
-                      ) : (
-                        <Badge size="xs" variant="light" color="teal">хватает</Badge>
-                      )}
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap={6} wrap="nowrap">
-                        <Progress
-                          value={r.readinessPct}
-                          size="sm" radius="xl" style={{ flex: 1 }}
-                          color={r.readinessPct >= 100 ? 'teal' : r.readinessPct >= 50 ? 'yellow' : 'red'}
-                        />
-                        <Text size="xs" ff="monospace" c="dimmed" w={40} ta="right">
-                          {num(r.readinessPct, 0)} %
-                        </Text>
-                      </Group>
-                    </Table.Td>
-                    {canEdit && (
-                      <Table.Td>
-                        <Group gap={4} wrap="nowrap">
-                          <Button
-                            size="compact-xs" variant="subtle"
-                            onClick={() => {
-                              setEditing(r); setArticleId(r.articleId);
-                              setTarget(r.targetQty); setOpen(true);
-                            }}
-                          >
-                            Изменить
-                          </Button>
-                          <Button
-                            size="compact-xs" variant="subtle" color="gray"
-                            loading={remove.isPending && remove.variables === r.articleId}
-                            onClick={() => remove.mutate(r.articleId)}
-                          >
-                            <IconTrash size={13} />
-                          </Button>
-                        </Group>
-                      </Table.Td>
-                    )}
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Box>
-        )}
-      </Card>
+      {(isLoading || rows.length > 0) && (
+        <FadeSwap swapKey={`${paged.page}-${pageSize}`}>
+          <Card withBorder radius="md" padding={0}>
+            {isLoading ? (
+              <Stack gap={6} p="md">{[...Array(5)].map((_, i) => <Skeleton key={i} height={40} radius="sm" />)}</Stack>
+            ) : (
+              <TableScroll minWidth={canEdit ? 880 : 760}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Изделие</Table.Th>
+                      <Table.Th ta="right">Норматив</Table.Th>
+                      <Table.Th ta="right">На складе</Table.Th>
+                      <Table.Th ta="right">Дефицит</Table.Th>
+                      <Table.Th w={180} data-priority="2">Готовность</Table.Th>
+                      {canEdit && <Table.Th w={150} />}
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {paged.slice.map((r) => (
+                      <Table.Tr key={r.id}>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.article?.articleCode}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{r.article?.name}</Text>
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">{num(r.targetQty, 2)}</Table.Td>
+                        <Table.Td ta="right" ff="monospace">{num(r.actualQty, 2)}</Table.Td>
+                        <Table.Td ta="right" ff="monospace">
+                          {r.deficitQty > 0 ? (
+                            <Text span fw={700} c="danger">{num(r.deficitQty, 2)}</Text>
+                          ) : (
+                            <Badge size="sm" variant="light" color="teal">хватает</Badge>
+                          )}
+                        </Table.Td>
+                        <Table.Td data-priority="2">
+                          <Group gap={8} wrap="nowrap">
+                            <Progress
+                              value={r.readinessPct}
+                              size="md" radius="xl" style={{ flex: 1, minWidth: 80 }}
+                              color={r.readinessPct >= 100 ? 'teal' : r.readinessPct >= 50 ? 'yellow' : 'red'}
+                            />
+                            <Text size="xs" ff="monospace" c="dimmed" w={44} ta="right">
+                              {num(r.readinessPct, 0)} %
+                            </Text>
+                          </Group>
+                        </Table.Td>
+                        {canEdit && (
+                          <Table.Td>
+                            <Group gap={4} wrap="nowrap">
+                              <Button
+                                size="compact-sm" variant="subtle"
+                                onClick={() => {
+                                  setEditing(r); setArticleId(r.articleId);
+                                  setTarget(r.targetQty); setOpen(true);
+                                }}
+                              >
+                                Изменить
+                              </Button>
+                              <Button
+                                size="compact-sm" variant="subtle" color="gray"
+                                aria-label="Снять норматив"
+                                loading={remove.isPending && remove.variables === r.articleId}
+                                onClick={() => remove.mutate(r.articleId)}
+                              >
+                                <IconTrash size={15} />
+                              </Button>
+                            </Group>
+                          </Table.Td>
+                        )}
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            )}
+          </Card>
+        </FadeSwap>
+      )}
+
+      {rows.length > 0 && (
+        <PaginationBar
+          page={paged.page}
+          total={paged.total}
+          pageSize={pageSize}
+          onPageChange={paged.setPage}
+          onPageSizeChange={setPageSize}
+          noun="нормативов"
+          sticky
+        />
+      )}
 
       <Modal
         opened={open}

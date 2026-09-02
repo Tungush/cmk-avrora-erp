@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Card, Stack, Group, Text, Table, Badge, TextInput, Select, Skeleton, Box,
-  SimpleGrid, Drawer, Divider, Button, Modal, NumberInput, Pagination,
+  Card, Stack, Group, Text, Table, Badge, TextInput, Select, Skeleton,
+  SimpleGrid, Drawer, Divider, Button, Modal, NumberInput,
 } from '@mantine/core';
 import { IconSearch, IconHistory, IconArrowBarToDown, IconCheck } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,9 @@ import { useAuthStore } from '../../store/auth';
 import { useMaterials } from '../../hooks/useCatalog';
 import { useMaterialMovements } from '../../hooks/useWarehouse';
 import { formatDate } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -120,18 +123,38 @@ function IssueModal({ opened, onClose, material }: { opened: boolean; onClose: (
   );
 }
 
-/** История закупок одного материала — «когда и почём брали» */
+/**
+ * История закупок одного материала — «когда и почём брали».
+ * Здесь же всё, что на узком экране спрятано из таблицы: категория,
+ * учётная цена, последний закуп — карточка полнее строки.
+ */
 function MovementHistory({ materialId, material }: { materialId: string; material: any }) {
   const { data, isLoading } = useMaterialMovements(materialId);
-  if (isLoading) return <Skeleton height={200} radius="md" />;
   const movements = data ?? [];
+  const paged = usePagedList(movements, 25, materialId);
+  if (isLoading) return <Skeleton height={200} radius="md" />;
+
+  const stock = Number(material.stockQty);
+  const price = Number(material.purchasePrice);
 
   return (
     <Stack gap="md">
+      <Group gap="sm" wrap="wrap">
+        <Badge variant="light" color="gray" size="md">
+          {CATEGORY_LABELS[material.category] ?? material.category}
+        </Badge>
+        <Text size="sm" c="dimmed">
+          Остаток <Text span fw={700} ff="monospace" c="var(--gray-9)">{num(stock, 3)} {material.unit}</Text>
+        </Text>
+        <Text size="sm" c="dimmed">
+          Стоимость запаса <Text span fw={700} ff="monospace" c="var(--gray-9)">{num(stock * price, 0)} ₸</Text>
+        </Text>
+      </Group>
+
       <SimpleGrid cols={2} spacing="sm">
         <Card withBorder radius="md" padding="sm">
           <Text size="xs" c="dimmed" tt="uppercase" fw={600} mb={2}>Учётная цена</Text>
-          <Text size="lg" fw={700} ff="monospace">{num(Number(material.purchasePrice))} ₸</Text>
+          <Text size="lg" fw={700} ff="monospace">{num(price)} ₸</Text>
           <Text size="xs" c="dimmed">средневзвешенная по приходам</Text>
         </Card>
         <Card withBorder radius="md" padding="sm">
@@ -150,36 +173,50 @@ function MovementHistory({ materialId, material }: { materialId: string; materia
       {movements.length === 0 ? (
         <Text size="sm" c="dimmed" ta="center" py="md">Движений нет</Text>
       ) : (
-        <Table highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Дата</Table.Th>
-              <Table.Th style={{ textAlign: 'right' }}>Кол-во</Table.Th>
-              <Table.Th style={{ textAlign: 'right' }}>Цена</Table.Th>
-              <Table.Th>Документ</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {movements.map((m) => (
-              <Table.Tr key={m.id}>
-                <Table.Td ff="monospace">{formatDate(m.movementDate)}</Table.Td>
-                <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(Number(m.qty), 3)}</Table.Td>
-                <Table.Td ff="monospace" style={{ textAlign: 'right' }}>
-                  <Group gap={6} justify="flex-end" wrap="nowrap">
-                    {m.priceAnomaly && (
-                      <Badge color="danger" variant="light" size="xs" radius="xl">карантин</Badge>
-                    )}
-                    {Number(m.unitPrice) > 0 ? `${num(Number(m.unitPrice))} ₸` : '—'}
-                  </Group>
-                </Table.Td>
-                <Table.Td>
-                  <Text size="xs" ff="monospace">{m.documentNumber ?? '—'}</Text>
-                  {m.comment && <Text size="xs" c="dimmed" lineClamp={1}>{m.comment}</Text>}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+        <>
+          <FadeSwap swapKey={paged.page}>
+            <TableScroll minWidth={520}>
+              <Table highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Дата</Table.Th>
+                    <Table.Th ta="right">Кол-во</Table.Th>
+                    <Table.Th ta="right">Цена</Table.Th>
+                    <Table.Th>Документ</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {paged.slice.map((m) => (
+                    <Table.Tr key={m.id}>
+                      <Table.Td ff="monospace">{formatDate(m.movementDate)}</Table.Td>
+                      <Table.Td ff="monospace" ta="right">{num(Number(m.qty), 3)}</Table.Td>
+                      <Table.Td ff="monospace" ta="right">
+                        <Group gap={6} justify="flex-end" wrap="nowrap">
+                          {m.priceAnomaly && (
+                            <Badge color="danger" variant="light" size="sm" radius="xl">карантин</Badge>
+                          )}
+                          {Number(m.unitPrice) > 0 ? `${num(Number(m.unitPrice))} ₸` : '—'}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" ff="monospace">{m.documentNumber ?? '—'}</Text>
+                        {m.comment && <Text size="xs" c="dimmed" lineClamp={1}>{m.comment}</Text>}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
+          <PaginationBar
+            page={paged.page}
+            total={paged.total}
+            pageSize={25}
+            onPageChange={paged.setPage}
+            noun="движений"
+            variant="compact"
+          />
+        </>
       )}
     </Stack>
   );
@@ -195,12 +232,14 @@ function MovementHistory({ materialId, material }: { materialId: string; materia
  * делают изделия; «Кладовая» — расходники и инструмент. Разделения по
  * настоящим складам 1С («74п_Склад Сырья», «74п_Кладовая_ЦМК») в остатках
  * нет: колонка склада в выгрузке пустая, поэтому делим по категории.
+ * @param pageKey — под каким ключом помнить размер страницы (у сырья
+ * и кладовой — свой).
  */
-export function MaterialsStock({ only }: { only?: string[] } = {}) {
+export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: string } = {}) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const pageSize = 100;
+  const [pageSize, setPageSize] = usePageSize(pageKey ?? 'warehouse-stock', 50);
   const [selected, setSelected] = useState<any>(null);
   const [issueFor, setIssueFor] = useState<any>(null);
   const hasRole = useAuthStore((s) => s.hasRole);
@@ -218,7 +257,6 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
   });
   const materials: any[] = (data as any)?.data ?? [];
   const total = (data as any)?.meta?.total ?? materials.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const stockValue = materials.reduce(
     (s, m) => s + Number(m.stockQty) * Number(m.purchasePrice),
@@ -227,128 +265,136 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="sm">
-        <Group gap="sm" wrap="wrap">
-          <TextInput
-            placeholder="Код или наименование..."
-            leftSection={<IconSearch size={15} />}
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-            w={260}
-            size="sm"
-          />
-          <Select
-            placeholder="Все категории"
-            data={visibleCategories}
-            value={category}
-            onChange={(v) => { setCategory(v); setPage(1); }}
-            clearable
-            w={190}
-            size="sm"
-          />
+      <div className="toolbar-sticky">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Group gap="sm" wrap="wrap">
+            <TextInput
+              placeholder="Код или наименование…"
+              leftSection={<IconSearch size={16} />}
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              w={300}
+            />
+            <Select
+              placeholder="Все категории"
+              data={visibleCategories}
+              value={category}
+              onChange={(v) => { setCategory(v); setPage(1); }}
+              clearable
+              w={210}
+            />
+          </Group>
+          <Group gap="lg" wrap="wrap">
+            <Text size="sm" c="dimmed">
+              Номенклатуры:{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{total.toLocaleString('ru-RU')}</Text>
+            </Text>
+            <Text size="sm" c="dimmed">
+              Запас на странице:{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{num(stockValue, 0)} ₸</Text>
+            </Text>
+          </Group>
         </Group>
-        <Group gap="lg">
-          <Text size="sm" c="dimmed">
-            Номенклатуры: <Text span fw={700} ff="monospace">{total.toLocaleString('ru-RU')}</Text>
-          </Text>
-          <Text size="sm" c="dimmed">
-            Запас на странице: <Text span fw={700} ff="monospace">{num(stockValue, 0)} ₸</Text>
-          </Text>
-        </Group>
-      </Group>
+      </div>
 
-      <Card withBorder radius="md" padding={0}>
-        {isLoading ? (
-          <Stack gap={4} p="md">
-            {[...Array(10)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}
-          </Stack>
-        ) : (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Код</Table.Th>
-                  <Table.Th>Наименование</Table.Th>
-                  <Table.Th>Категория</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Остаток</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Учётная цена</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Последний закуп</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Стоимость запаса</Table.Th>
-                  {canIssue && <Table.Th w={90} />}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {materials.map((m) => {
-                  const stock = Number(m.stockQty);
-                  const price = Number(m.purchasePrice);
-                  const last = Number(m.lastPurchasePrice);
-                  return (
-                    <Table.Tr
-                      key={m.id}
-                      onClick={() => setSelected(m)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <Table.Td>
-                        <Text size="sm" ff="monospace" fw={600} c="brand.7">{m.materialCode}</Text>
-                      </Table.Td>
-                      <Table.Td><Text size="sm" lineClamp={1}>{m.name}</Text></Table.Td>
-                      <Table.Td>
-                        <Badge variant="light" color="gray" size="sm">
-                          {CATEGORY_LABELS[m.category] ?? m.category}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {num(stock, 3)} {m.unit}
-                      </Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>
-                        {price > 0 ? `${num(price)} ₸` : '—'}
-                      </Table.Td>
-                      <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {last > 0 ? (
-                          <Stack gap={0}>
-                            <Text size="sm" ff="monospace">{num(last)} ₸</Text>
-                            {m.lastPurchaseDate && (
-                              <Text size="xs" c="dimmed">{formatDate(m.lastPurchaseDate)}</Text>
-                            )}
-                          </Stack>
-                        ) : <Text size="sm" c="dimmed">—</Text>}
-                      </Table.Td>
-                      <Table.Td ff="monospace" fw={600} style={{ textAlign: 'right' }}>
-                        {num(stock * price, 0)} ₸
-                      </Table.Td>
-                      {canIssue && (
-                        <Table.Td>
-                          <Button
-                            size="compact-xs"
-                            variant="light"
-                            leftSection={<IconArrowBarToDown size={13} />}
-                            onClick={(e) => { e.stopPropagation(); setIssueFor(m); }}
-                          >
-                            Списать
-                          </Button>
-                        </Table.Td>
-                      )}
-                    </Table.Tr>
-                  );
-                })}
-                {materials.length === 0 && (
+      <FadeSwap swapKey={`${page}-${pageSize}`}>
+        <Card withBorder radius="md" padding={0}>
+          {isLoading ? (
+            <Stack gap={6} p="md">
+              {[...Array(10)].map((_, i) => <Skeleton key={i} height={40} radius="sm" />)}
+            </Stack>
+          ) : (
+            <TableScroll minWidth={canIssue ? 1000 : 900}>
+              <Table highlightOnHover>
+                <Table.Thead>
                   <Table.Tr>
-                    <Table.Td colSpan={7}>
-                      <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
-                    </Table.Td>
+                    <Table.Th>Код</Table.Th>
+                    <Table.Th>Наименование</Table.Th>
+                    <Table.Th data-priority="3">Категория</Table.Th>
+                    <Table.Th ta="right">Остаток</Table.Th>
+                    <Table.Th ta="right" data-priority="2">Учётная цена</Table.Th>
+                    <Table.Th ta="right" data-priority="3">Последний закуп</Table.Th>
+                    <Table.Th ta="right">Стоимость запаса</Table.Th>
+                    {canIssue && <Table.Th w={120} />}
                   </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </Box>
-        )}
-      </Card>
+                </Table.Thead>
+                <Table.Tbody>
+                  {materials.map((m) => {
+                    const stock = Number(m.stockQty);
+                    const price = Number(m.purchasePrice);
+                    const last = Number(m.lastPurchasePrice);
+                    return (
+                      <Table.Tr
+                        key={m.id}
+                        onClick={() => setSelected(m)}
+                        data-clickable
+                      >
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{m.materialCode}</Text>
+                        </Table.Td>
+                        <Table.Td><Text size="sm" lineClamp={1}>{m.name}</Text></Table.Td>
+                        <Table.Td data-priority="3">
+                          <Badge variant="light" color="gray" size="sm">
+                            {CATEGORY_LABELS[m.category] ?? m.category}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td ff="monospace" ta="right">
+                          {num(stock, 3)} {m.unit}
+                        </Table.Td>
+                        <Table.Td ff="monospace" ta="right" data-priority="2">
+                          {price > 0 ? `${num(price)} ₸` : '—'}
+                        </Table.Td>
+                        <Table.Td ta="right" data-priority="3">
+                          {last > 0 ? (
+                            <Stack gap={0}>
+                              <Text size="sm" ff="monospace">{num(last)} ₸</Text>
+                              {m.lastPurchaseDate && (
+                                <Text size="xs" c="dimmed">{formatDate(m.lastPurchaseDate)}</Text>
+                              )}
+                            </Stack>
+                          ) : <Text size="sm" c="dimmed">—</Text>}
+                        </Table.Td>
+                        <Table.Td ff="monospace" fw={600} ta="right">
+                          {num(stock * price, 0)} ₸
+                        </Table.Td>
+                        {canIssue && (
+                          <Table.Td>
+                            <Button
+                              size="compact-sm"
+                              variant="light"
+                              leftSection={<IconArrowBarToDown size={14} />}
+                              onClick={(e) => { e.stopPropagation(); setIssueFor(m); }}
+                            >
+                              Списать
+                            </Button>
+                          </Table.Td>
+                        )}
+                      </Table.Tr>
+                    );
+                  })}
+                  {materials.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={canIssue ? 8 : 7}>
+                        <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          )}
+        </Card>
+      </FadeSwap>
 
-      {totalPages > 1 && (
-        <Group justify="center">
-          <Pagination value={page} onChange={setPage} total={totalPages} size="sm" radius="md" />
-        </Group>
-      )}
+      <PaginationBar
+        page={page}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        noun="позиций"
+        sticky
+      />
 
       <Drawer
         opened={selected !== null}

@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link } from 'react-router-dom';
 import {
   Card, Stack, Group, Text, Badge, Title, Button, Skeleton, Alert,
-  Table, ThemeIcon, Anchor, Tooltip,
+  ThemeIcon, Tooltip,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import {
@@ -11,8 +10,12 @@ import {
 } from '@tabler/icons-react';
 import { ordersApi } from '../../api/orders';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { Stagger } from '../../components/motion';
+import { FadeSwap, Stagger } from '../../components/motion';
+import { PaginationBar, PAGE_SIZES, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { formatDate } from '../../utils/formatters';
+
+type InboxOrder = Awaited<ReturnType<typeof ordersApi.inbox>>['data']['data'][number];
+const EMPTY: InboxOrder[] = [];
 
 /**
  * Инбокс «Новые заказы» (решение 22.08.2026): сделка Б24 → документ 1С →
@@ -51,6 +54,11 @@ export function OrdersInbox() {
     },
   });
 
+  // Инбокс приходит целиком — страницы режем на клиенте, размер помнится
+  const orders = useMemo(() => data?.data ?? EMPTY, [data]);
+  const [pageSize, setPageSize] = usePageSize('orders-inbox', 25);
+  const paged = usePagedList(orders, pageSize);
+
   if (isLoading) {
     return (
       <Stack gap="lg">
@@ -59,8 +67,6 @@ export function OrdersInbox() {
       </Stack>
     );
   }
-
-  const orders = data?.data ?? [];
 
   return (
     <Stack gap="lg">
@@ -100,64 +106,81 @@ export function OrdersInbox() {
           </Stack>
         </Card>
       ) : (
-        <Stagger>{orders.map((o) => (
-          <Card key={o.id} withBorder padding="lg" radius="lg">
-            <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
-              <Stack gap={6} style={{ flex: 1, minWidth: 260 }}>
-                <Group gap="sm">
-                  <OrderRef id={o.id} number={o.orderNumber} size="lg" />
-                  {o.onecNum && (
-                    <Badge variant="outline" color="gray" radius="xl">1С: {o.onecNum}</Badge>
-                  )}
-                  {o.onecStatus && (
-                    <Badge variant="light" color="cyan" radius="xl">{o.onecStatus}</Badge>
-                  )}
-                </Group>
-                <Text size="sm" c="dimmed">
-                  {(o as any).customer?.name}
-                  {o.plannedShipmentDate ? ` · отгрузка ${formatDate(o.plannedShipmentDate)}` : ''}
-                  {` · позиций: ${(o as any).orderLines?.length ?? 0}`}
-                </Text>
+        <>
+          <FadeSwap swapKey={paged.page}>
+            <Stack gap="lg">
+              <Stagger>{paged.slice.map((o) => (
+                <Card key={o.id} withBorder padding="lg" radius="lg">
+                  <Group justify="space-between" align="flex-start" wrap="wrap" gap="md">
+                    <Stack gap={6} style={{ flex: 1, minWidth: 260 }}>
+                      <Group gap="sm">
+                        <OrderRef id={o.id} number={o.orderNumber} size="lg" />
+                        {o.onecNum && (
+                          <Badge variant="outline" color="gray" radius="xl" size="lg">1С: {o.onecNum}</Badge>
+                        )}
+                        {o.onecStatus && (
+                          <Badge variant="light" color="cyan" radius="xl" size="lg">{o.onecStatus}</Badge>
+                        )}
+                      </Group>
+                      <Text size="sm" c="dimmed">
+                        {(o as any).customer?.name}
+                        {o.plannedShipmentDate ? ` · отгрузка ${formatDate(o.plannedShipmentDate)}` : ''}
+                        {` · позиций: ${(o as any).orderLines?.length ?? 0}`}
+                      </Text>
 
-                {o.blockers.length > 0 && (
-                  <Stack gap={6} mt={4}>
-                    {o.blockers.map((b) => (
-                      <Alert
-                        key={b.code}
-                        color={b.code === 'NO_BOM' ? 'yellow' : 'red'}
-                        icon={<IconAlertTriangle size={16} />}
-                        p="xs" radius="md"
+                      {o.blockers.length > 0 && (
+                        <Stack gap={6} mt={4}>
+                          {o.blockers.map((b) => (
+                            <Alert
+                              key={b.code}
+                              color={b.code === 'NO_BOM' ? 'yellow' : 'red'}
+                              icon={<IconAlertTriangle size={16} />}
+                              p="xs" radius="md"
+                            >
+                              <Text size="sm">{b.message}</Text>
+                            </Alert>
+                          ))}
+                        </Stack>
+                      )}
+                    </Stack>
+
+                    <Stack gap="xs" align="flex-end">
+                      <Tooltip
+                        label={o.canAccept
+                          ? 'NEW → Подтверждён: заказ уйдёт в планирование'
+                          : 'Сначала разрешите блокеры — сопоставьте артикулы или подайте заявку на номенклатуру'}
                       >
-                        <Text size="sm">{b.message}</Text>
-                      </Alert>
-                    ))}
-                  </Stack>
-                )}
-              </Stack>
+                        <Button
+                          leftSection={o.canAccept ? <IconCircleCheck size={18} /> : <IconAlertTriangle size={18} />}
+                          rightSection={<IconArrowRight size={16} />}
+                          disabled={!o.canAccept}
+                          loading={acceptingId === o.id}
+                          onClick={() => accept.mutate(o.id)}
+                        >
+                          Принять в производство
+                        </Button>
+                      </Tooltip>
+                      <Text size="xs" c="dimmed">
+                        получен {formatDate(o.createdAt as unknown as string)}
+                      </Text>
+                    </Stack>
+                  </Group>
+                </Card>
+              ))}</Stagger>
+            </Stack>
+          </FadeSwap>
 
-              <Stack gap="xs" align="flex-end">
-                <Tooltip
-                  label={o.canAccept
-                    ? 'NEW → Подтверждён: заказ уйдёт в планирование'
-                    : 'Сначала разрешите блокеры — сопоставьте артикулы или подайте заявку на номенклатуру'}
-                >
-                  <Button
-                    leftSection={o.canAccept ? <IconCircleCheck size={18} /> : <IconAlertTriangle size={18} />}
-                    rightSection={<IconArrowRight size={16} />}
-                    disabled={!o.canAccept}
-                    loading={acceptingId === o.id}
-                    onClick={() => accept.mutate(o.id)}
-                  >
-                    Принять в производство
-                  </Button>
-                </Tooltip>
-                <Text size="xs" c="dimmed">
-                  получен {formatDate(o.createdAt as unknown as string)}
-                </Text>
-              </Stack>
-            </Group>
-          </Card>
-        ))}</Stagger>
+          <PaginationBar
+            page={paged.page}
+            total={paged.total}
+            pageSize={pageSize}
+            onPageChange={paged.setPage}
+            /* Селектор размера — только когда есть что резать на страницы */
+            onPageSizeChange={orders.length > PAGE_SIZES[0] ? setPageSize : undefined}
+            noun="заказов"
+            sticky
+          />
+        </>
       )}
     </Stack>
   );

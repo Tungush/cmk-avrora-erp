@@ -1,0 +1,839 @@
+/* ===============================================================
+   ЦМК АВРОРА — визуальная система по референсу владельца (02.09.2026)
+   Behance «ERP UI – POS & Restaurant Operations System» (TastyIgniter)
+   ---------------------------------------------------------------
+   Значения взяты с их же страницы «Typography and Colour»:
+     #FD6941 коралловый · #36D161 зелёный · #F2AC11 янтарный
+     #070A08 чернила    · #888E89 серый   · #F08D45 оранжевый
+     Urbanist: Heading 32/120, Subheading 18/120, Body 14/160
+
+   Две вынужденные замены (согласовано с владельцем):
+   1. Шрифт. В Urbanist только latin и latin-ext — кириллицы нет вовсе,
+      русский текст свалился бы на системный. Onest: та же геометрия,
+      кириллица родная.
+   2. Меню слева, а не сверху: в референсе 6 вкладок, у завода 10 разделов.
+
+   Язык поверхностей: светло-серый холст, БЕЛЫЕ карточки с крупным
+   скруглением и мягкой тенью, иконка в круге, тёмная пилюля действия,
+   зелёная градиентная подложка на сводках. Данные читаются первыми.
+   =============================================================== */
+
+:root {
+  /* Палитра референса — ровно те hex, что указаны в макете */
+  --ref-coral: #FD6941;
+  --ref-coral-ink: #E24E27;
+  --ref-green: #36D161;
+  --ref-green-ink: #1FA847;
+  --ref-amber: #F2AC11;
+  --ref-amber-ink: #C88A05;
+  --ref-ink: #070A08;
+  --ref-muted: #888E89;
+  --ref-orange: #F08D45;
+
+  /* Поверхности: холст светло-серый, карточка белая */
+  --ref-canvas: #EFEFEE;
+  --ref-surface: #FFFFFF;
+  --ref-surface-sub: #F7F8F7;
+  --ref-line: #E8E9E7;
+
+  /* Подложки-заливки под сводками — зелёный wash из макета */
+  --wash-green: linear-gradient(160deg, rgba(54, 209, 97, 0.13) 0%, rgba(54, 209, 97, 0.02) 46%, rgba(255,255,255,0) 78%);
+
+  /* Скругления референса: карточка 24, плитка 20, поле 14 */
+  --ref-r-card: 24px;
+  --ref-r-tile: 20px;
+  --ref-r-chip: 14px;
+
+  /* Тени: очень мягкие, карточка едва отделена от холста */
+  --ref-sh: 0 1px 2px rgba(7, 10, 8, 0.03), 0 8px 24px -12px rgba(7, 10, 8, 0.10);
+  --ref-sh-hover: 0 2px 6px rgba(7, 10, 8, 0.05), 0 18px 40px -16px rgba(7, 10, 8, 0.18);
+  --ref-sh-pill: 0 6px 16px -6px rgba(7, 10, 8, 0.34);
+
+  /* Позиция курсора — пишет один обработчик, React не перерисовывается */
+  --mx: 50%;
+  --my: 40%;
+}
+
+/* ---------------------------------------------------------------
+   1. Холст и оболочка
+   --------------------------------------------------------------- */
+
+body { background: var(--ref-canvas); color: var(--ref-ink); }
+
+/* Референс — чистый светлый холст, поэтому цветные пятна выключены.
+   Остаётся мягкий след за курсором: владелец просил «фишки при движении» */
+.aurora-canvas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.aurora-canvas__blob { display: none; }
+.aurora-canvas__cursor {
+  position: absolute; left: 0; top: 0;
+  width: 38vmax; height: 38vmax;
+  margin-left: -19vmax; margin-top: -19vmax;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(54, 209, 97, 0.13), transparent 62%);
+  filter: blur(60px);
+  transform: translate3d(var(--cursor-x, 50vw), var(--cursor-y, 40vh), 0);
+  will-change: transform;
+}
+
+.mantine-AppShell-root { position: relative; z-index: 1; }
+.mantine-AppShell-main { background: transparent !important; }
+
+.mantine-AppShell-header {
+  background: rgba(255, 255, 255, 0.82) !important;
+  -webkit-backdrop-filter: saturate(160%) blur(18px);
+  backdrop-filter: saturate(160%) blur(18px);
+  border-bottom: 1px solid var(--ref-line) !important;
+}
+.mantine-AppShell-navbar {
+  background: var(--ref-surface) !important;
+  border-right: 1px solid var(--ref-line) !important;
+}
+
+/* ---------------------------------------------------------------
+   2. Карточка референса: белая, крупный радиус, мягкая тень
+   --------------------------------------------------------------- */
+
+.mantine-Card-root,
+.mantine-Card-root[data-with-border] {
+  position: relative;
+  isolation: isolate;
+  background: var(--ref-surface);
+  border: 1px solid transparent !important;
+  border-radius: var(--ref-r-card);
+  box-shadow: var(--ref-sh);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transition: box-shadow .28s var(--ease-out), transform .28s var(--ease-out);
+}
+.mantine-Card-root .mantine-Card-root {
+  background: var(--ref-surface-sub);
+  box-shadow: none;
+  border-color: var(--ref-line) !important;
+}
+
+/* Свет за курсором — тонкий зелёный отблеск внутри карточки */
+.mantine-Card-root::before, .glass-lit::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(420px circle at var(--mx) var(--my),
+    rgba(54, 209, 97, 0.10), transparent 62%);
+  opacity: 0;
+  transition: opacity .35s var(--ease-out);
+  pointer-events: none;
+  z-index: -1;
+}
+.mantine-Card-root:hover::before, .glass-lit:hover::before { opacity: 1; }
+
+a:hover > .mantine-Card-root,
+.mantine-Card-root[style*="cursor: pointer"]:hover,
+.mantine-Card-root[style*="cursor:pointer"]:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--ref-sh-hover);
+}
+
+.mantine-Modal-content {
+  background: var(--ref-surface) !important;
+  border-radius: var(--ref-r-card);
+}
+.mantine-Drawer-content { background: var(--ref-surface) !important; }
+.mantine-Menu-dropdown, .mantine-Popover-dropdown, .mantine-Select-dropdown,
+.mantine-Combobox-dropdown {
+  background: var(--ref-surface) !important;
+  border: 1px solid var(--ref-line) !important;
+  border-radius: var(--ref-r-tile) !important;
+  box-shadow: 0 20px 44px -20px rgba(7, 10, 8, 0.28) !important;
+}
+
+/* ---------------------------------------------------------------
+   3. Знаки макета: иконка в круге, тёмная пилюля, значок «живое»
+   --------------------------------------------------------------- */
+
+/* Иконка KPI — светлый КРУГ, как в референсе (не квадрат) */
+.kpi-icon {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--ref-surface-sub);
+  color: var(--ref-ink);
+  border: 1px solid var(--ref-line);
+  box-shadow: none;
+  flex-shrink: 0;
+}
+
+/* Число KPI — чернила: в макете оно чёрное, без градиентной заливки */
+.kpi-value {
+  background: none;
+  color: var(--ref-ink);
+  -webkit-text-fill-color: var(--ref-ink);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.kpi-value[data-accent='brand']  { color: var(--ref-coral-ink); -webkit-text-fill-color: var(--ref-coral-ink); }
+.kpi-value[data-accent='ok']     { color: var(--ref-green-ink); -webkit-text-fill-color: var(--ref-green-ink); }
+.kpi-value[data-accent='warn']   { color: var(--ref-amber-ink); -webkit-text-fill-color: var(--ref-amber-ink); }
+.kpi-value[data-accent='danger'] { color: var(--ref-coral-ink); -webkit-text-fill-color: var(--ref-coral-ink); }
+/* Второе число после дроби — серое и мельче: «12/40» из макета */
+.kpi-value small { color: var(--ref-muted); font-size: 0.62em; font-weight: 600; }
+
+/* Кнопка действия — тёмная пилюля «Handle» */
+.mantine-Button-root[data-variant='filled'] {
+  background-image: none;
+  background-color: var(--ref-ink);
+  color: #fff;
+  border: none;
+  box-shadow: var(--ref-sh-pill);
+}
+.mantine-Button-root[data-variant='filled']:hover:not(:disabled) {
+  background-color: #1B211D;
+  box-shadow: 0 10px 22px -8px rgba(7, 10, 8, 0.45);
+  transform: translateY(-1px);
+  filter: none;
+}
+
+.mantine-Progress-section { background-image: none; background-color: var(--ref-green); }
+.mantine-Progress-root { background: rgba(7, 10, 8, 0.06); }
+
+/* Значок «живое»: белая пилюля с зелёной точкой */
+.live-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--ref-surface);
+  border: 1px solid var(--ref-line);
+  font-size: 13px; font-weight: 600; color: var(--ref-ink);
+}
+.live-pill::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--ref-green);
+  box-shadow: 0 0 0 3px rgba(54, 209, 97, 0.22);
+}
+
+/* Круглые кнопки-иконки в шапке — ряд кружков из макета */
+.mantine-AppShell-header .mantine-ActionIcon-root {
+  border-radius: 50%;
+  background: var(--ref-surface-sub);
+  border: 1px solid var(--ref-line);
+  color: var(--ref-ink);
+}
+.mantine-AppShell-header .mantine-ActionIcon-root:hover { background: #EFF1EF; }
+
+/* ---------------------------------------------------------------
+   4. Меню: активный пункт — тёмная пилюля, как активная вкладка
+   --------------------------------------------------------------- */
+
+.nav-item { transition: background-color .15s var(--ease-out); border-radius: 999px; }
+.nav-item:hover { background: var(--ref-surface-sub); }
+.nav-item[aria-current='page'] .mantine-Text-root { color: #fff !important; }
+.nav-item[aria-current='page'] svg { color: #fff !important; }
+
+/* ---------------------------------------------------------------
+   5. Вкладки, сегменты, пагинация — пилюли референса
+   --------------------------------------------------------------- */
+
+.mantine-Tabs-list[data-variant='pills'] {
+  background: var(--ref-surface);
+  border: 1px solid var(--ref-line);
+  padding: 5px;
+  border-radius: 999px;
+  width: fit-content;
+  gap: 2px;
+}
+.mantine-Tabs-tab[data-variant='pills'] { border-radius: 999px; font-weight: 600; color: var(--ref-muted); }
+.mantine-Tabs-tab[data-variant='pills'][data-active] {
+  background-image: none;
+  background-color: var(--ref-ink);
+  color: #fff;
+  box-shadow: var(--ref-sh-pill);
+}
+.mantine-Tabs-tab[data-variant='pills']:not([data-active]):hover { background: var(--ref-surface-sub); color: var(--ref-ink); }
+
+.mantine-SegmentedControl-root { background: var(--ref-surface-sub); border: 1px solid var(--ref-line); }
+.mantine-SegmentedControl-indicator { background: var(--ref-surface); box-shadow: var(--ref-sh); }
+
+.mantine-Pagination-control { border-color: var(--ref-line); font-weight: 600; }
+.mantine-Pagination-control[data-active] {
+  background-image: none !important;
+  background-color: var(--ref-ink) !important;
+  border-color: transparent !important;
+  box-shadow: var(--ref-sh-pill);
+}
+
+.mantine-Badge-root { text-transform: none; letter-spacing: 0; font-weight: 600; }
+.mantine-Badge-root[data-variant='light'] { border: none; }
+
+.mantine-TextInput-input, .mantine-NumberInput-input, .mantine-Select-input,
+.mantine-Textarea-input, .mantine-PasswordInput-input {
+  background: var(--ref-surface-sub);
+  border-color: var(--ref-line);
+  border-radius: var(--ref-r-chip);
+  box-shadow: none;
+}
+.mantine-TextInput-input:focus, .mantine-NumberInput-input:focus,
+.mantine-Select-input:focus, .mantine-Textarea-input:focus,
+.mantine-PasswordInput-input:focus-within {
+  background: var(--ref-surface);
+  border-color: rgba(253, 105, 65, 0.6);
+  box-shadow: 0 0 0 3px rgba(253, 105, 65, 0.14);
+}
+
+/* ---------------------------------------------------------------
+   6. Таблицы: белая поверхность, тихие линии
+   --------------------------------------------------------------- */
+
+.mantine-Table-thead { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.mantine-Table-th {
+  background: transparent !important;
+  color: var(--ref-muted);
+  border-bottom: 1px solid var(--ref-line) !important;
+}
+.mantine-Table-td { border-bottom: 1px solid var(--ref-line) !important; }
+.mantine-Table-tbody .mantine-Table-tr:hover > .mantine-Table-td { background: var(--ref-surface-sub); }
+.table-scroll[data-sticky-first='true'] th:first-child,
+.table-scroll[data-sticky-first='true'] td:first-child {
+  background: var(--ref-surface);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.table-scroll[data-sticky-first='true'] tbody tr:hover td:first-child { background: var(--ref-surface-sub); }
+
+/* ---------------------------------------------------------------
+   7. Шапка раздела и «пульс» — плитки-срезы на зелёной подложке
+   --------------------------------------------------------------- */
+
+.page-title { background: none; color: var(--ref-ink); -webkit-text-fill-color: var(--ref-ink); }
+
+.pulse-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: 14px;
+  padding: 16px;
+  border-radius: var(--ref-r-card);
+  background-color: var(--ref-surface-sub);
+  background-image: var(--wash-green);
+}
+
+.pulse-tile {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: 100%;
+  padding: 16px 18px;
+  text-align: left;
+  font: inherit;
+  border-radius: var(--ref-r-tile);
+  background: var(--ref-surface);
+  border: 1px solid transparent;
+  box-shadow: var(--ref-sh);
+  transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out),
+              background-color .28s var(--ease-out);
+}
+.pulse-tile[data-clickable] { cursor: pointer; }
+.pulse-tile[data-clickable]:hover { transform: translateY(-3px); box-shadow: var(--ref-sh-hover); }
+.pulse-tile[data-clickable]:active { transform: translateY(-1px) scale(0.995); }
+
+.pulse-tile[data-active] {
+  background-image: none;
+  background-color: var(--ref-ink);
+  box-shadow: var(--ref-sh-pill);
+}
+.pulse-tile[data-active] .mantine-Text-root { color: rgba(255,255,255,0.6) !important; }
+.pulse-tile[data-active] .pulse-tile__value { color: #fff; -webkit-text-fill-color: #fff; }
+.pulse-tile[data-active] .pulse-tile__icon {
+  background: rgba(255,255,255,0.14); color: #fff; border-color: transparent;
+}
+
+.pulse-tile__value {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  background: none;
+  color: var(--ref-ink);
+  -webkit-text-fill-color: var(--ref-ink);
+}
+.pulse-tile[data-tone='brand']  .pulse-tile__value { color: var(--ref-coral-ink); -webkit-text-fill-color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='ok']     .pulse-tile__value { color: var(--ref-green-ink); -webkit-text-fill-color: var(--ref-green-ink); }
+.pulse-tile[data-tone='warn']   .pulse-tile__value { color: var(--ref-amber-ink); -webkit-text-fill-color: var(--ref-amber-ink); }
+.pulse-tile[data-tone='danger'] .pulse-tile__value { color: var(--ref-coral-ink); -webkit-text-fill-color: var(--ref-coral-ink); }
+
+.pulse-tile__icon {
+  display: grid; place-items: center;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--ref-surface-sub);
+  border: 1px solid var(--ref-line);
+  color: var(--ref-ink);
+}
+.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(253, 105, 65, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(54, 209, 97, 0.14);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(242, 172, 17, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
+.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(253, 105, 65, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
+
+/* ---------------------------------------------------------------
+   8. Экран входа: тёмная сцена, стеклянная панель, свет за курсором
+   --------------------------------------------------------------- */
+
+.login-scene { position: relative; min-height: 100vh; overflow: hidden; background: #0A0C0A; }
+.login-scene__glow { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; will-change: transform; }
+.login-scene__glow--a {
+  width: 70vmax; height: 70vmax; top: -30vmax; right: -22vmax;
+  background: radial-gradient(circle, rgba(54, 209, 97, 0.42), transparent 62%);
+  animation: aurora-drift-a 24s ease-in-out infinite;
+}
+.login-scene__glow--b {
+  width: 62vmax; height: 62vmax; bottom: -30vmax; left: -20vmax;
+  background: radial-gradient(circle, rgba(253, 105, 65, 0.44), transparent 60%);
+  animation: aurora-drift-b 30s ease-in-out infinite;
+}
+.login-scene__glow--c {
+  width: 44vmax; height: 44vmax; top: 20%; left: 30%;
+  background: radial-gradient(circle, rgba(242, 172, 17, 0.24), transparent 66%);
+  animation: aurora-drift-c 36s ease-in-out infinite;
+}
+@keyframes aurora-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-6vw,5vh,0) scale(1.12); } }
+@keyframes aurora-drift-b { 0%,100% { transform: translate3d(0,0,0) scale(1.08); } 50% { transform: translate3d(7vw,-6vh,0) scale(0.94); } }
+@keyframes aurora-drift-c { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-8vw,-7vh,0) scale(1.18); } }
+
+.login-scene__grid {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 78%);
+  pointer-events: none;
+}
+
+.login-card {
+  position: relative;
+  background: rgba(18, 22, 19, 0.58);
+  -webkit-backdrop-filter: saturate(160%) blur(28px);
+  backdrop-filter: saturate(160%) blur(28px);
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: var(--ref-r-card);
+  box-shadow: 0 32px 80px -24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.16);
+}
+.login-card::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
+  background: radial-gradient(340px circle at var(--mx) var(--my), rgba(54, 209, 97, 0.75), transparent 60%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+.login-card .mantine-TextInput-input, .login-card .mantine-PasswordInput-input {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.16);
+  color: #fff;
+}
+.login-card .mantine-TextInput-input::placeholder,
+.login-card .mantine-PasswordInput-innerInput::placeholder { color: rgba(255,255,255,0.38); }
+.login-card .mantine-PasswordInput-innerInput { color: #fff; }
+.login-card .mantine-TextInput-input:focus,
+.login-card .mantine-PasswordInput-input:focus-within {
+  background: rgba(255,255,255,0.12);
+  border-color: rgba(54, 209, 97, 0.7);
+  box-shadow: 0 0 0 3px rgba(54, 209, 97, 0.18);
+}
+.login-card .mantine-InputWrapper-label { color: rgba(255,255,255,0.72); }
+.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--ref-green); color: #06210F; }
+.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: #2BBB53; }
+
+.login-title {
+  background: linear-gradient(120deg, #FFFFFF 0%, #C9F7D6 52%, var(--ref-green) 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  letter-spacing: -0.03em;
+}
+
+.magnetic { transition: transform .18s var(--ease-out); will-change: transform; }
+
+[data-motion='off'] .login-scene__glow { animation: none !important; }
+[data-motion='off'] .aurora-canvas__cursor { display: none; }
+
+/* ---------------------------------------------------------------
+   9. «Экран = один экран»: страница не прокручивается вовсе
+   Включается только на экранах с <FitScreen> (data-fit на <html>),
+   остальные разделы прокручиваются как прежде.
+   --------------------------------------------------------------- */
+
+[data-fit='on'], [data-fit='on'] body { height: 100%; overflow: hidden; }
+[data-fit='on'] .mantine-AppShell-main {
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+/* Обёртки Layout (Box + motion.div) должны тянуться на всю высоту */
+[data-fit='on'] .mantine-AppShell-main > *,
+[data-fit='on'] .mantine-AppShell-main > * > * {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fit-screen {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+.fit-screen__head, .fit-screen__foot { flex: 0 0 auto; }
+.fit-screen__body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Список работ: строка-запись, а не таблица с колонками.
+   Тянется по ширине, поэтому боковая прокрутка не нужна никогда. */
+.worklist { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.worklist__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  height: var(--row-h, 45px);
+  padding: 0 14px;
+  border-bottom: 1px solid var(--ref-line);
+  transition: background-color .15s var(--ease-out);
+}
+.worklist__row[data-done='true'] { background: rgba(54, 209, 97, 0.06); }
+.worklist__row[data-done='true'] .worklist__name { color: var(--ref-muted); }
+.worklist__head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  align-items: center;
+  height: 34px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--ref-line);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ref-muted);
+}
+.worklist__rows { flex: 1; min-height: 0; overflow: hidden; }
+.worklist__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--ref-surface-sub);
+  color: var(--ref-muted);
+  border: 1px solid var(--ref-line);
+}
+.worklist__chip[data-tone='danger'] {
+  background: rgba(253, 105, 65, 0.10);
+  color: var(--ref-coral-ink);
+  border-color: rgba(253, 105, 65, 0.24);
+}
+.worklist__chip[data-tone='warn'] {
+  background: rgba(242, 172, 17, 0.12);
+  color: var(--ref-amber-ink);
+  border-color: rgba(242, 172, 17, 0.26);
+}
+.worklist__chip[data-tone='info'] {
+  background: rgba(7, 10, 8, 0.05);
+  color: var(--ref-ink);
+}
+.worklist__row:hover { background: var(--ref-surface-sub); }
+.worklist__row:last-child { border-bottom: none; }
+.worklist__main { min-width: 0; display: flex; align-items: baseline; gap: 10px; flex-wrap: nowrap; }
+.worklist__code {
+  font-family: var(--ff-num);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ref-coral-ink);
+  white-space: nowrap;
+}
+.worklist__name {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ref-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.worklist__meta {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 13px;
+  color: var(--ref-muted);
+  white-space: nowrap;
+}
+.worklist__qty {
+  font-family: var(--ff-num);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ref-ink);
+  white-space: nowrap;
+}
+@media (max-width: 1100px) {
+  .worklist__meta .worklist__meta-hide { display: none; }
+}
+
+/* Живые числа в шапке вместо значка «Онлайн» */
+.head-pulse { border-radius: 999px; background: var(--ref-surface-sub); padding: 3px; }
+.head-pulse__item {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color .16s var(--ease-out);
+}
+.head-pulse__item:hover { background: var(--ref-surface); box-shadow: var(--ref-sh); }
+.head-pulse__value {
+  font-family: var(--ff-num);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--ref-ink);
+  font-variant-numeric: tabular-nums;
+}
+.head-pulse__item[data-tone='warn'] .head-pulse__value { color: var(--ref-amber-ink); }
+.head-pulse__label { font-size: 12px; color: var(--ref-muted); }
+
+/* Изделия: список слева, редактор справа — обе колонки в высоту окна */
+.specs-split {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 14px;
+  height: 100%;
+  min-height: 0;
+}
+.specs-split[data-stacked='true'] { grid-template-columns: minmax(0, 1fr); grid-template-rows: 240px minmax(0, 1fr); }
+.specs-editor { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+/* Состав и калькуляция бывают длинными — прокрутка живёт ВНУТРИ панели,
+   страница целиком по-прежнему не двигается */
+.specs-editor__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 8px;
+  container-type: inline-size;
+}
+
+/* Переделы (резка · сборка · покраска) — рядом, без единой прокрутки.
+   auto-fit: на широком мониторе три колонки, на ноутбуке две, на планшете
+   одна. Ширину задаёт контейнер, поэтому вбок не уезжает никогда. */
+.stage-grid {
+  display: grid;
+  /* Ровно три в ряд: auto-fit переносил покраску на второй ряд и в узком
+     окне возвращал прокрутку. Лучше карточки поуже, чем прокрутка */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+/* Совсем узко — переделы становятся строками: три коротких ряда всё равно
+   влезают в экран целиком */
+@container (max-width: 700px) {
+  .stage-grid { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .stage-cell { display: grid; grid-template-columns: minmax(120px, 1.1fr) 1fr 1fr auto; align-items: end; }
+  .stage-cell__head { grid-column: 1; }
+  .stage-cell__calc { grid-column: 1 / -1; }
+}
+.stage-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border-radius: var(--ref-r-tile);
+  background: var(--ref-surface);
+  border: 1px solid var(--ref-line);
+  box-shadow: var(--ref-sh);
+  min-width: 0;
+}
+.stage-cell__head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.stage-cell__calc {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: var(--ref-r-chip);
+  background: var(--ref-surface-sub);
+  font-family: var(--ff-num);
+  font-size: 13px;
+  color: var(--ref-muted);
+}
+.stage-cell__calc b { font-size: 15px; color: var(--ref-ink); font-weight: 700; }
+.stage-cell__foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.stage-cell__fact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--ref-muted);
+  white-space: nowrap;
+}
+.stage-cell__fact:hover { color: var(--ref-ink); }
+
+/* Разбор себестоимости: слагаемые в две колонки, итоги — крупной строкой */
+.cost-lines { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 2px 20px; }
+.cost-lines__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 1px 0;
+  min-width: 0;
+}
+.cost-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 26px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--ref-line);
+}
+.cost-totals__item { display: flex; flex-direction: column; gap: 1px; }
+
+/* Мачта базовой станции — фирменный знак */
+.mast-beacon__dot { fill: var(--ref-coral); }
+.mast-beacon__halo { fill: var(--ref-coral); opacity: 0; }
+.mast-beacon .mast-beacon__dot { animation: mast-blink 2.6s ease-in-out infinite; }
+.mast-beacon .mast-beacon__halo { animation: mast-halo 2.6s ease-in-out infinite; }
+@keyframes mast-blink { 0%, 62%, 100% { opacity: 0.35; } 72%, 86% { opacity: 1; } }
+@keyframes mast-halo { 0%, 62%, 100% { opacity: 0; transform: scale(0.5); } 74% { opacity: 0.28; transform: scale(1); } 100% { opacity: 0; } }
+.mast-beacon__halo { transform-box: fill-box; transform-origin: center; }
+
+.mast-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 24px 16px;
+  color: var(--ref-muted);
+}
+.mast-empty__title { font-size: 16px; font-weight: 700; color: var(--ref-ink); }
+.mast-empty__hint { font-size: 13px; color: var(--ref-muted); text-align: center; max-width: 340px; }
+
+/* Мачта на экране входа: строится за текстом, огонь мигает */
+.login-mast {
+  position: absolute;
+  /* Уходит за левый край: в кадре стоит опора, а не иллюстрация по центру */
+  left: -110px;
+  bottom: 0;
+  color: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+  z-index: 0;
+  transform: translate3d(calc(var(--par-x, 0px) * 0.5), 0, 0);
+}
+@media (max-width: 1100px) { .login-mast { display: none; } }
+
+/* Объекты: карточка площадки — мачта плюс цифры */
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.site-card {
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border-radius: var(--ref-r-tile);
+  background: var(--ref-surface);
+  border: 1px solid var(--ref-line);
+  box-shadow: var(--ref-sh);
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  position: relative;
+  isolation: isolate;
+  transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
+}
+.site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
+.site-card[data-state='overdue'] { border-color: rgba(253, 105, 65, 0.35); }
+.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(54,209,97,.08), rgba(255,255,255,0) 60%), var(--ref-surface); }
+.site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
+.site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.site-card__title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-card__sub { font-size: 12px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-card__stat { margin-top: 6px; font-family: var(--ff-num); white-space: nowrap; }
+.site-card__stat b { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+.site-card__stat span { font-size: 13px; color: var(--ref-muted); margin-left: 3px; }
+.site-card__meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ref-muted);
+  font-family: var(--ff-num);
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+
+/* Объекты: карточка площадки — мачта плюс цифры */
+.site-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(232px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+.site-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--ref-r-tile);
+  background: var(--ref-surface);
+  border: 1px solid var(--ref-line);
+  box-shadow: var(--ref-sh);
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+  position: relative;
+  isolation: isolate;
+  transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
+}
+.site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
+.site-card[data-state='overdue'] { border-color: rgba(253, 105, 65, 0.35); }
+.site-card[data-state='done'] {
+  background: linear-gradient(160deg, rgba(54, 209, 97, .09), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
+}
+.site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
+.site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.site-card__title {
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.site-card__sub { font-size: 12px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-card__stat { margin-top: 5px; font-family: var(--ff-num); white-space: nowrap; }
+.site-card__stat b { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; }
+.site-card__stat span { font-size: 12px; color: var(--ref-muted); margin-left: 3px; }
+.site-card__meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--ref-muted);
+  font-family: var(--ff-num);
+  margin-bottom: 5px;
+  white-space: nowrap;
+}
+.site-card .worklist__chip { align-self: flex-start; }

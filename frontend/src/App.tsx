@@ -10,6 +10,7 @@ import { DirectorDashboard } from './pages/Dashboard/DirectorDashboard';
 import { OrdersList } from './pages/Orders/OrdersList';
 import { OrdersInbox } from './pages/Orders/OrdersInbox';
 import { ProductionPlan, ShopFloor } from './pages/Production';
+import { Sites } from './pages/Sites';
 import { ContractorWork } from './pages/Production/ContractorWork';
 import { Warehouse } from './pages/Warehouse';
 import { Finance } from './pages/Finance';
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="dashboard/director" element={<DirectorDashboard />} />
             <Route path="orders" element={<OrdersList />} />
             <Route path="orders/inbox" element={<OrdersInbox />} />
+            <Route path="sites" element={<Sites />} />
             <Route path="production" element={<ProductionPlan />} />
             <Route path="production/kanban" element={<ShopFloor />} />
             <Route path="production/contractors" element={<ContractorWork />} />

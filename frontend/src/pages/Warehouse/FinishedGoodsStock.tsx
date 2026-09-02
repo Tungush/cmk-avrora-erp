@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import {
-  Card, Stack, Text, Table, Badge, Skeleton, Box, Group, Button, Modal,
-  Select, NumberInput, TextInput, SegmentedControl, Tabs, Pagination,
+  Card, Stack, Text, Table, Badge, Skeleton, Group, Button, Modal,
+  Select, NumberInput, TextInput, SegmentedControl, Tabs,
 } from '@mantine/core';
-import { IconPlus, IconTruck, IconCheck, IconAdjustments } from '@tabler/icons-react';
+import { IconPlus, IconCheck } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useArticles } from '../../hooks/useCatalog';
-import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { formatDate, formatMoney } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -143,6 +145,14 @@ function MovementModal({ opened, onClose }: { opened: boolean; onClose: () => vo
   );
 }
 
+function TableSkeleton() {
+  return (
+    <Stack gap={6} p="md">
+      {[...Array(6)].map((_, i) => <Skeleton key={i} height={40} radius="sm" />)}
+    </Stack>
+  );
+}
+
 /**
  * Склад готовой продукции (28.08.2026): живые остатки из движений + журнал.
  * Раньше остаток был захардкоженным нулём, а экран — только на просмотр.
@@ -154,155 +164,178 @@ export function FinishedGoodsStock() {
   const [tab, setTab] = useState<string>('balance');
   const [balancePage, setBalancePage] = useState(1);
   const [movesPage, setMovesPage] = useState(1);
-  const pageSize = 100;
+  const [pageSize, setPageSize] = usePageSize('warehouse-fg', 50);
+  const changePageSize = (s: number) => { setPageSize(s); setBalancePage(1); setMovesPage(1); };
 
   const { data: balance, isLoading: loadingBalance } = useQuery({
-    queryKey: ['fg-balance', balancePage],
+    queryKey: ['fg-balance', balancePage, pageSize],
     queryFn: () => api.get('/warehouse/finished-goods/balance', { params: { page: balancePage, pageSize } }).then((r) => r.data),
   });
   const { data: movements, isLoading: loadingMoves } = useQuery({
-    queryKey: ['fg-stock', movesPage],
+    queryKey: ['fg-stock', movesPage, pageSize],
     queryFn: () => api.get('/warehouse/finished-goods', { params: { page: movesPage, pageSize } }).then((r) => r.data),
   });
 
   const balanceRows: any[] = balance?.data ?? [];
   const moveRows: any[] = movements?.data ?? [];
-  const balanceTotalPages = Math.max(1, Math.ceil((balance?.meta?.total ?? 0) / pageSize));
-  const movesTotalPages = Math.max(1, Math.ceil((movements?.meta?.total ?? 0) / pageSize));
+  const balanceTotal: number = balance?.meta?.total ?? balanceRows.length;
+  const movesTotal: number = movements?.meta?.total ?? moveRows.length;
+
+  const balanceTable = (
+    <Card withBorder radius="md" padding={0}>
+      {loadingBalance ? <TableSkeleton /> : (
+        <TableScroll minWidth={680}>
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Изделие</Table.Th>
+                <Table.Th ta="right">Остаток</Table.Th>
+                <Table.Th ta="right">Оценка</Table.Th>
+                <Table.Th>Последнее движение</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {balanceRows.map((r) => (
+                <Table.Tr key={r.articleId}>
+                  <Table.Td>
+                    <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.articleCode}</Text>
+                    <Text size="xs" c="dimmed" lineClamp={1}>{r.name}</Text>
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace">
+                    <Text span fw={700} c={r.stockQty < 0 ? 'danger' : undefined}>
+                      {num(r.stockQty, 3)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace">
+                    {r.valueEstimate ? formatMoney(r.valueEstimate) : '—'}
+                  </Table.Td>
+                  <Table.Td ff="monospace">{formatDate(r.lastMovementAt)}</Table.Td>
+                </Table.Tr>
+              ))}
+              {balanceRows.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={4}>
+                    <Text size="sm" c="dimmed" ta="center" py="lg">
+                      Движений ещё нет — примите первый выпуск кнопкой сверху
+                    </Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </TableScroll>
+      )}
+    </Card>
+  );
+
+  const journalTable = (
+    <Card withBorder radius="md" padding={0}>
+      {loadingMoves ? <TableSkeleton /> : (
+        <TableScroll minWidth={780}>
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Изделие</Table.Th>
+                <Table.Th>Дата</Table.Th>
+                <Table.Th>Движение</Table.Th>
+                <Table.Th ta="right">Количество</Table.Th>
+                <Table.Th>Заказ</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {moveRows.map((r) => (
+                <Table.Tr key={r.id}>
+                  <Table.Td>
+                    <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.article?.articleCode ?? '—'}</Text>
+                    <Text size="xs" c="dimmed" lineClamp={1}>{r.article?.name ?? '—'}</Text>
+                  </Table.Td>
+                  <Table.Td ff="monospace">{formatDate(r.movementDate)}</Table.Td>
+                  <Table.Td>
+                    <Badge size="sm" variant="light" color={MOVEMENT_COLORS[r.movementType] ?? 'gray'}>
+                      {MOVEMENT_LABELS[r.movementType] ?? r.movementType}
+                    </Badge>
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" fw={600}>{num(Number(r.qty), 3)}</Table.Td>
+                  <Table.Td ff="monospace">{r.order?.orderNumber ?? '—'}</Table.Td>
+                </Table.Tr>
+              ))}
+              {moveRows.length === 0 && (
+                <Table.Tr>
+                  <Table.Td colSpan={5}>
+                    <Text size="sm" c="dimmed" ta="center" py="lg">Движений нет</Text>
+                  </Table.Td>
+                </Table.Tr>
+              )}
+            </Table.Tbody>
+          </Table>
+        </TableScroll>
+      )}
+    </Card>
+  );
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="sm">
-        <Text size="sm" c="dimmed">
-          Стоимость склада (по утв. ценам):{' '}
-          <Text span fw={700} ff="monospace">{formatMoney(balance?.totalValue ?? 0)}</Text>
-        </Text>
-        {canEdit && (
-          <Button leftSection={<IconPlus size={16} />} size="sm" onClick={() => setModalOpen(true)}>
-            Принять / отгрузить
-          </Button>
-        )}
-      </Group>
+      <div className="toolbar-sticky">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Group gap="lg" wrap="wrap">
+            <Text size="sm" c="dimmed">
+              Стоимость склада (по утв. ценам):{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{formatMoney(balance?.totalValue ?? 0)}</Text>
+            </Text>
+            <Text size="sm" c="dimmed">
+              Изделий на складе:{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{balanceTotal.toLocaleString('ru-RU')}</Text>
+            </Text>
+          </Group>
+          {canEdit && (
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
+              Принять / отгрузить
+            </Button>
+          )}
+        </Group>
+      </div>
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'balance')} radius="md" keepMounted={false}>
-        <Tabs.List mb="md">
+      <Tabs value={tab} onChange={(v) => setTab(v ?? 'balance')} radius="md">
+        <Tabs.List>
           <Tabs.Tab value="balance">Остатки</Tabs.Tab>
           <Tabs.Tab value="journal">Журнал движений</Tabs.Tab>
         </Tabs.List>
+      </Tabs>
 
-        <Tabs.Panel value="balance">
-          <Card withBorder radius="md" padding={0}>
-            {loadingBalance ? (
-              <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
-            ) : (
-              <Box style={{ overflowX: 'auto' }}>
-                <Table highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Изделие</Table.Th>
-                      <Table.Th ta="right">Остаток</Table.Th>
-                      <Table.Th ta="right">Оценка</Table.Th>
-                      <Table.Th>Последнее движение</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {balanceRows.map((r) => (
-                      <Table.Tr key={r.articleId}>
-                        <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.articleCode}</Text>
-                          <Text size="xs" c="dimmed" lineClamp={1}>{r.name}</Text>
-                        </Table.Td>
-                        <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                          <Text span fw={700} c={r.stockQty < 0 ? 'danger' : undefined}>
-                            {num(r.stockQty, 3)}
-                          </Text>
-                        </Table.Td>
-                        <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                          {r.valueEstimate ? formatMoney(r.valueEstimate) : '—'}
-                        </Table.Td>
-                        <Table.Td ff="monospace" fz="xs">{formatDate(r.lastMovementAt)}</Table.Td>
-                      </Table.Tr>
-                    ))}
-                    {balanceRows.length === 0 && (
-                      <Table.Tr>
-                        <Table.Td colSpan={4}>
-                          <Text size="sm" c="dimmed" ta="center" py="lg">
-                            Движений ещё нет — примите первый выпуск кнопкой сверху
-                          </Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    )}
-                  </Table.Tbody>
-                </Table>
-              </Box>
-            )}
-          </Card>
-          {balanceTotalPages > 1 && (
-            <Group justify="center" mt="md">
-              <Pagination value={balancePage} onChange={setBalancePage} total={balanceTotalPages} size="sm" radius="md" />
-            </Group>
-          )}
+      <FadeSwap swapKey={tab === 'balance' ? `balance-${balancePage}-${pageSize}` : `journal-${movesPage}-${pageSize}`}>
+        {tab === 'balance' ? balanceTable : journalTable}
+      </FadeSwap>
+
+      {tab === 'balance' ? (
+        <>
+          <PaginationBar
+            page={balancePage}
+            total={balanceTotal}
+            pageSize={pageSize}
+            onPageChange={setBalancePage}
+            onPageSizeChange={changePageSize}
+            noun="изделий"
+            sticky
+          />
           {balanceRows.some((r) => r.stockQty < 0) && (
-            <Text size="xs" c="dimmed" mt="xs">
+            <Text size="xs" c="dimmed">
               Отрицательный остаток — отгрузок записано больше, чем приходов.
               Обычно это значит, что цех не сдавал выпуск: поправьте коррекцией
               или дозапишите приходы.
             </Text>
           )}
-        </Tabs.Panel>
-
-        <Tabs.Panel value="journal">
-          <Card withBorder radius="md" padding={0}>
-            {loadingMoves ? (
-              <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
-            ) : (
-              <Box style={{ overflowX: 'auto' }}>
-                <Table highlightOnHover>
-                  <Table.Thead>
-                    <Table.Tr>
-                      <Table.Th>Дата</Table.Th>
-                      <Table.Th>Изделие</Table.Th>
-                      <Table.Th>Заказ</Table.Th>
-                      <Table.Th ta="right">Количество</Table.Th>
-                      <Table.Th>Движение</Table.Th>
-                    </Table.Tr>
-                  </Table.Thead>
-                  <Table.Tbody>
-                    {moveRows.map((r) => (
-                      <Table.Tr key={r.id}>
-                        <Table.Td ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatDate(r.movementDate)}</Table.Td>
-                        <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.article?.articleCode ?? '—'}</Text>
-                          <Text size="xs" c="dimmed" lineClamp={1}>{r.article?.name ?? '—'}</Text>
-                        </Table.Td>
-                        <Table.Td ff="monospace" fz="xs">{r.order?.orderNumber ?? '—'}</Table.Td>
-                        <Table.Td ta="right" ff="monospace">{num(Number(r.qty), 3)}</Table.Td>
-                        <Table.Td>
-                          <Badge size="xs" variant="light" color={MOVEMENT_COLORS[r.movementType] ?? 'gray'}>
-                            {MOVEMENT_LABELS[r.movementType] ?? r.movementType}
-                          </Badge>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                    {moveRows.length === 0 && (
-                      <Table.Tr>
-                        <Table.Td colSpan={5}>
-                          <Text size="sm" c="dimmed" ta="center" py="lg">Движений нет</Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    )}
-                  </Table.Tbody>
-                </Table>
-              </Box>
-            )}
-          </Card>
-          {movesTotalPages > 1 && (
-            <Group justify="center" mt="md">
-              <Pagination value={movesPage} onChange={setMovesPage} total={movesTotalPages} size="sm" radius="md" />
-            </Group>
-          )}
-        </Tabs.Panel>
-      </Tabs>
+        </>
+      ) : (
+        <PaginationBar
+          page={movesPage}
+          total={movesTotal}
+          pageSize={pageSize}
+          onPageChange={setMovesPage}
+          onPageSizeChange={changePageSize}
+          noun="движений"
+          sticky
+        />
+      )}
 
       <MovementModal opened={modalOpen} onClose={() => setModalOpen(false)} />
     </Stack>

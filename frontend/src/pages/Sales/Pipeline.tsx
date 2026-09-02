@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card, Stack, Group, Text, Badge, Table, Skeleton, Button, TextInput,
-  NumberInput, Checkbox, ActionIcon, TableScrollContainer, Pagination,
+  NumberInput, Checkbox, ActionIcon,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconTrash, IconTarget, IconPlus } from '@tabler/icons-react';
 import { dealsApi, Deal } from '../../api/deals';
-import { Stagger } from '../../components/motion';
+import { FadeSwap } from '../../components/motion';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { formatCurrency, formatNumber } from '../../utils/formatters';
 
 const emptyForm = {
@@ -26,10 +28,11 @@ export function Pipeline() {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm);
   const [page, setPage] = useState(1);
-  const pageSize = 50;
+  const [pageSize, setPageSize] = usePageSize('sales-pipeline', 25);
+  useEffect(() => { setPage(1); }, [pageSize]);
 
   const { data: deals, isLoading } = useQuery({
-    queryKey: ['deals', 'pipeline', page],
+    queryKey: ['deals', 'pipeline', page, pageSize],
     queryFn: () => dealsApi.list({ page, pageSize }).then((r) => r.data),
   });
 
@@ -74,7 +77,6 @@ export function Pipeline() {
 
   const rows = deals?.data ?? [];
   const total = deals?.meta?.total ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const canSubmit = form.customerName.trim().length > 0;
 
   return (
@@ -86,24 +88,24 @@ export function Pipeline() {
         </Group>
         <Group gap="sm" wrap="wrap" align="flex-end">
           <TextInput label="Заказчик" placeholder="КарТел" value={form.customerName}
-            onChange={(e) => setForm({ ...form, customerName: e.target.value })} w={180} required />
+            onChange={(e) => setForm({ ...form, customerName: e.target.value })} w={200} required />
           <TextInput label="Изделие" placeholder="Мачта М18м..." value={form.articleName}
-            onChange={(e) => setForm({ ...form, articleName: e.target.value })} w={200} />
+            onChange={(e) => setForm({ ...form, articleName: e.target.value })} w={220} />
           <NumberInput label="Кол-во" placeholder="1" value={form.qtyOrdered}
-            onChange={(v) => setForm({ ...form, qtyOrdered: v as number })} w={90} min={0} />
+            onChange={(v) => setForm({ ...form, qtyOrdered: v as number })} w={100} min={0} />
           <NumberInput label="Сумма с НДС" placeholder="0" value={form.amountOrdered}
-            onChange={(v) => setForm({ ...form, amountOrdered: v as number })} w={140} min={0}
+            onChange={(v) => setForm({ ...form, amountOrdered: v as number })} w={160} min={0}
             thousandSeparator=" " />
           <TextInput label="Объект / сайт" placeholder="ALM_Dala" value={form.siteCode}
-            onChange={(e) => setForm({ ...form, siteCode: e.target.value })} w={140} />
+            onChange={(e) => setForm({ ...form, siteCode: e.target.value })} w={150} />
           <TextInput label="Регион" placeholder="Алматинская область" value={form.region}
-            onChange={(e) => setForm({ ...form, region: e.target.value })} w={170} />
+            onChange={(e) => setForm({ ...form, region: e.target.value })} w={190} />
           <TextInput label="Ведёт" placeholder="Имя" value={form.managerName}
-            onChange={(e) => setForm({ ...form, managerName: e.target.value })} w={110} />
+            onChange={(e) => setForm({ ...form, managerName: e.target.value })} w={130} />
           <TextInput label="План вывоза" placeholder="август" value={form.plannedDispatchMonth}
-            onChange={(e) => setForm({ ...form, plannedDispatchMonth: e.target.value })} w={110} />
-          <Checkbox label="Заявка уже подана" checked={form.hasFormalRequest}
-            onChange={(e) => setForm({ ...form, hasFormalRequest: e.target.checked })} mb={8} />
+            onChange={(e) => setForm({ ...form, plannedDispatchMonth: e.target.value })} w={130} />
+          <Checkbox size="md" label="Заявка уже подана" checked={form.hasFormalRequest}
+            onChange={(e) => setForm({ ...form, hasFormalRequest: e.target.checked })} mb={10} />
           <Button leftSection={<IconPlus size={16} />} onClick={() => create.mutate()}
             loading={create.isPending} disabled={!canSubmit} mb={2}>
             Добавить
@@ -111,65 +113,70 @@ export function Pipeline() {
         </Group>
       </Card>
 
-      <Card withBorder radius="md" padding="md">
-        <Group justify="space-between" mb="sm">
+      <Card withBorder radius="md" padding={0}>
+        <Group justify="space-between" p="md" pb="sm">
           <Text fw={700} size="sm">Прогноз спроса</Text>
-          <Badge variant="light" color="gray" radius="xl">{total}</Badge>
+          <Badge variant="light" color="gray" radius="xl" size="lg">{total}</Badge>
         </Group>
         {rows.length === 0 ? (
-          <Text size="sm" c="dimmed">Пока пусто — заполните строку выше</Text>
+          <Text size="sm" c="dimmed" px="md" pb="md">Пока пусто — заполните строку выше</Text>
         ) : (
-          <TableScrollContainer minWidth={900}>
-            <Table verticalSpacing="xs" highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Заказчик</Table.Th>
-                  <Table.Th>Изделие</Table.Th>
-                  <Table.Th>Объект / регион</Table.Th>
-                  <Table.Th>Кол-во</Table.Th>
-                  <Table.Th>Сумма</Table.Th>
-                  <Table.Th>Ведёт</Table.Th>
-                  <Table.Th>План вывоза</Table.Th>
-                  <Table.Th>Заявка</Table.Th>
-                  <Table.Th></Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                <Stagger>
+          <FadeSwap swapKey={page}>
+            <TableScroll minWidth={1000}>
+              <Table highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Заказчик</Table.Th>
+                    <Table.Th>Изделие</Table.Th>
+                    <Table.Th>Объект / регион</Table.Th>
+                    <Table.Th ta="right">Кол-во</Table.Th>
+                    <Table.Th ta="right">Сумма</Table.Th>
+                    <Table.Th>Ведёт</Table.Th>
+                    <Table.Th>План вывоза</Table.Th>
+                    <Table.Th>Заявка</Table.Th>
+                    <Table.Th w={56} />
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
                   {rows.map((d: Deal) => (
                     <Table.Tr key={d.id}>
-                      <Table.Td>{d.customer?.name ?? 'нет данных'}</Table.Td>
-                      <Table.Td>{d.article?.name ?? 'нет данных'}</Table.Td>
+                      <Table.Td><Text size="sm" fw={600}>{d.customer?.name ?? 'нет данных'}</Text></Table.Td>
+                      <Table.Td><Text size="sm" lineClamp={2}>{d.article?.name ?? 'нет данных'}</Text></Table.Td>
                       <Table.Td>
                         <Text size="sm">{d.siteCode || '—'}</Text>
                         <Text size="xs" c="dimmed">{d.region || ''}</Text>
                       </Table.Td>
-                      <Table.Td>{formatNumber(d.qtyOrdered, 0)}</Table.Td>
-                      <Table.Td>{formatCurrency(d.amountOrdered)}</Table.Td>
+                      <Table.Td ta="right" ff="monospace">{formatNumber(d.qtyOrdered, 0)}</Table.Td>
+                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(d.amountOrdered)}</Table.Td>
                       <Table.Td>{d.managerName || '—'}</Table.Td>
                       <Table.Td>{d.plannedDispatchMonth || 'нет плана'}</Table.Td>
                       <Table.Td>
-                        <Checkbox checked={d.hasFormalRequest}
+                        <Checkbox size="md" checked={d.hasFormalRequest}
                           onChange={(e) => toggleFormal.mutate({ id: d.id, value: e.target.checked })} />
                       </Table.Td>
                       <Table.Td>
-                        <ActionIcon variant="subtle" color="danger" onClick={() => remove.mutate(d.id)}>
+                        <ActionIcon variant="subtle" color="danger" size="lg" aria-label="Удалить" onClick={() => remove.mutate(d.id)}>
                           <IconTrash size={16} />
                         </ActionIcon>
                       </Table.Td>
                     </Table.Tr>
                   ))}
-                </Stagger>
-              </Table.Tbody>
-            </Table>
-          </TableScrollContainer>
-        )}
-        {totalPages > 1 && (
-          <Group justify="center" mt="md">
-            <Pagination value={page} onChange={setPage} total={totalPages} size="sm" radius="md" />
-          </Group>
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
         )}
       </Card>
+
+      <PaginationBar
+        page={page}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="строк"
+        sticky
+      />
     </Stack>
   );
 }

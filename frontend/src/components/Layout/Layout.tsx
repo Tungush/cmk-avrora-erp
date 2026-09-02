@@ -1,20 +1,54 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { useAuthStore } from '../../store/auth';
 import { OrderCardProvider } from '../OrderCard/OrderCardProvider';
 import { ReceiptCardProvider } from '../ReceiptCard/ReceiptCardProvider';
-import { motion, useReducedMotion } from 'framer-motion';
-import { SPRING } from '../motion';
+import { motion } from 'framer-motion';
+import { SPRING, useMotionOff } from '../motion';
+import { AuroraCanvas } from '../Aurora';
+
+export const NAV_WIDTH = 260;
+export const NAV_RAIL_WIDTH = 76;
+const NAV_KEY = 'ui-nav';
+
+/**
+ * Свёрнутое меню (решение 02.09.2026): на ноутбуке 1280–1400 px полная
+ * панель съедала четверть экрана, и таблицы уезжали вбок. Ниже 1400 px
+ * меню по умолчанию сворачивается в рейку иконок (+184 px контенту);
+ * выбор пользователя запоминается и дальше главнее автоматики.
+ */
+function readNavPreference(): boolean | null {
+  try {
+    const v = localStorage.getItem(NAV_KEY);
+    return v === 'rail' ? true : v === 'full' ? false : null;
+  } catch {
+    return null;
+  }
+}
 
 export function Layout() {
   const token = useAuthStore((state) => state.token);
   const [mobileOpened, { toggle, close }] = useDisclosure();
   const { pathname } = useLocation();
-  const reduced = useReducedMotion();
+  const reduced = useMotionOff();
+  const narrow = useMediaQuery('(max-width: 1399px)');
+  const [pref, setPref] = useState<boolean | null>(readNavPreference);
+  const collapsed = pref ?? !!narrow;
+
+  const toggleNav = useCallback(() => {
+    const next = !collapsed;
+    setPref(next);
+    try { localStorage.setItem(NAV_KEY, next ? 'rail' : 'full'); } catch { /* приватный режим */ }
+  }, [collapsed]);
+
+  // Ширина меню нужна и CSS (липкие панели инструментов считают отступ)
+  useEffect(() => {
+    document.documentElement.dataset.nav = collapsed ? 'rail' : 'full';
+  }, [collapsed]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -25,18 +59,22 @@ export function Layout() {
     // и тоже открывает карточку заказа
     <OrderCardProvider>
     <ReceiptCardProvider>
+    <AuroraCanvas />
     <AppShell
       header={{ height: 64 }}
-      navbar={{ width: 260, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
+      navbar={{ width: collapsed ? NAV_RAIL_WIDTH : NAV_WIDTH, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
       padding={{ base: 16, md: 24 }}
-      bg="var(--app-bg)"
+      bg="transparent"
+      transitionDuration={reduced ? 0 : 240}
+      transitionTimingFunction="cubic-bezier(0.25, 1, 0.5, 1)"
     >
-      <AppShell.Header withBorder={false} bg="var(--app-surface)" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
-        <TopBar onToggleMobile={toggle} />
+      <AppShell.Header withBorder={false}>
+        <TopBar onToggleMobile={toggle} navCollapsed={collapsed} onToggleNav={toggleNav} />
       </AppShell.Header>
 
-      <AppShell.Navbar p="md" bg="var(--app-surface)" withBorder>
-        <Sidebar onNavigate={close} />
+      <AppShell.Navbar p={collapsed ? 'xs' : 'md'} withBorder={false} style={{ transition: 'padding 240ms cubic-bezier(0.25, 1, 0.5, 1)' }}>
+        {/* На телефоне выезжающее меню всегда полное — иконки без подписей там не нужны */}
+        <Sidebar onNavigate={close} collapsed={collapsed && !mobileOpened} />
       </AppShell.Navbar>
 
       <AppShell.Main>

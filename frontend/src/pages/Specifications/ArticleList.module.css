@@ -1,0 +1,26 @@
+/* Строка списка изделий: подсветка при наведении и выбранная строка.
+   Цвета — те же, что были инлайном в index.tsx, только теперь с :hover
+   и фокусом с клавиатуры. */
+.row {
+  display: block;
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  outline: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.row:hover {
+  background: var(--gray-1);
+}
+
+.row:focus-visible {
+  border-color: var(--mantine-color-brand-4);
+}
+
+.row[data-active='true'],
+.row[data-active='true']:hover {
+  background: light-dark(var(--mantine-color-brand-0), rgba(90, 124, 255, 0.12));
+  border-color: light-dark(var(--mantine-color-brand-2), rgba(90, 124, 255, 0.35));
+}

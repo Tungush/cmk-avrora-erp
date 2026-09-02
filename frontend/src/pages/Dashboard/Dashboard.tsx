@@ -162,7 +162,7 @@ export function Dashboard() {
     return (
       <Stack gap="lg">
         <Skeleton height={160} radius="lg" />
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="lg">
           {[...Array(4)].map((_, i) => (
             <Skeleton key={i} height={140} radius="lg" />
           ))}
@@ -202,7 +202,7 @@ export function Dashboard() {
         </Text>
       </Group>
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="lg">
+      <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="lg">
         <KpiCard
           title="План производства"
           value={`${summary.productionPlanFact.actual} / ${summary.productionPlanFact.planned}`}

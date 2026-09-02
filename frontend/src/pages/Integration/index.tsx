@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  Card, Stack, Group, Text, Badge, Button, Table, Skeleton, Box, SimpleGrid,
+  Card, Stack, Group, Text, Badge, Button, Table, Skeleton, SimpleGrid,
   Alert, ActionIcon, Tooltip, Tabs,
 } from '@mantine/core';
 import {
@@ -10,6 +10,9 @@ import {
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { formatDateTime } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 interface IntegrationStatus {
   configured: boolean;
@@ -55,7 +58,7 @@ const STATUS_LABEL: Record<string, string> = {
 function StatusCounts({ title, counts }: { title: string; counts: Record<string, number> }) {
   const entries = Object.entries(counts);
   return (
-    <Card withBorder radius="md" padding="md">
+    <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
       <Text size="xs" c="dimmed" fw={600} tt="uppercase" mb="xs">{title}</Text>
       {entries.length === 0 ? (
         <Text size="sm" c="dimmed">Сообщений нет</Text>
@@ -72,60 +75,80 @@ function StatusCounts({ title, counts }: { title: string; counts: Record<string,
   );
 }
 
+/**
+ * Таблица журнала: сообщения приходят целиком одним массивом, поэтому
+ * страницы режем на клиенте. Кнопка «повторить» остаётся у каждой строки
+ * со статусом ошибки.
+ */
 function MessagesTable({ rows, onRetry }: { rows: Message[]; onRetry: (id: string) => void }) {
+  const [pageSize, setPageSize] = usePageSize('integration-journal', 25);
+  const { page, setPage, slice, total } = usePagedList(rows, pageSize);
+
   if (rows.length === 0) {
     return <Text size="sm" c="dimmed" ta="center" py="lg">Сообщений нет</Text>;
   }
   return (
-    <Box style={{ overflowX: 'auto' }}>
-      <Table highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Когда</Table.Th>
-            <Table.Th>Тип</Table.Th>
-            <Table.Th>Статус</Table.Th>
-            <Table.Th style={{ textAlign: 'right' }}>Попыток</Table.Th>
-            <Table.Th>Ошибка</Table.Th>
-            <Table.Th w={40} />
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {rows.map((m) => {
-            const err = m.lastError ?? m.error;
-            return (
-              <Table.Tr key={m.id}>
-                <Table.Td ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                  {formatDateTime(m.createdAt ?? m.receivedAt)}
-                </Table.Td>
-                <Table.Td><Text size="sm" ff="monospace">{m.type}</Text></Table.Td>
-                <Table.Td>
-                  <Badge variant="light" color={STATUS_COLOR[m.status] ?? 'gray'} size="sm">
-                    {STATUS_LABEL[m.status] ?? m.status}
-                  </Badge>
-                </Table.Td>
-                <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{m.attempts}</Table.Td>
-                <Table.Td>
-                  {err ? (
-                    <Text size="xs" c="danger.7" lineClamp={2}>{err}</Text>
-                  ) : (
-                    <Text size="xs" c="dimmed">—</Text>
-                  )}
-                </Table.Td>
-                <Table.Td>
-                  {(m.status === 'FAILED' || m.status === 'DEAD') && (
-                    <Tooltip label="Повторить доставку">
-                      <ActionIcon variant="subtle" size="sm" onClick={() => onRetry(m.id)}>
-                        <IconRefresh size={14} />
-                      </ActionIcon>
-                    </Tooltip>
-                  )}
-                </Table.Td>
+    <Stack gap="sm">
+      <FadeSwap swapKey={page}>
+        <TableScroll minWidth={860}>
+          <Table highlightOnHover>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Когда</Table.Th>
+                <Table.Th>Тип</Table.Th>
+                <Table.Th>Статус</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }}>Попыток</Table.Th>
+                <Table.Th>Ошибка</Table.Th>
+                <Table.Th w={56} />
               </Table.Tr>
-            );
-          })}
-        </Table.Tbody>
-      </Table>
-    </Box>
+            </Table.Thead>
+            <Table.Tbody>
+              {slice.map((m) => {
+                const err = m.lastError ?? m.error;
+                return (
+                  <Table.Tr key={m.id}>
+                    <Table.Td ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                      {formatDateTime(m.createdAt ?? m.receivedAt)}
+                    </Table.Td>
+                    <Table.Td><Text size="sm" ff="monospace">{m.type}</Text></Table.Td>
+                    <Table.Td>
+                      <Badge variant="light" color={STATUS_COLOR[m.status] ?? 'gray'}>
+                        {STATUS_LABEL[m.status] ?? m.status}
+                      </Badge>
+                    </Table.Td>
+                    <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{m.attempts}</Table.Td>
+                    <Table.Td style={{ minWidth: 240 }}>
+                      {err ? (
+                        <Text size="sm" c="danger.7" lineClamp={2}>{err}</Text>
+                      ) : (
+                        <Text size="sm" c="dimmed">—</Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td>
+                      {(m.status === 'FAILED' || m.status === 'DEAD') && (
+                        <Tooltip label="Повторить доставку">
+                          <ActionIcon variant="subtle" size="lg" aria-label="Повторить доставку" onClick={() => onRetry(m.id)}>
+                            <IconRefresh size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      )}
+                    </Table.Td>
+                  </Table.Tr>
+                );
+              })}
+            </Table.Tbody>
+          </Table>
+        </TableScroll>
+      </FadeSwap>
+      <PaginationBar
+        page={page}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="сообщений"
+      />
+    </Stack>
   );
 }
 
@@ -135,6 +158,7 @@ function MessagesTable({ rows, onRetry }: { rows: Message[]; onRetry: (id: strin
  */
 export function Integration() {
   const qc = useQueryClient();
+  const [tab, setTab] = useState<string>('out');
 
   const { data: status, isLoading: statusLoading } = useQuery({
     queryKey: ['integration-status'],
@@ -208,7 +232,7 @@ export function Integration() {
       {!status?.configured && (
         <Alert color="warning" radius="md" variant="light" icon={<IconPlugConnected size={17} />}>
           <Text size="sm" fw={600}>Адрес 1С не задан</Text>
-          <Text size="xs">
+          <Text size="sm">
             Исходящие сообщения копятся со статусом «Ждёт» и уйдут сразу после настройки
             <Text span ff="monospace"> INTEGRATION_1C_URL</Text>. Входящие вебхуки принимаются уже сейчас.
           </Text>
@@ -220,7 +244,7 @@ export function Integration() {
         <StatusCounts title="Входящие (1С → мы)" counts={status?.inbox ?? {}} />
       </SimpleGrid>
 
-      <Group gap="sm">
+      <Group gap="sm" wrap="wrap">
         <Button
           leftSection={<IconArrowUp size={16} />}
           onClick={() => flush.mutate()}
@@ -239,7 +263,7 @@ export function Integration() {
       </Group>
 
       <Card withBorder radius="md" padding="md">
-        <Tabs defaultValue="out" radius="md" keepMounted={false}>
+        <Tabs value={tab} onChange={(v) => setTab(v ?? 'out')} radius="md" keepMounted={false}>
           <Tabs.List mb="md">
             <Tabs.Tab value="out" leftSection={<IconArrowUp size={15} />}>
               Исходящие{messages?.outbox.length ? ` (${messages.outbox.length})` : ''}
@@ -248,12 +272,14 @@ export function Integration() {
               Входящие{messages?.inbox.length ? ` (${messages.inbox.length})` : ''}
             </Tabs.Tab>
           </Tabs.List>
-          <Tabs.Panel value="out">
-            <MessagesTable rows={messages?.outbox ?? []} onRetry={(id) => retry.mutate(id)} />
-          </Tabs.Panel>
-          <Tabs.Panel value="in">
-            <MessagesTable rows={messages?.inbox ?? []} onRetry={(id) => retry.mutate(id)} />
-          </Tabs.Panel>
+          <FadeSwap swapKey={tab}>
+            <Tabs.Panel value="out">
+              <MessagesTable rows={messages?.outbox ?? []} onRetry={(id) => retry.mutate(id)} />
+            </Tabs.Panel>
+            <Tabs.Panel value="in">
+              <MessagesTable rows={messages?.inbox ?? []} onRetry={(id) => retry.mutate(id)} />
+            </Tabs.Panel>
+          </FadeSwap>
         </Tabs>
       </Card>
 
@@ -263,15 +289,15 @@ export function Integration() {
           <Text fw={700} size="sm">Как подключить 1С</Text>
         </Group>
         <Stack gap={4}>
-          <Text size="xs" c="dimmed">
+          <Text size="sm" c="dimmed">
             1. Задать <Text span ff="monospace">INTEGRATION_1C_URL</Text> и{' '}
             <Text span ff="monospace">INTEGRATION_1C_SECRET</Text> в окружении сервиса.
           </Text>
-          <Text size="xs" c="dimmed">
+          <Text size="sm" c="dimmed">
             2. В 1С настроить отправку на <Text span ff="monospace">POST /api/v1/integrations/1c/webhook/&#123;тип&#125;</Text>{' '}
             с заголовком <Text span ff="monospace">X-Signature</Text> (HMAC-SHA256 тела на общем секрете).
           </Text>
-          <Text size="xs" c="dimmed">
+          <Text size="sm" c="dimmed">
             3. Типы: <Text span ff="monospace">nomenclature.created</Text>,{' '}
             <Text span ff="monospace">receipt.posted</Text>,{' '}
             <Text span ff="monospace">stock.snapshot</Text>. Каждое сообщение должно нести{' '}

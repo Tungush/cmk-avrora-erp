@@ -1,30 +1,25 @@
-import React, { useState } from 'react';
-import { Group, Text, ActionIcon, Badge, Box, Tooltip, UnstyledButton, Kbd } from '@mantine/core';
+import React from 'react';
+import { Group, Text, ActionIcon, Tooltip, UnstyledButton, Kbd } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { GlobalSearch, useGlobalSearchHotkey } from '../GlobalSearch';
-import { IconSearch, IconBell, IconLogout, IconMenu2, IconBaselineDensityMedium, IconBaselineDensitySmall } from '@tabler/icons-react';
+import {
+  IconSearch, IconBell, IconLogout, IconMenu2,
+  IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
+} from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
+import { HeaderPulse } from './HeaderPulse';
 import { notifications } from '@mantine/notifications';
 
 interface TopBarProps {
   onToggleMobile?: () => void;
+  navCollapsed?: boolean;
+  onToggleNav?: () => void;
 }
 
-export function TopBar({ onToggleMobile }: TopBarProps) {
+export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: TopBarProps) {
   const logout = useAuthStore((state) => state.logout);
   const [searchOpened, { open: openSearch, close: closeSearch }] = useDisclosure(false);
   useGlobalSearchHotkey(openSearch);
-  // Плотность (§4.1 п.3): «компактно» — таблицы в 40 строк для плановика
-  const [density, setDensity] = useState(
-    () => localStorage.getItem('ui-density') ?? 'normal',
-  );
-  const toggleDensity = () => {
-    const next = density === 'compact' ? 'normal' : 'compact';
-    setDensity(next);
-    localStorage.setItem('ui-density', next);
-    document.documentElement.dataset.density = next;
-  };
-
   const handleLogout = () => {
     logout();
     notifications.show({
@@ -48,6 +43,24 @@ export function TopBar({ onToggleMobile }: TopBarProps) {
         >
           <IconMenu2 size={20} />
         </ActionIcon>
+        {/* Свернуть меню в рейку иконок — на ноутбуке это +184 px таблицам */}
+        {onToggleNav && (
+          <Tooltip label={navCollapsed ? 'Развернуть меню' : 'Свернуть меню'} openDelay={300}>
+            <ActionIcon
+              variant="subtle"
+              color="gray"
+              size="lg"
+              onClick={onToggleNav}
+              visibleFrom="sm"
+              aria-label={navCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
+              aria-pressed={navCollapsed}
+            >
+              {navCollapsed
+                ? <IconLayoutSidebarLeftExpand size={20} stroke={1.8} />
+                : <IconLayoutSidebarLeftCollapse size={20} stroke={1.8} />}
+            </ActionIcon>
+          </Tooltip>
+        )}
         {/* Поле было TextInput без обработчика — обещало поиск и не делало
             ничего. Теперь это кнопка, открывающая общий поиск (Cmd/Ctrl+K) */}
         <UnstyledButton
@@ -70,43 +83,16 @@ export function TopBar({ onToggleMobile }: TopBarProps) {
               Заказ, заказчик, объект, материал…
             </Text>
             <Group gap={2} visibleFrom="sm">
-              <Kbd size="xs">⌘</Kbd><Kbd size="xs">K</Kbd>
+              <Kbd size="sm">⌘</Kbd><Kbd size="sm">K</Kbd>
             </Group>
           </Group>
         </UnstyledButton>
       </Group>
 
       <Group gap={8} wrap="nowrap">
-        <Tooltip label={density === 'compact' ? 'Обычная плотность' : 'Компактная плотность'}>
-          <ActionIcon
-            variant="subtle"
-            color="gray"
-            size="lg"
-            onClick={toggleDensity}
-            aria-label="Плотность интерфейса"
-          >
-            {density === 'compact'
-              ? <IconBaselineDensityMedium size={19} stroke={1.8} />
-              : <IconBaselineDensitySmall size={19} stroke={1.8} />}
-          </ActionIcon>
-        </Tooltip>
-        <Badge
-          color="success"
-          variant="light"
-          size="lg"
-          radius="xl"
-          leftSection={
-            <Box
-              w={6}
-              h={6}
-              bg="success.6"
-              style={{ borderRadius: 999 }}
-            />
-          }
-          display={{ base: 'none', md: 'inline-flex' }}
-        >
-          Онлайн
-        </Badge>
+        {/* Было «Онлайн» — значок, который горел всегда и ничего не значил.
+            Теперь здесь живые числа завода, каждое ведёт в свой раздел */}
+        <HeaderPulse />
         <ActionIcon
           variant="subtle"
           color="gray"

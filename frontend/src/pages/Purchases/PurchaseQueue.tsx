@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Stack, Group, Text, Card, Table, Badge, Skeleton, Button, Checkbox, Alert,
   ActionIcon, ThemeIcon, Divider,
@@ -11,7 +11,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { Collapse } from '../../components/motion';
+import { Collapse, FadeSwap, Stagger } from '../../components/motion';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { formatMoney, formatDate } from '../../utils/formatters';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -23,6 +25,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 /** Разворачиваем маленькие группы сразу; 43 строки — только по клику */
 const AUTO_EXPAND_LIMIT = 8;
+const EMPTY: never[] = [];
 
 interface QueueGroup {
   key: string;
@@ -73,7 +76,7 @@ export function PurchaseQueue() {
     }),
   });
 
-  const rows: any[] = data?.data ?? [];
+  const rows: any[] = data?.data ?? EMPTY;
   const drafts = rows.filter((r) => r.status === 'DRAFT');
   const selectedRows = drafts.filter((r) => selected.has(r.id));
   const selectedTotal = selectedRows.reduce(
@@ -82,18 +85,26 @@ export function PurchaseQueue() {
 
   // Группировка по заказу-источнику: 43 строки одного заказа плоским
   // списком нечитаемы, а выбирают их всё равно заказом целиком
-  const groups: QueueGroup[] = [];
-  const groupIdx = new Map<string, number>();
-  for (const r of rows) {
-    const key = r.order?.id ?? `note:${r.note ?? '—'}`;
-    let i = groupIdx.get(key);
-    if (i === undefined) {
-      i = groups.length;
-      groupIdx.set(key, i);
-      groups.push({ key, order: r.order ?? null, note: r.order ? null : (r.note ?? null), items: [] });
+  const groups = useMemo(() => {
+    const out: QueueGroup[] = [];
+    const groupIdx = new Map<string, number>();
+    for (const r of rows) {
+      const key = r.order?.id ?? `note:${r.note ?? '—'}`;
+      let i = groupIdx.get(key);
+      if (i === undefined) {
+        i = out.length;
+        groupIdx.set(key, i);
+        out.push({ key, order: r.order ?? null, note: r.order ? null : (r.note ?? null), items: [] });
+      }
+      out[i].items.push(r);
     }
-    groups[i].items.push(r);
-  }
+    return out;
+  }, [rows]);
+
+  // Карточек заказов может быть много — листаем по страницам; выбор
+  // хранится по id, поэтому переживает переход между страницами
+  const [pageSize, setPageSize] = usePageSize('purchase-queue', 25);
+  const { page, setPage, slice, total } = usePagedList(groups, pageSize);
 
   const toggle = (id: string) => setSelected((prev) => {
     const next = new Set(prev);
@@ -138,164 +149,187 @@ export function PurchaseQueue() {
       )}
 
       {drafts.length > 0 && (
-        <Card withBorder radius="md" padding="md">
-          <Group justify="space-between" wrap="wrap" gap="sm">
-            <Checkbox
-              checked={selected.size === drafts.length && drafts.length > 0}
-              indeterminate={selected.size > 0 && selected.size < drafts.length}
-              onChange={toggleAll}
-              label={
-                <Text size="sm">
-                  Выбрано <Text span fw={700} ff="monospace">{selected.size}</Text> из {drafts.length} позиций
-                  {selected.size > 0 && (
-                    <> на <Text span fw={700} ff="monospace">{formatMoney(selectedTotal)}</Text> (оценка)</>
-                  )}
-                </Text>
-              }
-            />
-            <Button
-              leftSection={<IconSend size={16} />}
-              disabled={selected.size === 0}
-              loading={send.isPending}
-              onClick={() => send.mutate([...selected])}
-            >
-              Отправить в Б24 одной заявкой
-            </Button>
-          </Group>
-        </Card>
+        <div className="toolbar-sticky">
+          <Card withBorder radius="md" padding="md">
+            <Group justify="space-between" wrap="wrap" gap="sm">
+              <Checkbox
+                size="md"
+                checked={selected.size === drafts.length && drafts.length > 0}
+                indeterminate={selected.size > 0 && selected.size < drafts.length}
+                onChange={toggleAll}
+                label={
+                  <Text size="sm">
+                    Выбрано <Text span fw={700} ff="monospace">{selected.size}</Text> из {drafts.length} позиций
+                    {selected.size > 0 && (
+                      <> на <Text span fw={700} ff="monospace">{formatMoney(selectedTotal)}</Text> (оценка)</>
+                    )}
+                  </Text>
+                }
+              />
+              <Button
+                leftSection={<IconSend size={16} />}
+                disabled={selected.size === 0}
+                loading={send.isPending}
+                onClick={() => send.mutate([...selected])}
+              >
+                Отправить в Б24 одной заявкой
+              </Button>
+            </Group>
+          </Card>
+        </div>
       )}
 
-      {groups.map((g) => {
-        const gDrafts = g.items.filter((r) => r.status === 'DRAFT');
-        const gSelected = gDrafts.filter((r) => selected.has(r.id)).length;
-        const gEstimate = g.items.reduce(
-          (s, r) => s + Number(r.requestedQty) * Number(r.estimatedPrice ?? 0), 0,
-        );
-        const noPrice = g.items.filter((r) => !(Number(r.estimatedPrice) > 0)).length;
-        const open = isOpen(g);
-        const created = g.items[0]?.createdAt;
+      <FadeSwap swapKey={page}>
+        <Stack gap="md">
+          <Stagger>
+            {slice.map((g) => {
+              const gDrafts = g.items.filter((r) => r.status === 'DRAFT');
+              const gSelected = gDrafts.filter((r) => selected.has(r.id)).length;
+              const gEstimate = g.items.reduce(
+                (s, r) => s + Number(r.requestedQty) * Number(r.estimatedPrice ?? 0), 0,
+              );
+              const noPrice = g.items.filter((r) => !(Number(r.estimatedPrice) > 0)).length;
+              const open = isOpen(g);
+              const created = g.items[0]?.createdAt;
 
-        return (
-          <Card key={g.key} withBorder radius="md" padding={0}>
-            {/* Шапка заказа: чекбокс берёт заказ целиком, состав — по клику */}
-            <Group
-              justify="space-between"
-              wrap="nowrap"
-              gap="sm"
-              px="md"
-              py="sm"
-              onClick={() => flip(g)}
-              style={{ cursor: 'pointer' }}
-            >
-              <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                {gDrafts.length > 0 ? (
-                  <Checkbox
-                    checked={gSelected === gDrafts.length && gDrafts.length > 0}
-                    indeterminate={gSelected > 0 && gSelected < gDrafts.length}
-                    onChange={() => toggleGroup(g.items)}
-                    onClick={(e) => e.stopPropagation()}
-                    size="md"
-                  />
-                ) : (
-                  <ThemeIcon variant="light" color="gray" radius="xl" size="md">
-                    <IconPackage size={14} />
-                  </ThemeIcon>
-                )}
-                <div style={{ minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
-                  {g.order
-                    ? <OrderRef id={g.order.id} number={g.order.orderNumber} size="sm" />
-                    : <Text size="sm" fw={700}>{g.note ?? 'Без заказа'}</Text>}
-                  <Text size="xs" c="dimmed" lineClamp={1}>
-                    {g.order?.customer?.name ?? (g.order ? '—' : 'ручные заявки')}
-                    {g.order?.plannedShipmentDate && ` · вывоз ${formatDate(g.order.plannedShipmentDate)}`}
-                  </Text>
-                </div>
-              </Group>
+              return (
+                <Card key={g.key} withBorder radius="md" padding={0}>
+                  {/* Шапка заказа: чекбокс берёт заказ целиком, состав — по клику */}
+                  <Group
+                    justify="space-between"
+                    wrap="nowrap"
+                    gap="sm"
+                    px="md"
+                    py="sm"
+                    onClick={() => flip(g)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+                      {gDrafts.length > 0 ? (
+                        <Checkbox
+                          checked={gSelected === gDrafts.length && gDrafts.length > 0}
+                          indeterminate={gSelected > 0 && gSelected < gDrafts.length}
+                          onChange={() => toggleGroup(g.items)}
+                          onClick={(e) => e.stopPropagation()}
+                          size="md"
+                        />
+                      ) : (
+                        <ThemeIcon variant="light" color="gray" radius="xl" size="md">
+                          <IconPackage size={14} />
+                        </ThemeIcon>
+                      )}
+                      <div style={{ minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
+                        {g.order
+                          ? <OrderRef id={g.order.id} number={g.order.orderNumber} size="sm" />
+                          : <Text size="sm" fw={700}>{g.note ?? 'Без заказа'}</Text>}
+                        <Text size="xs" c="dimmed" lineClamp={1}>
+                          {g.order?.customer?.name ?? (g.order ? '—' : 'ручные заявки')}
+                          {g.order?.plannedShipmentDate && ` · вывоз ${formatDate(g.order.plannedShipmentDate)}`}
+                        </Text>
+                      </div>
+                    </Group>
 
-              <Group gap="md" wrap="nowrap">
-                {gSelected > 0 && (
-                  <Badge variant="filled" radius="xl" size="sm">
-                    выбрано {gSelected}
-                  </Badge>
-                )}
-                <div style={{ textAlign: 'right' }}>
-                  <Text size="sm" fw={700} ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                    {gEstimate > 0 ? formatMoney(gEstimate) : '—'}
-                  </Text>
-                  <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                    {g.items.length} поз.
-                    {gDrafts.length > 0 && gDrafts.length < g.items.length
-                      ? ` · накоплено ${gDrafts.length}` : ''}
-                    {created ? ` · ${formatDate(created)}` : ''}
-                  </Text>
-                </div>
-                <ActionIcon
-                  variant="subtle"
-                  color="gray"
-                  component="div"
-                  aria-label={open ? 'Свернуть' : 'Развернуть'}
-                >
-                  {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
-                </ActionIcon>
-              </Group>
-            </Group>
-
-            <Collapse opened={open}>
-              <Divider />
-              <Table highlightOnHover verticalSpacing={6} fz="sm">
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th w={40} />
-                    <Table.Th>Материал</Table.Th>
-                    <Table.Th ta="right">Нужно</Table.Th>
-                    <Table.Th ta="right">Оценка</Table.Th>
-                    <Table.Th w={140}>Статус</Table.Th>
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {g.items.map((r) => (
-                    <Table.Tr key={r.id}>
-                      <Table.Td>
-                        {r.status === 'DRAFT' && (
-                          <Checkbox checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
-                        )}
-                      </Table.Td>
-                      <Table.Td>
-                        <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode}</Text>
-                        <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name}</Text>
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                        {Number(r.requestedQty).toLocaleString('ru-RU')} {r.unit ?? r.material?.unit ?? ''}
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                        {r.estimatedPrice
-                          ? formatMoney(Number(r.requestedQty) * Number(r.estimatedPrice))
-                          : '—'}
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge size="xs" variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
-                          {STATUS_LABELS[r.status] ?? r.status}
+                    <Group gap="md" wrap="nowrap">
+                      {gSelected > 0 && (
+                        <Badge variant="filled" radius="xl" size="lg">
+                          выбрано {gSelected}
                         </Badge>
-                        {r.bitrixDealId && (
-                          <Text size="xs" c="dimmed" ff="monospace">Б24 №{r.bitrixDealId}</Text>
-                        )}
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-              {noPrice > 0 && (
-                <Group gap={6} px="md" py={8} wrap="nowrap">
-                  <IconAlertTriangle size={13} style={{ color: 'var(--mantine-color-orange-6)', flexShrink: 0 }} />
-                  <Text size="xs" c="dimmed">
-                    У {noPrice} позиций нет закупочной цены — оценка заказа занижена
-                  </Text>
-                </Group>
-              )}
-            </Collapse>
-          </Card>
-        );
-      })}
+                      )}
+                      <div style={{ textAlign: 'right' }}>
+                        <Text size="sm" fw={700} ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                          {gEstimate > 0 ? formatMoney(gEstimate) : '—'}
+                        </Text>
+                        <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                          {g.items.length} поз.
+                          {gDrafts.length > 0 && gDrafts.length < g.items.length
+                            ? ` · накоплено ${gDrafts.length}` : ''}
+                          {created ? ` · ${formatDate(created)}` : ''}
+                        </Text>
+                      </div>
+                      <ActionIcon
+                        variant="subtle"
+                        color="gray"
+                        component="div"
+                        aria-label={open ? 'Свернуть' : 'Развернуть'}
+                      >
+                        {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                      </ActionIcon>
+                    </Group>
+                  </Group>
+
+                  <Collapse opened={open}>
+                    <Divider />
+                    <TableScroll minWidth={640} stickyFirstColumn={false}>
+                      <Table highlightOnHover verticalSpacing={6}>
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th w={44} />
+                            <Table.Th>Материал</Table.Th>
+                            <Table.Th ta="right">Нужно</Table.Th>
+                            <Table.Th ta="right">Оценка</Table.Th>
+                            <Table.Th w={160}>Статус</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {g.items.map((r) => (
+                            <Table.Tr key={r.id}>
+                              <Table.Td>
+                                {r.status === 'DRAFT' && (
+                                  <Checkbox checked={selected.has(r.id)} onChange={() => toggle(r.id)} />
+                                )}
+                              </Table.Td>
+                              <Table.Td>
+                                <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode}</Text>
+                                <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name}</Text>
+                              </Table.Td>
+                              <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                                {Number(r.requestedQty).toLocaleString('ru-RU')} {r.unit ?? r.material?.unit ?? ''}
+                              </Table.Td>
+                              <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                                {r.estimatedPrice
+                                  ? formatMoney(Number(r.requestedQty) * Number(r.estimatedPrice))
+                                  : '—'}
+                              </Table.Td>
+                              <Table.Td>
+                                <Badge variant="light" color={STATUS_COLORS[r.status] ?? 'gray'}>
+                                  {STATUS_LABELS[r.status] ?? r.status}
+                                </Badge>
+                                {r.bitrixDealId && (
+                                  <Text size="xs" c="dimmed" ff="monospace">Б24 №{r.bitrixDealId}</Text>
+                                )}
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    </TableScroll>
+                    {noPrice > 0 && (
+                      <Group gap={6} px="md" py={8} wrap="nowrap">
+                        <IconAlertTriangle size={14} style={{ color: 'var(--mantine-color-orange-6)', flexShrink: 0 }} />
+                        <Text size="xs" c="dimmed">
+                          У {noPrice} позиций нет закупочной цены — оценка заказа занижена
+                        </Text>
+                      </Group>
+                    )}
+                  </Collapse>
+                </Card>
+              );
+            })}
+          </Stagger>
+        </Stack>
+      </FadeSwap>
+
+      {groups.length > 0 && (
+        <PaginationBar
+          page={page}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          noun="заказов"
+          sticky
+        />
+      )}
     </Stack>
   );
 }

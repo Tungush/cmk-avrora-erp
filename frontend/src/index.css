@@ -51,21 +51,24 @@ h1, h2, h3, h4, h5, h6, p {
 
 :root {
   /* Нейтральные — тёплый графит на бумаге, без синевы */
-  --gray-0: #FAF9F7; --gray-1: #F2F1ED; --gray-2: #E7E5DF; --gray-3: #D7D4CC;
-  --gray-5: #8A867B; --gray-6: #6B675D; --gray-7: #504D45; --gray-9: #1E1D19;
+  --gray-0: #FAFBFA; --gray-1: #F7F8F7; --gray-2: #E8E9E7; --gray-3: #D9DBD9;
+  --gray-5: #A8ADA9; --gray-6: #888E89; --gray-7: #5C625E; --gray-9: #070A08;
 
   /* Акцент — раскалённый металл: единственный насыщенный цвет системы */
-  --brand-6: #D9480F; --brand-7: #B93B0B; --brand-0: #FDF1E8;
+  --brand-6: #FD6941; --brand-7: #E24E27; --brand-0: #FFF0EC;
 
   /* Статусы — чернильные, не спорят с акцентом */
-  --ok-6: #2B8A57;   --ok-0: #EAF6EE;
-  --warn-6: #96700A; --warn-0: #FBF4DE;
-  --err-6: #C92A2A;  --err-0: #FBEBEA;
+  --ok-6: #1FA847;   --ok-0: #EAFBEF;
+  --warn-6: #C88A05; --warn-0: #FEF6E4;
+  --err-6: #E24E27;  --err-0: #FFF0EC;
   --info-6: #0891B2; --info-0: #E6F6FA;
 
-  /* Поверхности: тёплая бумага, глубина светлотой, а не тенями */
-  --app-bg: #F5F4F0;
+  /* Поверхности (референс 02.09.2026): светлый холст, белые карточки,
+     глубина — мягкой тенью, а не рамками */
+  --app-bg: #F4F4F1;
   --app-surface: #FFFFFF;
+  --ink: #1B1A17;
+  --pill-dark: #1E1D19;
 
   /* Палитра графиков — валидирована (CVD + контраст) для светлой поверхности */
   --chart-cat1: #D9480F; --chart-cat2: #0891B2;
@@ -74,22 +77,25 @@ h1, h2, h3, h4, h5, h6, p {
   --chart-tick: #6B675D;
 
   /* Типографика: 6 размеров, больше не нужно */
-  --fz-xs: 11px;  /* подписи, метки колонок */
-  --fz-sm: 13px;  /* таблицы, вспомогательный текст */
-  --fz-md: 14px;  /* основной */
-  --fz-lg: 16px;  /* заголовки карточек */
-  --fz-xl: 20px;  /* заголовки разделов */
-  --fz-2xl: 28px; /* KPI-числа */
+  /* 02.09.2026: шаг вверх — 11/13 px в таблицах читались с трудом,
+     а таблицы здесь читают весь день. Ничего мельче 12 px. */
+  --fz-xs: 12px;  /* подписи, метки колонок */
+  --fz-sm: 14px;  /* таблицы, вспомогательный текст */
+  --fz-md: 15px;  /* основной */
+  --fz-lg: 17px;  /* заголовки карточек */
+  --fz-xl: 22px;  /* заголовки разделов */
+  --fz-2xl: 30px; /* KPI-числа */
 
   /* Числа — моноширинный с табличными цифрами */
   --ff-num: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+  --pill-dark: #070A08;
 
-  --r-sm: 6px; --r-md: 8px; --r-lg: 12px; --r-full: 999px;
+  --r-sm: 8px; --r-md: 14px; --r-lg: 18px; --r-xl: 24px; --r-full: 999px;
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
 
-  /* Тени — две, и обе едва заметные */
-  --sh-sm: 0 1px 2px rgba(16, 24, 40, .05);
-  --sh-md: 0 4px 12px rgba(16, 24, 40, .08);
+  /* Тени — карточка в покое чуть отделена от холста, в движении — заметнее */
+  --sh-sm: 0 1px 2px rgba(20, 20, 18, .04), 0 4px 14px rgba(20, 20, 18, .05);
+  --sh-md: 0 2px 4px rgba(20, 20, 18, .04), 0 10px 28px rgba(20, 20, 18, .07);
 }
 
 /* ---------------------------------------------------------------
@@ -103,21 +109,21 @@ h1, h2, h3, h4, h5, h6, p {
 }
 
 .mantine-Table-th {
-  padding: 7px 10px !important;
+  padding: 9px 12px !important;
   font-size: var(--fz-xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--gray-6);
+  color: var(--gray-5);
   white-space: nowrap;
-  background: var(--gray-0);
+  background: var(--app-surface);
   border-bottom: 1px solid var(--gray-2) !important;
 }
 
 .mantine-Table-td {
-  padding: 6px 10px !important;
+  padding: 11px 12px !important;
   font-size: var(--fz-sm);
-  line-height: 1.35;
+  line-height: 1.4;
   border-bottom: 1px solid var(--gray-1) !important;
   /* Строка таблицы — всегда одной высоты: перенос внутри слова
      превращает столбец в рваный текст и мешает сравнивать значения */
@@ -149,6 +155,10 @@ h1, h2, h3, h4, h5, h6, p {
 .mantine-Table-tbody .mantine-Table-tr:hover > .mantine-Table-td {
   background: var(--gray-0);
 }
+/* Последняя строка без линии — карточка закрывается чисто */
+.mantine-Table-tbody .mantine-Table-tr:last-child > .mantine-Table-td {
+  border-bottom-color: transparent !important;
+}
 
 /* Второстепенная строка в ячейке (название под кодом) не должна
    раздувать высоту — она мельче и притушена */
@@ -158,9 +168,9 @@ h1, h2, h3, h4, h5, h6, p {
 
 /* Бейджи внутри таблиц — компактные, без «таблеток» */
 .mantine-Table-td .mantine-Badge-root {
-  height: 20px;
-  padding: 0 7px;
-  font-size: 11px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
   font-weight: 600;
   border-radius: var(--r-sm);
 }
@@ -171,7 +181,7 @@ h1, h2, h3, h4, h5, h6, p {
   border-collapse: collapse;
 }
 .shop-floor-table th {
-  padding: 7px 10px;
+  padding: 9px 12px;
   font-size: var(--fz-xs);
   font-weight: 600;
   text-transform: uppercase;
@@ -183,7 +193,8 @@ h1, h2, h3, h4, h5, h6, p {
   border-bottom: 1px solid var(--gray-2);
 }
 .shop-floor-table td {
-  padding: 6px 10px;
+  padding: 8px 12px;
+  font-size: var(--fz-sm);
   border-bottom: 1px solid var(--gray-1);
   vertical-align: middle;
 }
@@ -200,9 +211,9 @@ h1, h2, h3, h4, h5, h6, p {
 [data-density='compact'] .mantine-Table-th,
 [data-density='compact'] .shop-floor-table td,
 [data-density='compact'] .shop-floor-table th {
-  padding-top: 3px !important;
-  padding-bottom: 3px !important;
-  font-size: var(--fz-xs);
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+  font-size: 13px;
 }
 
 [data-density='compact'] .mantine-Card-root {
@@ -455,18 +466,11 @@ textarea.input-field {
   border-radius: 50%;
 }
 
-/* KPI: тёплая засветка в верхнем углу — свет от акцента */
+/* KPI: чистая белая плитка (референс 02.09.2026); засветка в углу снята —
+   на четырёх плитках в ряд она читалась как пятна */
 .kpi-glow {
   position: relative;
   overflow: hidden;
-}
-.kpi-glow::before {
-  content: '';
-  position: absolute;
-  top: -60px; right: -60px;
-  width: 180px; height: 180px;
-  background: radial-gradient(circle, color-mix(in srgb, var(--brand-6) 7%, transparent), transparent 70%);
-  pointer-events: none;
 }
 
 /* Логин: северное сияние из раскалённого металла — медленное, живое */
@@ -507,3 +511,250 @@ textarea.input-field {
 .nav-item { transition: background-color 0.15s var(--ease-out); }
 .nav-item:hover { background: var(--gray-1); }
 .nav-item:active { transform: scale(0.98); }
+
+
+/* ---------------------------------------------------------------
+   Широкие таблицы (решение 02.09.2026): страница не прокручивается
+   вбок никогда — тянется только .table-scroll. Тени на краях говорят,
+   что справа/слева есть ещё колонки; первая колонка закреплена.
+   --------------------------------------------------------------- */
+
+.table-scroll {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+  border-radius: inherit;
+}
+.table-scroll > table,
+.table-scroll .mantine-Table-table {
+  min-width: var(--table-min-width, 0);
+}
+.table-scroll::before,
+.table-scroll::after {
+  content: '';
+  position: sticky;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.table-scroll[data-shadow-left='true']::before {
+  left: 0;
+  box-shadow: 18px 0 18px -12px rgba(30, 29, 25, 0.16);
+  float: left;
+  height: 100%;
+}
+.table-scroll[data-shadow-right='true']::after {
+  right: 0;
+  box-shadow: -18px 0 18px -12px rgba(30, 29, 25, 0.16);
+  float: right;
+  height: 100%;
+}
+/* Шапка прилипает при вертикальной прокрутке внутри обёртки */
+.table-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.table-scroll[data-sticky-first='true'] th:first-child,
+.table-scroll[data-sticky-first='true'] td:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--app-surface);
+  box-shadow: inset -1px 0 0 var(--gray-2);
+}
+.table-scroll[data-sticky-first='true'] thead th:first-child {
+  z-index: 4;
+  background: var(--gray-0);
+}
+.table-scroll[data-sticky-first='true'] tbody tr:hover td:first-child {
+  background: var(--gray-0);
+}
+
+/* Колонки по приоритету: 2 прячется до 1000 px, 3 — до 1200 px
+   (с рейкой меню на 1280-ноутбуке контенту достаётся ~1180 px — семь
+   колонок помещаются). Всё скрытое остаётся в карточке по клику. */
+@media (max-width: 1000px) {
+  .mantine-Table-th[data-priority='2'], .mantine-Table-td[data-priority='2'] { display: none; }
+}
+@media (max-width: 1200px) {
+  .mantine-Table-th[data-priority='3'], .mantine-Table-td[data-priority='3'] { display: none; }
+}
+
+/* Панель фильтров и пагинация прилипают, чтобы не скроллить к ним */
+.toolbar-sticky {
+  position: sticky;
+  top: 64px;
+  z-index: 5;
+  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  margin: 0 -8px;
+  padding: 8px 8px;
+  border-radius: var(--r-md);
+}
+.pagination-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  background: color-mix(in srgb, var(--app-bg) 90%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+  border-top: 1px solid var(--gray-2);
+}
+
+/* KPI-карточка не имеет права быть шире своей ячейки */
+.kpi-glow { min-width: 0; overflow: hidden; }
+
+/* Рейка меню: подсветка иконки при наведении */
+[data-nav='rail'] .nav-item:hover { background: var(--gray-1); }
+
+/* Кликабельные строки: курсор и мягкий ховер */
+.mantine-Table-tr[data-clickable] { cursor: pointer; }
+
+
+/* ---------------------------------------------------------------
+   Референс 02.09.2026 (Behance «ERP UI – POS & Restaurant Operations»):
+   светлый холст, белые скруглённые карточки без рамок, пилюли, чёрная
+   активная пилюля в меню, KPI с иконкой в мягком квадрате, градиентные
+   прогресс-бары. Цвет бренда остаётся — раскалённый металл.
+   --------------------------------------------------------------- */
+
+/* Карточки: рамки нет, глубина — тенью; hover-подъём остаётся для кликабельных */
+.mantine-Card-root {
+  border: 1px solid transparent;
+  box-shadow: var(--sh-sm);
+}
+.mantine-Card-root .mantine-Card-root {
+  /* Вложенная карточка — плоская, чтобы не было «тень в тени» */
+  box-shadow: none;
+  border-color: var(--gray-2);
+}
+.mantine-Paper-root[data-with-border] { border-color: var(--gray-2); }
+
+/* Меню: активный пункт — чёрная пилюля с белой иконкой и подписью */
+.nav-item { transition: background-color .15s var(--ease-out); }
+.nav-item:hover { background: var(--gray-1); }
+.nav-item[aria-current='page'] { color: #fff; }
+.nav-item[aria-current='page'] .mantine-Text-root { color: #fff !important; }
+.nav-item[aria-current='page'] svg { color: #fff !important; }
+
+/* Шапка: белая, без стекла — как в референсе */
+.mantine-AppShell-header {
+  background: var(--app-surface) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--gray-2) !important;
+}
+.mantine-AppShell-navbar { border-right: 1px solid var(--gray-2) !important; }
+
+/* Поля ввода и селекты: мягкая заливка вместо жёсткой рамки */
+.mantine-TextInput-input, .mantine-NumberInput-input, .mantine-Select-input,
+.mantine-Textarea-input, .mantine-DateInput-input, .mantine-DatePickerInput-input {
+  background: var(--gray-0);
+  border-color: var(--gray-2);
+  transition: border-color .15s var(--ease-out), background-color .15s var(--ease-out), box-shadow .15s var(--ease-out);
+}
+.mantine-TextInput-input:focus, .mantine-NumberInput-input:focus, .mantine-Select-input:focus,
+.mantine-Textarea-input:focus {
+  background: #fff;
+  border-color: var(--brand-6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-6) 14%, transparent);
+}
+
+/* Сегменты и вкладки-пилюли: серая дорожка, белая активная пилюля с тенью */
+.mantine-SegmentedControl-root {
+  background: var(--gray-1);
+  padding: 4px;
+}
+.mantine-SegmentedControl-indicator {
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(20,20,18,.06), 0 3px 8px rgba(20,20,18,.08);
+}
+.mantine-SegmentedControl-label { font-weight: 600; }
+.mantine-Tabs-list[data-variant='pills'] {
+  background: var(--gray-1);
+  padding: 4px;
+  border-radius: var(--r-full);
+  width: fit-content;
+  gap: 2px;
+}
+.mantine-Tabs-tab[data-variant='pills'] { font-weight: 600; border-radius: var(--r-full); }
+.mantine-Tabs-tab[data-variant='pills'][data-active] {
+  background: var(--pill-dark);
+  color: #fff;
+}
+.mantine-Tabs-tab[data-variant='pills']:not([data-active]):hover { background: var(--gray-2); }
+
+/* Прогресс: жёлто-оранжевый градиент, как «Today Order Complete» */
+.mantine-Progress-section[data-gradient] ,
+.mantine-Progress-section:not([style*='background']) {
+  background: linear-gradient(90deg, #F5C542 0%, var(--brand-5) 100%);
+}
+.mantine-Progress-root { background: var(--gray-1); }
+
+/* Бейджи-статусы: пилюли с мягкой заливкой, без рамок */
+.mantine-Badge-root { text-transform: none; letter-spacing: 0; }
+.mantine-Badge-root[data-variant='light'] { border: none; }
+
+/* KPI-плитка */
+.kpi-icon {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  border-radius: 14px;
+  background: var(--gray-1);
+  color: var(--ink);
+  flex-shrink: 0;
+}
+.kpi-value {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: keep-all;
+}
+
+/* Пагинация: активная страница — чёрная пилюля */
+.mantine-Pagination-control[data-active] {
+  background: var(--pill-dark) !important;
+  border-color: var(--pill-dark) !important;
+  color: #fff !important;
+}
+.mantine-Pagination-control { border-color: var(--gray-2); font-weight: 600; }
+
+/* Скелетоны в цвете холста */
+.mantine-Skeleton-root::after { background: var(--gray-1); }
+
+/* Рамка у карточек не нужна, даже если страница просит withBorder —
+   глубина даётся тенью; вложенные карточки остаются плоскими с тонкой рамкой */
+.mantine-Card-root[data-with-border] {
+  border-color: transparent;
+  box-shadow: var(--sh-sm);
+}
+.mantine-Card-root .mantine-Card-root[data-with-border],
+.mantine-Card-root .mantine-Card-root {
+  border-color: var(--gray-2);
+  box-shadow: none;
+}
+
+/* Анимации выключены (кнопка в шапке / prefers-reduced-motion): CSS-переходы тоже гасим */
+[data-motion='off'] *, [data-motion='off'] *::before, [data-motion='off'] *::after {
+  transition-duration: 0.01ms !important;
+  animation-duration: 0.01ms !important;
+}
+
+/* Бейджи: ничего мельче 12 px, даже если страница просит size="xs"/"sm" —
+   max() поверх переменных Mantine, инлайновые vars так не перебить иначе */
+.mantine-Badge-root { height: max(var(--badge-height), 24px); }
+.mantine-Badge-label { font-size: max(var(--badge-fz), 12px); }

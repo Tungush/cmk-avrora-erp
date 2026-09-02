@@ -1,808 +1,78 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import React, { useMemo, useState } from 'react';
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import {
-  Card, Stack, Group, Text, Badge, Skeleton, TextInput, Button, Drawer, Alert,
-  NumberInput, Select, Switch, Divider, ThemeIcon, ActionIcon, Progress, Box,
-  SegmentedControl, Modal, Table,
+  Card, Group, Text, Skeleton, TextInput, Button, ActionIcon, Tooltip, Loader, Stack,
 } from '@mantine/core';
 import {
-  IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots, IconRuler2,
-  IconChevronRight,
+  IconSearch, IconCheck, IconArrowBackUp, IconRuler2, IconDots, IconTruck,
+  IconClock, IconAlertTriangle, IconTool, IconChecks,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { ordersApi } from '../../api/orders';
 import { useAuthStore } from '../../store/auth';
+import { FadeSwap } from '../../components/motion';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { PulseRow } from '../../components/SectionHeader';
+import { FitScreen, useFitRows, usePageKeys, ROW_H } from '../../components/FitScreen';
+import { MastLoader } from '../../components/Mast';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { Stagger } from '../../components/motion';
-import { formatDate, plural } from '../../utils/formatters';
-
-interface ProductRow {
-  id: string;
-  lineNo: number;
-  isDuplicateCode: boolean;
-  articleId: string | null;
-  /** Нет состава — изготовление записать нельзя: списывать нечего */
-  missingBom: boolean;
-  /** Нет норм труда — себестоимость труда встанет в ноль */
-  missingNorms: boolean;
-  articleCode: string;
-  articleName: string;
-  /** Объект/БС — мастер видит, для какой площадки изделие */
-  siteCode: string | null;
-  qty: number;
-  unit: string;
-  status: string;
-  normHours: number;
-  actualHours: number | null;
-  contractors: Array<{ name: string; sharePct: number; isAccepted: boolean }>;
-}
-interface ShopFloorOrder {
-  id: string;
-  orderNumber: string;
-  customerName: string | null;
-  status: string;
-  plannedShipmentDate: string | null;
-  overdueDays: number;
-  products: ProductRow[];
-  doneCount: number;
-  totalProducts: number;
-  blockedCount: number;
-  resaleCount: number;
-}
-interface OpenRequest {
-  id: string;
-  number: string;
-  routingStage: string;
-  description: string;
-  contractorName: string | null;
-  rateType: string;
-  unit: string;
-  allocatedQty: number;
-  targetQty: number | null;
-  remainingQty: number | null;
-  isAccepted: boolean;
-}
-interface ShopFloorResponse {
-  orders: ShopFloorOrder[];
-  total: number;
-  totalProducts: number;
-  doneProducts: number;
-  waitingProducts: number;
-  /** Изделия без спецификации — отметить нельзя, пока её не заведут */
-  blockedProducts: number;
-  /** Заявки на подряд, ждущие разнесения. К заказу заранее не привязаны —
-      мастер сам говорит, сколько из партии ушло на этот заказ */
-  openRequests: OpenRequest[];
-}
-
-/** Вид работ в подписи заявки: мастер его не выбирает, но узнать должен */
-const STAGE_SHORT: Record<string, string> = {
-  CUTTING: 'резка', ASSEMBLY: 'сборка', PAINTING: 'покраска',
-};
-
-const RATE_TYPE_LABELS: Record<string, string> = {
-  PER_HOUR: 'за час', PER_UNIT: 'за штуку', PER_KG: 'за кг',
-  PER_TON: 'за тонну', FIXED: 'фиксированная',
-};
+import { formatDate } from '../../utils/formatters';
+import type { ShopFloorOrder, ShopFloorResponse, ProductRow, MarkVars } from './shopfloor/types';
+import { DetailsSheet } from './shopfloor/DetailsSheet';
 
 /**
- * Отклонения по изделию — часы по факту и «делал не наш цех» (26.08.2026).
- * За «⋯», а не на главном пути: обычный случай — один тап «Изготовлено»,
- * а «не ввёл часы» означает «как по норме», а не пропуск данных.
- */
-function DetailsSheet({
-  order, product, requests, opened, onClose,
-}: {
-  order: ShopFloorOrder | null;
-  product: ProductRow | null;
-  requests: OpenRequest[];
-  opened: boolean;
-  onClose: () => void;
-}) {
-  const qc = useQueryClient();
-  const [hours, setHours] = useState<number | string>('');
-  const [outsourced, setOutsourced] = useState(false);
-  // Главный случай — «по заявке»: работа уже отдана партией, мастер лишь
-  // говорит, сколько из неё ушло на этот заказ. Разовый подряд остаётся
-  // вторым вариантом для «договорились на месте»
-  const [mode, setMode] = useState<'request' | 'adhoc'>('request');
-  const [requestId, setRequestId] = useState<string | null>(null);
-  const [reqQty, setReqQty] = useState<number | string>('');
-  const [contractorId, setContractorId] = useState<string | null>(null);
-  const [rate, setRate] = useState<number | string>('');
-  const [rateType, setRateType] = useState<string>('PER_UNIT');
-  const [atOurShop, setAtOurShop] = useState(false);
-
-  const { data: contractors } = useQuery({
-    queryKey: ['contractors'],
-    queryFn: () => ordersApi.contractors().then((r) => r.data),
-    enabled: opened && outsourced && mode === 'adhoc',
-  });
-
-  const chosen = requests.find((r) => r.id === requestId) ?? null;
-
-  const save = useMutation({
-    mutationFn: async () => {
-      if (!order || !product) return null;
-      let allocated: any = null;
-      // Подряд заводится ДО отметки: иначе вид работ на миг окажется
-      // полностью штатным и себестоимость дрогнет
-      if (outsourced && mode === 'request') {
-        // Молча пропустить нельзя: мастер увидел бы зелёное «Изготовлено»
-        // и был уверен, что работа записана на подрядчика
-        if (!requestId) throw new Error('Выберите заявку на подряд или переключитесь на «разово»');
-        if (!(Number(reqQty) > 0)) throw new Error('Укажите, сколько из заявки ушло на этот заказ');
-        const r = await api.post(`/contractor-requests/${requestId}/allocate`, {
-          orderId: order.id,
-          qty: Number(reqQty),
-        });
-        allocated = r.data;
-      } else if (outsourced) {
-        if (!contractorId) throw new Error('Выберите подрядчика или выключите «Делал не наш цех»');
-        if (!(Number(rate) > 0)) throw new Error('Укажите ставку подрядчика — иначе работа встанет в 0 ₸');
-        // Цех больше не выбирает операцию, а деньгам подрядчика нужен адрес
-        // в расчёте — пишем на сборку, самый ёмкий вид работ
-        await ordersApi.assignContractor(order.id, 'ASSEMBLY', {
-          contractorId,
-          share: 1,
-          rate: Number(rate),
-          rateType,
-          workLocation: atOurShop ? 'OUR_SHOP' : 'CONTRACTOR_SITE',
-          ...(atOurShop && rateType !== 'PER_HOUR' && product.normHours > 0
-            ? { plannedHours: product.normHours }
-            : {}),
-        });
-      }
-      const res = await ordersApi.updateStage(order.id, 'PRODUCTION', {
-        status: 'done',
-        orderLineId: product.id,
-        ...(Number(hours) > 0 ? { actualHours: Number(hours) } : {}),
-      });
-      return { stage: res.data, allocated };
-    },
-    onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ['shop-floor'] });
-      const a = res?.allocated;
-      notifications.show({
-        title: 'Изготовлено',
-        // Подтверждение словами: мастер должен видеть последствие, а не
-        // просто галочку — «штат по этим работам больше не считается»
-        message: a
-          ? `Записано: ${a.qty} ${a.unit} из ${chosen?.number ?? 'заявки'} на заказ ${a.orderNumber}.`
-            + ` Штат по «${a.stageLabel}» на этом заказе больше не считается.`
-            + (a.recalculatedRows > 1 ? ` Пересчитано разнесение по ${a.recalculatedRows} заказам.` : '')
-          : product?.articleName ?? '',
-        color: 'success',
-        icon: <IconCheck size={16} />,
-        autoClose: a ? 9000 : 4000,
-      });
-      onClose();
-      setHours(''); setOutsourced(false); setContractorId(null); setRate('');
-      setRequestId(null); setReqQty('');
-    },
-    onError: (e: any) => notifications.show({
-      title: 'Не сохранено',
-      message: e?.response?.data?.error?.message ?? e?.message ?? 'Ошибка',
-      color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
-    }),
-  });
-
-  if (!order || !product) return null;
-  const normText = product.normHours > 0 ? `${product.normHours} ч по норме` : 'нормы не заведены';
-
-  return (
-    <Drawer
-      opened={opened}
-      onClose={onClose}
-      position="bottom"
-      size="auto"
-      padding="md"
-      title={<Text fw={700}>{product.articleName}</Text>}
-    >
-      <Stack gap="md" pb="md">
-        <Text size="sm" c="dimmed">
-          {order.orderNumber} · {product.articleCode} · {product.qty.toLocaleString('ru-RU')} {product.unit}
-        </Text>
-
-        <Button
-          size="xl"
-          leftSection={<IconCheck size={22} />}
-          loading={save.isPending}
-          onClick={() => save.mutate()}
-          fullWidth
-        >
-          Изготовлено
-        </Button>
-        <Text size="xs" c="dimmed" ta="center">
-          Часы можно не вводить — тогда считается по спецификации ({normText})
-        </Text>
-
-        <Divider label="если было иначе" labelPosition="center" />
-
-        <NumberInput
-          label="Часов по факту"
-          description={normText}
-          placeholder={product.normHours > 0 ? String(product.normHours) : 'сколько вышло'}
-          value={hours}
-          onChange={setHours}
-          min={0}
-          decimalScale={1}
-          size="md"
-        />
-
-        <Switch
-          size="md"
-          label="Делал не наш цех"
-          description="подряд возьмёт работу на себя, штатные часы уменьшатся"
-          checked={outsourced}
-          onChange={(e) => setOutsourced(e.currentTarget.checked)}
-        />
-
-        {outsourced && (
-          <Card withBorder radius="md" padding="sm" bg="var(--mantine-color-default-hover)">
-            <Stack gap="sm">
-              <SegmentedControl
-                fullWidth
-                size="md"
-                value={mode}
-                onChange={(v) => setMode(v as 'request' | 'adhoc')}
-                data={[
-                  { value: 'request', label: 'По заявке на подряд' },
-                  { value: 'adhoc', label: 'Разово' },
-                ]}
-              />
-
-              {mode === 'request' ? (
-                requests.length === 0 ? (
-                  <Alert color="gray" variant="light" p="xs" radius="md">
-                    <Text size="sm">
-                      Открытых заявок нет. Заявка заводится на экране «Подряд» — там же
-                      её отправляют в Б24. Если работу отдали без заявки, выберите «Разово».
-                    </Text>
-                  </Alert>
-                ) : (
-                  <>
-                    <Select
-                      label="Заявка на подряд"
-                      placeholder="выберите"
-                      size="md"
-                      searchable
-                      data={requests.map((r) => ({
-                        value: r.id,
-                        label: `${r.number} · ${STAGE_SHORT[r.routingStage] ?? r.routingStage}`
-                          + ` · ${r.contractorName ?? 'подрядчик не выбран'}`,
-                      }))}
-                      value={requestId}
-                      onChange={setRequestId}
-                    />
-                    {chosen && (
-                      <Text size="sm" c="dimmed">
-                        {chosen.description}
-                        {chosen.remainingQty != null && (
-                          <> · осталось разнести <Text span fw={700} ff="monospace">
-                            {chosen.remainingQty} {chosen.unit}
-                          </Text>{chosen.targetQty != null ? ` из ${chosen.targetQty}` : ''}</>
-                        )}
-                      </Text>
-                    )}
-                    {/* Мастер вводит одно число. Ставок и сумм ему не показываем
-                        вовсе: деньги — на экране «Подряд», у того, кто их платит */}
-                    <NumberInput
-                      label={`Сколько ушло на этот заказ${chosen ? ` (${chosen.unit})` : ''}`}
-                      value={reqQty}
-                      onChange={setReqQty}
-                      min={0}
-                      decimalScale={3}
-                      size="md"
-                      max={chosen?.remainingQty ?? undefined}
-                    />
-                  </>
-                )
-              ) : (
-                <>
-                  <Select
-                    label="Подрядчик"
-                    placeholder="выберите"
-                    data={(contractors ?? []).map((c: any) => ({ value: c.id, label: c.name }))}
-                    value={contractorId}
-                    onChange={setContractorId}
-                    size="md"
-                    searchable
-                  />
-                  <Group grow>
-                    <NumberInput
-                      label="Ставка"
-                      value={rate}
-                      onChange={setRate}
-                      min={0}
-                      size="md"
-                      suffix={` ₸ ${RATE_TYPE_LABELS[rateType] ?? ''}`}
-                    />
-                    <Select
-                      label="Тип ставки"
-                      data={Object.entries(RATE_TYPE_LABELS).map(([v, l]) => ({ value: v, label: l }))}
-                      value={rateType}
-                      onChange={(v) => setRateType(v ?? 'PER_UNIT')}
-                      size="md"
-                    />
-                  </Group>
-                  <Switch
-                    label="Работали у нас в цеху"
-                    description={atOurShop ? 'часы займут мощность участка' : 'на своей площадке — мощность не занимают'}
-                    checked={atOurShop}
-                    onChange={(e) => setAtOurShop(e.currentTarget.checked)}
-                  />
-                </>
-              )}
-            </Stack>
-          </Card>
-        )}
-      </Stack>
-    </Drawer>
-  );
-}
-
-/**
- * Обеспеченность заказа сырьём (26.08.2026). Считается по живым партиям
- * минус чужие резервы; если не хватает — кнопка кладёт дефицит в очередь
- * заявок, откуда снабженец отправляет накопленное в Б24 одной сделкой.
- */
-function MaterialAvailability({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
-  const qc = useQueryClient();
-  // Кнопка не шлёт вслепую: сначала карточка «что и сколько закупать»,
-  // и только подтверждение кладёт дефицит в очередь (уточнение 26.08.2026)
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const { data, isLoading } = useQuery({
-    queryKey: ['order-availability', orderId],
-    queryFn: () => api.get(`/orders/${orderId}/material-availability`).then((r) => r.data),
-    staleTime: 60_000,
-  });
-  const toQueue = useMutation({
-    mutationFn: () => api.post(`/purchase-requests/from-order/${orderId}`).then((r) => r.data),
-    onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ['purchase-requests'] });
-      setConfirmOpen(false);
-      notifications.show({
-        title: 'В очереди на закуп',
-        message: res.message ?? `Добавлено позиций: ${res.created}, дополнено: ${res.updated}.`
-          + ' Снабженец отправит накопленное в Б24 одной заявкой',
-        color: 'success',
-      });
-    },
-    onError: (e: any) => notifications.show({
-      title: 'Не удалось', message: e?.response?.data?.error?.message ?? 'Ошибка', color: 'danger',
-    }),
-  });
-
-  if (isLoading) return <Skeleton height={22} width={180} radius="xl" />;
-  if (!data || data.checkedMaterials === 0) {
-    return <Text size="xs" c="dimmed">состав изделий не заведён</Text>;
-  }
-  if (data.ok) {
-    return (
-      <Badge color="teal" variant="light" radius="xl" leftSection={<IconCheck size={11} />}>
-        сырья хватает
-      </Badge>
-    );
-  }
-
-  const shortages: Array<{
-    materialId: string; materialCode: string; name: string; unit: string;
-    need: number; available: number; shortage: number; estimatedPrice: number;
-  }> = data.shortages;
-  const totalEstimate = shortages.reduce((s, sh) => s + sh.shortage * sh.estimatedPrice, 0);
-  const noPriceCount = shortages.filter((sh) => !(sh.estimatedPrice > 0)).length;
-
-  return (
-    <>
-      <Group gap="xs" wrap="nowrap">
-        <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={11} />}>
-          не хватает {shortages.length} позиций
-        </Badge>
-        <Button
-          size="compact-xs"
-          variant="light"
-          color="orange"
-          onClick={() => setConfirmOpen(true)}
-        >
-          В заявку на закуп
-        </Button>
-      </Group>
-
-      {/* Карточка дефицита: пользователь видит, что и сколько закупать,
-          ДО того как это уйдёт в очередь */}
-      <Modal
-        opened={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title={<Text fw={700}>Что закупить для заказа {orderNumber}</Text>}
-        radius="md"
-        size="lg"
-        centered
-      >
-        <Stack gap="md">
-          <Table withTableBorder verticalSpacing={6} fz="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Материал</Table.Th>
-                <Table.Th ta="right">Нужно</Table.Th>
-                <Table.Th ta="right">На складе</Table.Th>
-                <Table.Th ta="right">Закупить</Table.Th>
-                <Table.Th ta="right">Оценка</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {shortages.map((sh) => (
-                <Table.Tr key={sh.materialId}>
-                  <Table.Td>
-                    <Text size="sm" ff="monospace" fw={600} c="brand.7">{sh.materialCode}</Text>
-                    <Text size="xs" c="dimmed" lineClamp={1}>{sh.name}</Text>
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                    {sh.need.toLocaleString('ru-RU')} {sh.unit}
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                    {sh.available.toLocaleString('ru-RU')}
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>
-                    {sh.shortage.toLocaleString('ru-RU')} {sh.unit}
-                  </Table.Td>
-                  <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                    {sh.estimatedPrice > 0
-                      ? Math.round(sh.shortage * sh.estimatedPrice).toLocaleString('ru-RU') + ' ₸'
-                      : '—'}
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-              <Table.Tr>
-                <Table.Td colSpan={4}><Text size="sm" fw={700}>Итого, оценка</Text></Table.Td>
-                <Table.Td ta="right" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>
-                  {Math.round(totalEstimate).toLocaleString('ru-RU')} ₸
-                </Table.Td>
-              </Table.Tr>
-            </Table.Tbody>
-          </Table>
-
-          {noPriceCount > 0 && (
-            <Text size="xs" c="dimmed">
-              У {noPriceCount} позиций нет закупочной цены — оценка занижена
-            </Text>
-          )}
-          <Text size="xs" c="dimmed">
-            Позиции лягут в очередь «Закупки → На закуп». Одинаковый дефицит
-            по нескольким заказам склеится в одну строку, снабженец отправит
-            накопленное в Б24 одной заявкой.
-          </Text>
-
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setConfirmOpen(false)}>Отмена</Button>
-            <Button
-              color="orange"
-              loading={toQueue.isPending}
-              onClick={() => toQueue.mutate()}
-            >
-              В заявку на закуп ({shortages.length} позиций)
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
-    </>
-  );
-}
-
-/**
- * Обрезки под заказ (01.09.2026, запрос бизнеса): спецификация говорит,
- * что спишется, а на складе обрезков может лежать тот же материал кусками.
- * Подсказка показывает совпадение по материалу — раскрой не советуем,
- * решает человек, глядя на длины. Себестоимость и списание не трогает:
- * числятся ли обрезки в остатке 1С, бизнес ещё не ответил — пишем факт.
- */
-function OffcutHint({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
-  const qc = useQueryClient();
-  const [taken, setTaken] = useState<Record<string, number | string>>({});
-
-  const { data } = useQuery({
-    queryKey: ['offcuts-for-order', orderId],
-    queryFn: () => api.get(`/warehouse/offcuts/for-order/${orderId}`).then((r) => r.data),
-    staleTime: 60_000,
-  });
-
-  const save = useMutation({
-    mutationFn: () => api.post(`/warehouse/offcuts/for-order/${orderId}`, {
-      usages: Object.entries(taken)
-        .filter(([, q]) => Number(q) > 0)
-        .map(([offcutId, q]) => ({ offcutId, qty: Number(q) })),
-    }).then((r) => r.data),
-    onSuccess: (res: any) => {
-      qc.invalidateQueries({ queryKey: ['offcuts-for-order', orderId] });
-      qc.invalidateQueries({ queryKey: ['offcuts'] });
-      setTaken({});
-      notifications.show({
-        title: 'Обрезки записаны на заказ',
-        message: `${orderNumber}: ${res.recorded} строк. Склад обрезков уменьшен, факт уйдёт в 1С вместе с изготовлением`,
-        color: 'success',
-        icon: <IconCheck size={16} />,
-      });
-    },
-    onError: (e: any) => notifications.show({
-      title: 'Не записано',
-      message: e?.response?.data?.error?.message ?? 'Ошибка',
-      color: 'danger',
-    }),
-  });
-
-  const materials: Array<{
-    materialId: string; materialCode: string; name: string; needQty: number; unit: string;
-    offcuts: Array<{ id: string; lengthMm: number; widthMm: number | null; qty: number; note: string | null }>;
-  }> = data?.materials ?? [];
-  const usedBefore: Array<{ materialCode: string; lengthMm: number; qty: number }> = data?.usedBefore ?? [];
-  const anyTaken = Object.values(taken).some((q) => Number(q) > 0);
-
-  if (materials.length === 0 && usedBefore.length === 0) return null;
-
-  return (
-    <Card withBorder radius="md" padding="sm"
-      style={{ borderColor: 'var(--mantine-color-yellow-4)' }}>
-      <Stack gap="sm">
-        {materials.length > 0 && (
-          <>
-            <Group gap={6} wrap="nowrap">
-              <IconRuler2 size={15} style={{ color: 'var(--mantine-color-yellow-7)' }} />
-              <Text size="sm" fw={700}>Есть обрезки материалов этого заказа</Text>
-            </Group>
-            {materials.map((m) => (
-              <Stack key={m.materialId} gap={4}>
-                <Text size="xs" c="dimmed">
-                  <Text span ff="monospace" fw={600}>{m.materialCode}</Text> {m.name} —
-                  по спецификации нужно {m.needQty.toLocaleString('ru-RU')} {m.unit}
-                </Text>
-                {m.offcuts.map((c) => (
-                  <Group key={c.id} gap="sm" wrap="nowrap" justify="space-between">
-                    <Text size="sm">
-                      {c.lengthMm.toLocaleString('ru-RU')} мм
-                      {c.widthMm ? ` × ${c.widthMm.toLocaleString('ru-RU')} мм` : ''} —
-                      на складе <Text span fw={700} ff="monospace">{c.qty}</Text> шт
-                      {c.note ? <Text span c="dimmed"> · {c.note}</Text> : null}
-                    </Text>
-                    <NumberInput
-                      size="xs" w={110} min={0} max={c.qty}
-                      placeholder="взяли, шт"
-                      value={taken[c.id] ?? ''}
-                      onChange={(v) => setTaken((t) => ({ ...t, [c.id]: v as number }))}
-                    />
-                  </Group>
-                ))}
-              </Stack>
-            ))}
-            {anyTaken && (
-              <Button size="sm" variant="light" color="yellow"
-                loading={save.isPending} onClick={() => save.mutate()}>
-                Записать обрезки на заказ
-              </Button>
-            )}
-          </>
-        )}
-        {usedBefore.length > 0 && (
-          <Text size="xs" c="dimmed">
-            Уже записано на заказ:{' '}
-            {usedBefore.map((u) => `${u.materialCode} ${u.lengthMm.toLocaleString('ru-RU')} мм × ${u.qty}`).join(', ')}
-          </Text>
-        )}
-      </Stack>
-    </Card>
-  );
-}
-
-/**
- * Изделия одного заказа — что изготовить и чем это уже подтверждено
- * (01.09.2026). Раньше все 240 активных заказов разворачивались на экране
- * сразу со всеми позициями — теперь список заказов компактный, а это
- * содержимое открывается по клику на конкретный заказ.
- */
-function OrderProductsDrawer({
-  order, canEdit, mark, onOpenSheet, opened, onClose,
-}: {
-  order: ShopFloorOrder | null;
-  canEdit: boolean;
-  mark: ReturnType<typeof useMutation<any, any, { orderId: string; productId: string; done: boolean }>>;
-  onOpenSheet: (v: { order: ShopFloorOrder; product: ProductRow }) => void;
-  opened: boolean;
-  onClose: () => void;
-}) {
-  if (!order) return null;
-  return (
-    <Drawer
-      opened={opened}
-      onClose={onClose}
-      position="right"
-      size="lg"
-      padding="md"
-      title={
-        <Group gap="sm" wrap="nowrap">
-          <OrderRef id={order.id} number={order.orderNumber} size="lg" focus="stages" />
-          <Text size="sm" c="dimmed" lineClamp={1}>{order.customerName ?? '—'}</Text>
-        </Group>
-      }
-    >
-      <Stack gap="md" pb="md">
-        <Group gap="sm" wrap="nowrap">
-          <Text size="sm" c="dimmed">Плановая дата вывоза</Text>
-          <Text size="sm" ff="monospace">{formatDate(order.plannedShipmentDate)}</Text>
-          {order.overdueDays > 0 && (
-            <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={10} />}>
-              {order.overdueDays} дн просрочки
-            </Badge>
-          )}
-        </Group>
-
-        <Group gap="sm" wrap="nowrap">
-          <Progress
-            value={order.totalProducts > 0 ? (order.doneCount / order.totalProducts) * 100 : 0}
-            size="sm" radius="xl" style={{ flex: 1 }}
-            color={order.doneCount === order.totalProducts ? 'teal' : 'brand'}
-          />
-          <Text size="xs" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-            {order.doneCount}/{order.totalProducts} изделий
-          </Text>
-        </Group>
-        {order.resaleCount > 0 && (
-          <Text size="xs" c="dimmed">
-            + {order.resaleCount} сырьё в заказе, изготавливать не надо
-          </Text>
-        )}
-
-        <MaterialAvailability orderId={order.id} orderNumber={order.orderNumber} />
-
-        <OffcutHint orderId={order.id} orderNumber={order.orderNumber} />
-
-        <Stack gap={6}>
-          {order.products.map((p) => {
-            const busy = mark.isPending && mark.variables?.productId === p.id;
-            const isDone = p.status === 'DONE';
-            // Нет состава или норм — отметить нельзя (правило 26.08.2026).
-            // Показываем это ЗАРАНЕЕ: ловить отказ, когда работа уже
-            // сделана, — худший момент, чтобы узнать о пустой карточке
-            const noSpec = p.missingBom || p.missingNorms;
-            const specMissing = p.missingBom && p.missingNorms ? 'состава и норм'
-              : p.missingBom ? 'состава' : 'норм труда';
-            return (
-              <Group
-                key={p.id}
-                justify="space-between"
-                wrap="nowrap"
-                gap="sm"
-                px="sm"
-                py={8}
-                style={{
-                  borderRadius: 'var(--mantine-radius-md)',
-                  background: isDone
-                    ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.10))'
-                    : 'var(--mantine-color-default-hover)',
-                }}
-              >
-                <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
-                  <Group gap={6} wrap="nowrap">
-                    <Text size="sm" ff="monospace" fw={700} c="brand.7">{p.articleCode}</Text>
-                    {/* Две одинаковые строки в заказе — иначе не понять, какую отметил */}
-                    {p.isDuplicateCode && (
-                      <Badge size="xs" variant="default" radius="xl">поз. {p.lineNo}</Badge>
-                    )}
-                    {p.siteCode && (
-                      <Badge color="blue" variant="light" radius="xl" size="xs">
-                        {p.siteCode}
-                      </Badge>
-                    )}
-                    {p.contractors.length > 0 && (
-                      <Badge color="orange" variant="light" radius="xl" size="xs"
-                        leftSection={<IconTruck size={10} />}>
-                        подряд
-                      </Badge>
-                    )}
-                    {!isDone && noSpec && (
-                      <Badge color="danger" variant="light" radius="xl" size="xs"
-                        leftSection={<IconAlertTriangle size={10} />}>
-                        нет {specMissing}
-                      </Badge>
-                    )}
-                  </Group>
-                  <Text size="sm" lineClamp={1}>{p.articleName}</Text>
-                  <Text size="xs" c="dimmed">
-                    {p.qty.toLocaleString('ru-RU')} {p.unit}
-                    {p.normHours > 0 && ` · норма ${p.normHours} ч`}
-                    {p.actualHours != null && ` · факт ${p.actualHours} ч`}
-                  </Text>
-                </Stack>
-
-                {canEdit && (isDone ? (
-                  <Button
-                    size="compact-sm"
-                    variant="default"
-                    color="gray"
-                    leftSection={<IconArrowBackUp size={14} />}
-                    loading={busy}
-                    onClick={() => mark.mutate({ orderId: order.id, productId: p.id, done: false })}
-                  >
-                    Снять
-                  </Button>
-                ) : noSpec ? (
-                  // Тупика быть не должно: отсюда прямой путь к спецификации
-                  <Button
-                    size="sm"
-                    variant="light"
-                    color="danger"
-                    component={Link}
-                    to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
-                    leftSection={<IconRuler2 size={16} />}
-                  >
-                    Завести спецификацию
-                  </Button>
-                ) : (
-                  <Group gap={6} wrap="nowrap">
-                    <Button
-                      size="sm"
-                      leftSection={<IconCheck size={16} />}
-                      loading={busy}
-                      onClick={() => mark.mutate({ orderId: order.id, productId: p.id, done: true })}
-                    >
-                      Изготовлено
-                    </Button>
-                    <ActionIcon
-                      variant="default"
-                      size="lg"
-                      aria-label="Часы и подряд"
-                      onClick={() => onOpenSheet({ order, product: p })}
-                    >
-                      <IconDots size={16} />
-                    </ActionIcon>
-                  </Group>
-                ))}
-              </Group>
-            );
-          })}
-        </Stack>
-      </Stack>
-    </Drawer>
-  );
-}
-
-/**
- * Цех: список заказов, по клику — что изготовить и чем подтверждено
- * (26.08.2026, компактный список 01.09.2026).
+ * Цех: список изделий, которые надо изготовить (переписан 02.09.2026 —
+ * «в разделе Цех вообще хаос, ничего не понятно»).
  *
- * Видов работ здесь больше нет — мастер не выбирает «свои работы» и не
- * закрывает операции, он показывает, что конкретное изделие сделано.
- * Сырьё и ТМЦ в очередь не попадают вовсе: завод их не изготавливает,
- * а перепродаёт — это была пятая часть прежнего списка (378 строк из 1942).
+ * Было: карточки ЗАКАЗОВ. Мастеру они не отвечали на его единственный
+ * вопрос «что мне сейчас делать» — сначала выбрать заказ, потом открыть
+ * шторку, и только там увидеть изделия. Плюс половину экрана занимали
+ * заказы без спецификации, к которым цех вообще не может прикоснуться.
+ *
+ * Стало: плоский список ИЗДЕЛИЙ, по одной строке на каждое, кнопка
+ * «Изготовлено» прямо в строке. Заказ, заказчик и срок — подпись рядом,
+ * а не уровень вложенности. Изделия без спецификации убраны за плитку:
+ * это работа инженера, а не цеха.
+ *
+ * Экран не прокручивается: строк ровно столько, сколько влезло, дальше —
+ * страницами (стрелки ← → тоже листают).
  */
+
+/** Срез списка — плитка сверху одновременно и цифра, и фильтр */
+type Slice = 'todo' | 'overdue' | 'blocked' | 'done';
+
+interface WorkRow extends ProductRow {
+  order: ShopFloorOrder;
+}
+
+/** Нет состава или норм труда — изготовление записать нельзя */
+const isBlocked = (p: ProductRow) => p.missingBom || p.missingNorms;
+
 export function ShopFloor() {
   const qc = useQueryClient();
   const hasRole = useAuthStore((s) => s.hasRole);
   const canEdit = hasRole(['shop_foreman', 'planner', 'admin']);
 
   const [search, setSearch] = useState('');
-  // Ошибочное «Изготовлено» надо уметь снять: без этого строка исчезает
-  // из очереди навсегда и исправить отметку неоткуда
-  const [showDone, setShowDone] = useState(false);
+  const [slice, setSlice] = useState<Slice>('todo');
   const [sheet, setSheet] = useState<{ order: ShopFloorOrder; product: ProductRow } | null>(null);
-  // Заказ открывается по id, не хранится копией: пока открыт дровер,
-  // отметки внутри него обновляют те же самые данные списка
-  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isFetching } = useQuery({
     queryKey: ['shop-floor', search],
     queryFn: () => api.get<ShopFloorResponse>('/production-plan/shop-floor', {
       params: search ? { search } : undefined,
     }).then((r) => r.data),
     refetchInterval: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   // Единственное действие цеха: изделие сделано / отметка снята. Когда
   // готовы все изделия заказа, бэкенд сам переводит его в «готов к отгрузке»
   // и ставит в очередь сигнал 1С на «Производство без заказа»
   const mark = useMutation({
-    mutationFn: (v: { orderId: string; productId: string; done: boolean }) =>
+    mutationFn: (v: MarkVars) =>
       ordersApi.updateStage(v.orderId, 'PRODUCTION', {
         status: v.done ? 'done' : 'in_progress',
         orderLineId: v.productId,
@@ -832,147 +102,251 @@ export function ShopFloor() {
     }),
   });
 
-  if (isLoading || !data) {
-    return (
-      <Stack gap="md">
-        <Skeleton height={54} radius="md" />
-        {[...Array(4)].map((_, i) => <Skeleton key={i} height={140} radius="md" />)}
-      </Stack>
-    );
-  }
+  /**
+   * Разворачиваем заказы в изделия и сортируем так, как работает цех:
+   * сначала просроченное, потом ближайший срок. Внутри одного заказа —
+   * порядок позиций, чтобы строки не прыгали между обновлениями.
+   */
+  const rows = useMemo<WorkRow[]>(() => {
+    const out: WorkRow[] = [];
+    for (const o of data?.orders ?? []) {
+      for (const p of o.products) out.push({ ...p, order: o });
+    }
+    out.sort((a, b) => {
+      if (a.order.overdueDays !== b.order.overdueDays) return b.order.overdueDays - a.order.overdueDays;
+      const da = a.order.plannedShipmentDate ?? '9999';
+      const db = b.order.plannedShipmentDate ?? '9999';
+      if (da !== db) return da < db ? -1 : 1;
+      if (a.order.orderNumber !== b.order.orderNumber) {
+        return a.order.orderNumber.localeCompare(b.order.orderNumber, 'ru');
+      }
+      return a.lineNo - b.lineNo;
+    });
+    return out;
+  }, [data]);
 
-  // Заказ, где всё уже изготовлено, смотреть незачем — прячем его из
-  // списка по умолчанию, а не отдельные позиции внутри (те теперь видны
-  // только по клику, вместе с уже сделанными, чтобы снять ошибочную
-  // отметку было откуда)
-  const orders = data.orders.filter((o) => showDone || o.doneCount < o.totalProducts);
-  const openOrder = data.orders.find((o) => o.id === openOrderId) ?? null;
+  const groups = useMemo(() => {
+    const todo: WorkRow[] = [];
+    const overdue: WorkRow[] = [];
+    const blocked: WorkRow[] = [];
+    const done: WorkRow[] = [];
+    for (const r of rows) {
+      if (r.status === 'DONE') { done.push(r); continue; }
+      if (isBlocked(r)) { blocked.push(r); continue; }
+      todo.push(r);
+      if (r.order.overdueDays > 0) overdue.push(r);
+    }
+    return { todo, overdue, blocked, done };
+  }, [rows]);
 
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <Group justify="space-between" wrap="wrap" gap="sm">
+  const visible = groups[slice];
+
+  // Сколько строк влезло в свободную высоту — столько и показываем
+  const fit = useFitRows(ROW_H, 4, 40);
+  const paged = usePagedList(visible, fit.rows, `${search}|${slice}|${fit.rows}`);
+  const totalPages = Math.max(1, Math.ceil(paged.total / Math.max(1, fit.rows)));
+  usePageKeys(paged.page, totalPages, paged.setPage);
+
+  const tiles = [
+    {
+      key: 'todo',
+      label: 'Изготовить',
+      value: groups.todo.length.toLocaleString('ru-RU'),
+      hint: 'можно отметить прямо сейчас',
+      tone: 'brand' as const,
+      icon: <IconTool size={16} />,
+      onClick: () => setSlice('todo'),
+      active: slice === 'todo',
+    },
+    {
+      key: 'overdue',
+      label: 'Просрочено',
+      value: groups.overdue.length.toLocaleString('ru-RU'),
+      hint: 'срок вывоза уже прошёл',
+      tone: 'danger' as const,
+      icon: <IconClock size={16} />,
+      onClick: () => setSlice('overdue'),
+      active: slice === 'overdue',
+    },
+    {
+      key: 'blocked',
+      label: 'Ждут инженера',
+      value: groups.blocked.length.toLocaleString('ru-RU'),
+      hint: 'нет состава или норм труда',
+      tone: 'warn' as const,
+      icon: <IconAlertTriangle size={16} />,
+      onClick: () => setSlice('blocked'),
+      active: slice === 'blocked',
+    },
+    {
+      key: 'done',
+      label: 'Изготовлено',
+      value: groups.done.length.toLocaleString('ru-RU'),
+      hint: 'отметку можно снять',
+      tone: 'ok' as const,
+      icon: <IconChecks size={16} />,
+      onClick: () => setSlice('done'),
+      active: slice === 'done',
+    },
+  ];
+
+  const emptyText = search ? 'Ничего не найдено'
+    : slice === 'todo' ? 'Всё изготовлено'
+      : slice === 'overdue' ? 'Просроченных изделий нет'
+        : slice === 'blocked' ? 'Все изделия со спецификацией'
+          : 'Пока ничего не отмечено';
+
+  const header = (
+    <Stack gap="sm">
+      <PulseRow items={tiles} loading={isLoading && !data} />
+      <Group gap="sm" wrap="nowrap">
         <TextInput
           placeholder="Изделие, № заказа или заказчик..."
-          leftSection={<IconSearch size={15} />}
+          leftSection={<IconSearch size={17} />}
+          rightSection={isFetching && search ? <Loader size="xs" /> : undefined}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          w={320}
           size="sm"
+          style={{ flex: '1 1 260px', maxWidth: 420 }}
         />
-        <Group gap="sm">
-          <Button
-            variant={showDone ? 'light' : 'subtle'}
-            size="sm"
-            color="gray"
-            onClick={() => setShowDone((v) => !v)}
-          >
-            {showDone ? 'Скрыть изготовленные' : 'Показать изготовленные'}
-          </Button>
-          <Text size="sm" c="dimmed">
-            Осталось изготовить:{' '}
-            <Text span fw={700} ff="monospace">{data.waitingProducts.toLocaleString('ru-RU')}</Text>
-            {' '}из {data.totalProducts.toLocaleString('ru-RU')}
+        <Text size="sm" c="dimmed" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>
+          Осталось изготовить{' '}
+          <Text span fw={700} ff="var(--ff-num)" c="var(--ref-ink)">
+            {(data?.waitingProducts ?? 0).toLocaleString('ru-RU')}
           </Text>
-        </Group>
+          {' '}из {(data?.totalProducts ?? 0).toLocaleString('ru-RU')}
+        </Text>
       </Group>
+    </Stack>
+  );
 
-      {/* Нет спецификации — цех эти изделия отметить не сможет. Это
-          не его работа: пусть видит цифру и знает, к кому идти */}
-      {data.blockedProducts > 0 && (
-        <Alert color="danger" variant="light" radius="md" icon={<IconAlertTriangle size={18} />}>
-          <Text size="sm" fw={600}>
-            Без спецификации: {data.blockedProducts.toLocaleString('ru-RU')}{' '}
-            {plural(data.blockedProducts, 'изделие', 'изделия', 'изделий')}
-          </Text>
-          <Text size="xs" c="dimmed">
-            У них не заведён состав или нормы труда — изготовление записать нельзя:
-            списывать нечего и себестоимость встанет в ноль. Нужен инженер.
-          </Text>
-        </Alert>
-      )}
+  const footer = (
+    <PaginationBar
+      page={paged.page}
+      total={paged.total}
+      pageSize={Math.max(1, fit.rows)}
+      onPageChange={paged.setPage}
+      noun="изделий"
+    />
+  );
 
-      {orders.length === 0 ? (
-        <Card withBorder radius="md" padding="xl">
-          <Stack align="center" gap="sm" py="lg">
-            <ThemeIcon size={48} radius="xl" variant="light" color="teal">
-              <IconCheck size={26} />
-            </ThemeIcon>
-            <Text fw={700}>{search ? 'Ничего не найдено' : 'Всё изготовлено'}</Text>
-          </Stack>
-        </Card>
-      ) : <Stagger>{orders.map((o) => (
-        <Card key={o.id} withBorder radius="md" padding="md">
-          <Group justify="space-between" wrap="nowrap" mb={6}>
-            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-              <OrderRef id={o.id} number={o.orderNumber} size="lg" focus="stages" />
-              <Text size="sm" c="dimmed" lineClamp={1}>{o.customerName ?? '—'}</Text>
-            </Group>
-            <Group gap={6} wrap="nowrap">
-              <Text size="sm" ff="monospace" c="dimmed">{formatDate(o.plannedShipmentDate)}</Text>
-              {o.overdueDays > 0 && (
-                <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={10} />}>
-                  {o.overdueDays} дн
-                </Badge>
+  return (
+    <>
+      <FitScreen header={header} footer={footer}>
+        <Card withBorder radius="lg" padding={0} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+          <div className="worklist" ref={fit.ref}>
+            <div className="worklist__head">
+              <span>Изделие</span>
+              <span>Заказ · срок · действие</span>
+            </div>
+            <div className="worklist__rows">
+              {isLoading && !data ? (
+                [...Array(8)].map((_, i) => (
+                  <div key={i} className="worklist__row"><Skeleton height={18} radius="sm" /></div>
+                ))
+              ) : paged.total === 0 ? (
+                <MastLoader title={emptyText} />
+              ) : (
+                <FadeSwap swapKey={`${paged.page}|${slice}|${fit.rows}`}>
+                  {paged.slice.map((p) => (
+                    <WorkRowView
+                      key={p.id}
+                      row={p}
+                      canEdit={canEdit}
+                      busy={mark.isPending && mark.variables?.productId === p.id}
+                      onMark={(done) => mark.mutate({ orderId: p.order.id, productId: p.id, done })}
+                      onDetails={() => setSheet({ order: p.order, product: p })}
+                    />
+                  ))}
+                </FadeSwap>
               )}
-            </Group>
-          </Group>
-
-          <Group gap="sm" wrap="nowrap" mb="xs">
-            <Progress
-              value={o.totalProducts > 0 ? (o.doneCount / o.totalProducts) * 100 : 0}
-              size="sm" radius="xl" style={{ flex: 1 }}
-              color={o.doneCount === o.totalProducts ? 'teal' : 'brand'}
-            />
-            <Text size="xs" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-              {o.doneCount}/{o.totalProducts} изделий
-            </Text>
-            {o.resaleCount > 0 && (
-              <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-                + {o.resaleCount} сырьё, изготавливать не надо
-              </Text>
-            )}
-          </Group>
-
-          <Box mb="xs"><MaterialAvailability orderId={o.id} orderNumber={o.orderNumber} /></Box>
-
-          <Group
-            justify="space-between"
-            wrap="nowrap"
-            gap="sm"
-            px="sm"
-            py={8}
-            role="button"
-            tabIndex={0}
-            onClick={() => setOpenOrderId(o.id)}
-            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenOrderId(o.id); }}
-            style={{ borderRadius: 'var(--mantine-radius-md)', background: 'var(--mantine-color-default-hover)', cursor: 'pointer' }}
-          >
-            <Text size="sm" c="dimmed">
-              {o.doneCount === o.totalProducts
-                ? 'Все изделия изготовлены'
-                : `Показать, что изготовить (${o.totalProducts - o.doneCount})`}
-            </Text>
-            <IconChevronRight size={16} style={{ flexShrink: 0, opacity: 0.6 }} />
-          </Group>
+            </div>
+          </div>
         </Card>
-      ))}</Stagger>}
-
-      <OrderProductsDrawer
-        order={openOrder}
-        canEdit={canEdit}
-        mark={mark}
-        onOpenSheet={setSheet}
-        opened={openOrderId !== null}
-        onClose={() => setOpenOrderId(null)}
-      />
+      </FitScreen>
 
       <DetailsSheet
         order={sheet?.order ?? null}
         product={sheet?.product ?? null}
-        requests={data.openRequests ?? []}
+        requests={data?.openRequests ?? []}
         opened={sheet !== null}
         onClose={() => setSheet(null)}
       />
-    </Stack>
+    </>
+  );
+}
+
+/**
+ * Одна строка работы. Всё, что нужно мастеру, — в одну линию: что делать,
+ * сколько, для какого заказа, к какому числу и кнопка отметки.
+ */
+function WorkRowView({
+  row: p, canEdit, busy, onMark, onDetails,
+}: {
+  row: WorkRow;
+  canEdit: boolean;
+  busy: boolean;
+  onMark: (done: boolean) => void;
+  onDetails: () => void;
+}) {
+  const done = p.status === 'DONE';
+  const blocked = isBlocked(p);
+  const overdue = p.order.overdueDays > 0;
+  const specMissing = p.missingBom && p.missingNorms ? 'состава и норм'
+    : p.missingBom ? 'состава' : 'норм труда';
+
+  return (
+    <div className="worklist__row" data-done={done ? 'true' : undefined}>
+      <div className="worklist__main">
+        <span className="worklist__qty">{p.qty.toLocaleString('ru-RU')} {p.unit}</span>
+        <span className="worklist__code">{p.articleCode}</span>
+        <span className="worklist__name" title={p.articleName}>{p.articleName}</span>
+        {p.isDuplicateCode && <span className="worklist__chip">поз. {p.lineNo}</span>}
+        {p.siteCode && <span className="worklist__chip" data-tone="info">{p.siteCode}</span>}
+        {p.contractors.length > 0 && (
+          <span className="worklist__chip" data-tone="warn"><IconTruck size={11} /> подряд</span>
+        )}
+        {blocked && !done && (
+          <span className="worklist__chip" data-tone="danger">нет {specMissing}</span>
+        )}
+      </div>
+
+      <div className="worklist__meta">
+        <OrderRef id={p.order.id} number={p.order.orderNumber} size="sm" focus="stages" />
+        <span className="worklist__meta-hide" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+          {p.order.customerName ?? '—'}
+        </span>
+        <span style={{ fontFamily: 'var(--ff-num)', color: overdue ? 'var(--ref-coral-ink)' : undefined }}>
+          {formatDate(p.order.plannedShipmentDate)}
+          {overdue && ` · −${p.order.overdueDays} дн`}
+        </span>
+
+        {canEdit && (done ? (
+          <Button size="compact-sm" variant="default" h={30}
+            leftSection={<IconArrowBackUp size={15} />}
+            loading={busy} onClick={() => onMark(false)}>
+            Снять
+          </Button>
+        ) : blocked ? (
+          <Button size="compact-sm" variant="light" color="danger" h={30}
+            component={Link} to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
+            leftSection={<IconRuler2 size={15} />}>
+            Спецификация
+          </Button>
+        ) : (
+          <Group gap={6} wrap="nowrap">
+            <Button size="compact-sm" h={30} leftSection={<IconCheck size={15} />}
+              loading={busy} onClick={() => onMark(true)}>
+              Изготовлено
+            </Button>
+            <Tooltip label="Часы, подряд, обеспеченность" openDelay={400}>
+              <ActionIcon variant="default" size={30} aria-label="Подробности" onClick={onDetails}>
+                <IconDots size={16} />
+              </ActionIcon>
+            </Tooltip>
+          </Group>
+        ))}
+      </div>
+    </div>
   );
 }

@@ -1,7 +1,8 @@
 import React from 'react';
 import { NavLink as RouterNavLink, useLocation } from 'react-router-dom';
-import { Stack, Text, Group, Avatar, Divider, Box, UnstyledButton } from '@mantine/core';
-import { motion, useReducedMotion } from 'framer-motion';
+import { Stack, Text, Group, Avatar, Divider, Box, UnstyledButton, Tooltip } from '@mantine/core';
+import { motion } from 'framer-motion';
+import { useMotionOff } from '../motion';
 import {
   IconClipboardList,
   IconSettings,
@@ -11,25 +12,31 @@ import {
   IconRuler2,
   IconTruckDelivery,
   IconHammer, IconTruck, IconCoin,
+  IconAntenna,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
-import { LogoLockup } from '../Brand';
+import { LogoLockup, LogoMark } from '../Brand';
 import { canAccessModule, ROLE_LABELS } from '../../utils/roles';
 
 interface SidebarProps {
   onNavigate?: () => void;
+  /** Рейка иконок: подписи уходят в подсказки, меню занимает 76 px */
+  collapsed?: boolean;
 }
 
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
   const user = useAuthStore((state) => state.user);
   const permissions = useAuthStore((state) => state.permissions);
   const { pathname } = useLocation();
-  const reduced = useReducedMotion();
+  const reduced = useMotionOff();
 
   // Меню собирается из прав: у кладовщика останется 4 пункта, у директора — все (§2.2)
   const navItems = [
     { to: '/', icon: IconClipboardList, label: 'Моя работа', module: 'work' },
     { to: '/orders', icon: IconShoppingCart, label: 'Заказы', module: 'orders' },
+    // Объекты (базовые станции): телеком спрашивает про площадку, а не про
+    // номер заказа — срез по project_site из 1С (02.09.2026)
+    { to: '/sites', icon: IconAntenna, label: 'Объекты', module: 'orders' },
     { to: '/production/kanban', icon: IconHammer, label: 'Цех', module: 'production' },
     // Подряд стал самостоятельным потоком (26.08.2026): заявка партией →
     // пачкой в Б24 → разнесение по заказам. До сих пор попасть сюда можно
@@ -44,7 +51,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
     { to: '/settings', icon: IconSettings, label: 'Настройки', module: 'settings' },
   ];
 
-
   const initials = user?.email?.[0]?.toUpperCase() || 'U';
   const displayName = user?.email?.split('@')[0] || 'Пользователь';
   const roleLabel = user?.roles?.[0] ? ROLE_LABELS[user.roles[0]] || user.roles[0] : 'Оператор';
@@ -52,15 +58,17 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   return (
     <Stack justify="space-between" h="100%" gap={0}>
       <Stack gap={0}>
-        <Box pb="sm" mb="sm">
-          <LogoLockup />
+        <Box pb="sm" mb="sm" style={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          {collapsed ? <LogoMark size={30} /> : <LogoLockup />}
         </Box>
 
         <Divider my="sm" />
 
-        <Text size="xs" tt="uppercase" fw={700} c="dimmed" px="sm" mb={6} style={{ letterSpacing: '0.1em', fontSize: 10 }}>
-          Меню
-        </Text>
+        {!collapsed && (
+          <Text size="xs" tt="uppercase" fw={700} c="dimmed" px="sm" mb={6} style={{ letterSpacing: '0.1em' }}>
+            Меню
+          </Text>
+        )}
 
         <Stack gap={2} mt="xs">
           {navItems.map((item) => {
@@ -68,7 +76,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
             if ((item as any).roles && !(item as any).roles.some((r: string) => user?.roles?.includes(r))) return null;
             const Icon = item.icon;
             const isActive = pathname === item.to;
-            return (
+            const button = (
               /* Активная пилюля — ОДНА на всё меню, скользит между пунктами
                  (layoutId): выбор ощущается перемещением, а не перекраской */
               <UnstyledButton
@@ -77,9 +85,16 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                 to={item.to}
                 onClick={onNavigate}
                 className="nav-item"
-                px="xs"
-                h={42}
-                style={{ position: 'relative', borderRadius: 'var(--mantine-radius-md)', display: 'flex', alignItems: 'center' }}
+                aria-label={item.label}
+                px={collapsed ? 0 : 'xs'}
+                h={44}
+                style={{
+                  position: 'relative',
+                  borderRadius: 'var(--r-full)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: collapsed ? 'center' : 'flex-start',
+                }}
               >
                 {isActive && (
                   <motion.span
@@ -88,41 +103,61 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                     style={{
                       position: 'absolute',
                       inset: 0,
-                      borderRadius: 'var(--mantine-radius-md)',
-                      background: 'var(--brand-0)',
-                      border: '1px solid color-mix(in srgb, var(--brand-6) 18%, transparent)',
+                      borderRadius: 'var(--r-full)',
+                      background: 'var(--pill-dark)',
+                      boxShadow: '0 6px 16px rgba(30, 29, 25, 0.22)',
                     }}
                   />
                 )}
                 <Group gap="sm" wrap="nowrap" style={{ position: 'relative', zIndex: 1 }}>
-                  <Icon size={18} stroke={1.8}
-                    style={{ color: isActive ? 'var(--brand-7)' : 'var(--gray-6)' }} />
-                  <Text size="sm" fw={isActive ? 700 : 500}
-                    c={isActive ? 'brand.8' : undefined}>
-                    {item.label}
-                  </Text>
+                  <Icon size={collapsed ? 22 : 20} stroke={1.8}
+                    style={{ color: isActive ? '#fff' : 'var(--gray-6)', flexShrink: 0 }} />
+                  {!collapsed && (
+                    <Text size="md" fw={isActive ? 700 : 500}
+                      c={isActive ? 'white' : undefined} style={{ whiteSpace: 'nowrap' }}>
+                      {item.label}
+                    </Text>
+                  )}
                 </Group>
               </UnstyledButton>
             );
+            return collapsed
+              ? (
+                <Tooltip key={item.to} label={item.label} position="right" withArrow openDelay={150}
+                  transitionProps={{ transition: 'fade-right', duration: 120 }}>
+                  {button}
+                </Tooltip>
+              )
+              : button;
           })}
         </Stack>
       </Stack>
 
       <Box pt="md">
         <Divider mb="sm" />
-        <Group gap="sm" wrap="nowrap" p="xs">
-          <Avatar size={38} radius="xl" color="dark.9">
-            <Text fw={700} c="white" size="sm">{initials}</Text>
-          </Avatar>
-          <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-            <Text size="sm" fw={700} lineClamp={1}>
-              {displayName}
-            </Text>
-            <Text size="xs" c="dimmed" lineClamp={1}>
-              {roleLabel}
-            </Text>
-          </Stack>
-        </Group>
+        {collapsed ? (
+          <Tooltip label={`${displayName} · ${roleLabel}`} position="right" withArrow>
+            <Group justify="center" p={4}>
+              <Avatar size={38} radius="xl" color="dark.9">
+                <Text fw={700} c="white" size="sm">{initials}</Text>
+              </Avatar>
+            </Group>
+          </Tooltip>
+        ) : (
+          <Group gap="sm" wrap="nowrap" p="xs">
+            <Avatar size={38} radius="xl" color="dark.9">
+              <Text fw={700} c="white" size="sm">{initials}</Text>
+            </Avatar>
+            <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
+              <Text size="sm" fw={700} lineClamp={1}>
+                {displayName}
+              </Text>
+              <Text size="xs" c="dimmed" lineClamp={1}>
+                {roleLabel}
+              </Text>
+            </Stack>
+          </Group>
+        )}
       </Box>
     </Stack>
   );

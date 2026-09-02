@@ -60,7 +60,7 @@ export function LogoLockup({
           size="xs"
           fw={600}
           lh={1}
-          style={{ letterSpacing: '0.34em', fontSize: 9, color: onDark ? 'rgba(255,255,255,0.55)' : 'var(--gray-5)' }}
+          style={{ letterSpacing: '0.3em', fontSize: 11, color: onDark ? 'rgba(255,255,255,0.55)' : 'var(--gray-5)' }}
         >
           ЦМК·ERP
         </Text>

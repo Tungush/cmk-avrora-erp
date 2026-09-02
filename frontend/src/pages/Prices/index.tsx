@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Card, Stack, Text, Table, Skeleton, Box, Group, Button, TextInput,
-  Badge, Modal, Textarea, Pagination, SegmentedControl,
+  Card, Stack, Text, Table, Skeleton, Group, Button, TextInput,
+  Badge, Modal, Textarea, SegmentedControl,
 } from '@mantine/core';
 import { IconSearch, IconCoin, IconCheck } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -11,6 +11,9 @@ import { useArticles } from '../../hooks/useCatalog';
 import { useAuthStore } from '../../store/auth';
 import { PriceReviewsPanel } from '../../components/PriceReviewsPanel';
 import { formatCurrency } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 /**
  * Прайс (28.08.2026). Данные о ценах жили в модели с самого начала, но
@@ -29,12 +32,14 @@ export function Prices() {
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize('prices', 25);
   const [scope, setScope] = useState<'priced' | 'all'>('priced');
   const [reviewFor, setReviewFor] = useState<any | null>(null);
   const [reason, setReason] = useState('');
+  useEffect(() => { setPage(1); }, [pageSize]);
 
   const { data, isLoading } = useArticles({
-    search, page, pageSize: 30,
+    search, page, pageSize,
     ...(scope === 'priced' ? { onlyPriced: true } : {}),
   });
 
@@ -59,7 +64,7 @@ export function Prices() {
   });
 
   const rows: any[] = data?.data ?? [];
-  const totalPages = Math.max(1, Math.ceil((data?.meta?.total ?? 0) / 30));
+  const total = data?.meta?.total ?? 0;
 
   const deviation = (a: any): number | null => {
     const appr = Number(a.approvedPrice);
@@ -80,109 +85,123 @@ export function Prices() {
         </Text>
       </Stack>
 
-      <SegmentedControl
-        value={scope}
-        onChange={(v) => { setScope(v as 'priced' | 'all'); setPage(1); }}
-        size="sm"
-        w="fit-content"
-        data={[
-          { value: 'priced', label: 'Прайс-лист' },
-          { value: 'all', label: 'Весь каталог' },
-        ]}
-      />
-
       {/* Директор видит очередь заявок прямо здесь, не бегая на дашборд */}
       {isDirector && <PriceReviewsPanel />}
 
-      <TextInput
-        placeholder="Код, название или старый код…"
-        leftSection={<IconSearch size={15} />}
-        value={search}
-        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-        w={340}
-        size="sm"
-      />
+      <div className="toolbar-sticky">
+        <Group gap="sm" wrap="wrap" justify="space-between">
+          <Group gap="sm" wrap="wrap">
+            <SegmentedControl
+              value={scope}
+              onChange={(v) => { setScope(v as 'priced' | 'all'); setPage(1); }}
+              size="sm"
+              w="fit-content"
+              data={[
+                { value: 'priced', label: 'Прайс-лист' },
+                { value: 'all', label: 'Весь каталог' },
+              ]}
+            />
+            <TextInput
+              placeholder="Код, название или старый код…"
+              leftSection={<IconSearch size={16} />}
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              w={360}
+              style={{ maxWidth: '100%' }}
+            />
+          </Group>
+          <Text size="sm" c="dimmed">
+            Найдено: <Text span fw={700} ff="monospace">{total.toLocaleString('ru-RU')}</Text>
+          </Text>
+        </Group>
+      </div>
 
       <Card withBorder radius="md" padding={0}>
         {isLoading ? (
-          <Stack gap={4} p="md">{[...Array(8)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
+          <Stack gap={4} p="md">{[...Array(8)].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)}</Stack>
         ) : (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Изделие</Table.Th>
-                  <Table.Th ta="right">Утв. цена</Table.Th>
-                  <Table.Th ta="right">Расчёт по спецификации</Table.Th>
-                  <Table.Th ta="right">Отклонение</Table.Th>
-                  {canRequest && <Table.Th w={150} />}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((a) => {
-                  const dev = deviation(a);
-                  return (
-                    <Table.Tr key={a.id}>
-                      <Table.Td>
-                        <Text size="sm" ff="monospace" fw={600} c="brand.7">{a.articleCode}</Text>
-                        <Text size="xs" c="dimmed" lineClamp={1}>{a.name}</Text>
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                        {Number(a.approvedPrice) > 0
-                          ? <Text span fw={700}>{formatCurrency(Number(a.approvedPrice))}</Text>
-                          : <Text span size="xs" c="dimmed">не утверждена</Text>}
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
-                        {Number(a.specPrice) > 0
-                          ? formatCurrency(Number(a.specPrice))
-                          : <Text span size="xs" c="dimmed">—</Text>}
-                      </Table.Td>
-                      <Table.Td ta="right">
-                        {dev == null ? (
-                          <Text size="xs" c="dimmed">—</Text>
-                        ) : (
-                          // Цена ниже расчёта — продаём дешевле себестоимости с маржой
-                          <Badge
-                            size="sm" variant="light" radius="xl"
-                            color={dev < 0 ? 'danger' : Math.abs(dev) > 15 ? 'warning' : 'teal'}
-                          >
-                            {dev > 0 ? '+' : ''}{dev.toLocaleString('ru-RU')} %
-                          </Badge>
-                        )}
-                      </Table.Td>
-                      {canRequest && (
-                        <Table.Td>
-                          <Button
-                            size="compact-xs"
-                            variant="light"
-                            leftSection={<IconCoin size={13} />}
-                            onClick={() => setReviewFor(a)}
-                          >
-                            Пересмотр цены
-                          </Button>
-                        </Table.Td>
-                      )}
-                    </Table.Tr>
-                  );
-                })}
-                {rows.length === 0 && (
+          <FadeSwap swapKey={`${scope}:${page}`}>
+            <TableScroll minWidth={780}>
+              <Table highlightOnHover>
+                <Table.Thead>
                   <Table.Tr>
-                    <Table.Td colSpan={5}>
-                      <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
-                    </Table.Td>
+                    <Table.Th>Изделие</Table.Th>
+                    <Table.Th ta="right">Утв. цена</Table.Th>
+                    <Table.Th ta="right">Расчёт по спецификации</Table.Th>
+                    <Table.Th ta="right">Отклонение</Table.Th>
+                    {canRequest && <Table.Th w={170} />}
                   </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </Box>
+                </Table.Thead>
+                <Table.Tbody>
+                  {rows.map((a) => {
+                    const dev = deviation(a);
+                    return (
+                      <Table.Tr key={a.id}>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{a.articleCode}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{a.name}</Text>
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                          {Number(a.approvedPrice) > 0
+                            ? <Text span fw={700}>{formatCurrency(Number(a.approvedPrice))}</Text>
+                            : <Text span size="xs" c="dimmed">не утверждена</Text>}
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
+                          {Number(a.specPrice) > 0
+                            ? formatCurrency(Number(a.specPrice))
+                            : <Text span size="xs" c="dimmed">—</Text>}
+                        </Table.Td>
+                        <Table.Td ta="right">
+                          {dev == null ? (
+                            <Text size="xs" c="dimmed">—</Text>
+                          ) : (
+                            // Цена ниже расчёта — продаём дешевле себестоимости с маржой
+                            <Badge
+                              variant="light" radius="xl"
+                              color={dev < 0 ? 'danger' : Math.abs(dev) > 15 ? 'warning' : 'teal'}
+                            >
+                              {dev > 0 ? '+' : ''}{dev.toLocaleString('ru-RU')} %
+                            </Badge>
+                          )}
+                        </Table.Td>
+                        {canRequest && (
+                          <Table.Td>
+                            <Button
+                              size="compact-sm"
+                              variant="light"
+                              leftSection={<IconCoin size={14} />}
+                              onClick={() => setReviewFor(a)}
+                            >
+                              Пересмотр цены
+                            </Button>
+                          </Table.Td>
+                        )}
+                      </Table.Tr>
+                    );
+                  })}
+                  {rows.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={5}>
+                        <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
         )}
       </Card>
 
-      {totalPages > 1 && (
-        <Group justify="center">
-          <Pagination value={page} onChange={setPage} total={totalPages} size="sm" radius="md" />
-        </Group>
-      )}
+      <PaginationBar
+        page={page}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="изделий"
+        sticky
+      />
 
       <Modal
         opened={reviewFor !== null}

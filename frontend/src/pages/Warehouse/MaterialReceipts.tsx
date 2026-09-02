@@ -1,15 +1,14 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  Card, Stack, Group, Text, Table, Badge, Button, Select, NumberInput, TextInput,
-  Skeleton, Box, SimpleGrid, Divider, Alert,
+  Card, Stack, Group, Text, Table, Badge, TextInput, Skeleton, Alert,
 } from '@mantine/core';
-import { IconTruckDelivery, IconCheck, IconArrowRight, IconSearch, IconLock } from '@tabler/icons-react';
-import { notifications } from '@mantine/notifications';
-import { useReceipts, usePostReceipt } from '../../hooks/useWarehouse';
-import { useMaterials } from '../../hooks/useCatalog';
-import { useAuthStore } from '../../store/auth';
+import { IconTruckDelivery, IconSearch } from '@tabler/icons-react';
+import { useReceipts } from '../../hooks/useWarehouse';
 import { formatDate } from '../../utils/formatters';
 import { ReceiptRef } from '../../components/ReceiptCard/ReceiptCardProvider';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -28,13 +27,12 @@ const CATEGORY_LABELS: Record<string, string> = {
  * то, чего в Excel не было: там цену правили вручную и связь терялась.
  */
 export function MaterialReceipts() {
-
-
   const [search, setSearch] = useState('');
-  const { data: receiptsData, isLoading } = useReceipts({ search, pageSize: 50 });
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = usePageSize('warehouse-receipts', 50);
+  const { data: receiptsData, isLoading } = useReceipts({ search, page, pageSize });
   const receipts = receiptsData?.data ?? [];
-
-
+  const total = receiptsData?.meta?.total ?? receipts.length;
 
   return (
     <Stack gap="md">
@@ -48,91 +46,102 @@ export function MaterialReceipts() {
         </Text>
       </Alert>
 
-      {/* Журнал приходов */}
-      <Card withBorder radius="md" padding={0}>
-        <Group justify="space-between" p="md" pb="sm" wrap="wrap" gap="sm">
+      <div className="toolbar-sticky">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <TextInput
+            placeholder="Материал, поставщик, документ…"
+            leftSection={<IconSearch size={16} />}
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+            w={320}
+          />
           <Group gap="xs">
             <Text fw={700} size="sm">Журнал приходов</Text>
-            {receiptsData && (
-              <Badge variant="light" color="gray" size="sm">
-                {receiptsData.meta.total.toLocaleString('ru-RU')}
-              </Badge>
-            )}
+            <Badge variant="light" color="gray" size="md">
+              {total.toLocaleString('ru-RU')}
+            </Badge>
           </Group>
-          <TextInput
-            placeholder="Материал, поставщик, документ..."
-            leftSection={<IconSearch size={15} />}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            size="sm"
-            w={280}
-          />
         </Group>
-        <Divider />
-        {isLoading ? (
-          <Stack gap={4} p="md">
-            {[...Array(8)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}
-          </Stack>
-        ) : (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Дата</Table.Th>
-                  <Table.Th>Материал</Table.Th>
-                  <Table.Th>Категория</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Количество</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Цена</Table.Th>
-                  <Table.Th style={{ textAlign: 'right' }}>Сумма</Table.Th>
-                  <Table.Th>Документ</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {receipts.map((r) => {
-                  const q = Number(r.qty);
-                  const p = Number(r.unitPrice);
-                  return (
-                    <Table.Tr key={r.id}>
-                      <Table.Td ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatDate(r.movementDate)}</Table.Td>
-                      <Table.Td>
-                        <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode ?? '—'}</Text>
-                        <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name ?? '—'}</Text>
-                      </Table.Td>
-                      <Table.Td>
-                        <Badge variant="light" color="gray" size="sm">
-                          {CATEGORY_LABELS[r.material?.category ?? ''] ?? r.material?.category ?? '—'}
-                        </Badge>
-                      </Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        {num(q, 3)} {r.material?.unit ?? ''}
-                      </Table.Td>
-                      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{p > 0 ? `${num(p)} ₸` : '—'}</Table.Td>
-                      <Table.Td ff="monospace" fw={600} style={{ textAlign: 'right' }}>
-                        {p > 0 ? `${num(q * p)} ₸` : '—'}
-                      </Table.Td>
-                      <Table.Td>
-                        {r.paymentDocumentId ? (
-                          <ReceiptRef id={r.paymentDocumentId} number={r.documentNumber ?? '—'} size="xs" bold={false} />
-                        ) : (
-                          <Text size="xs" ff="monospace">{r.documentNumber ?? '—'}</Text>
-                        )}
-                        {r.supplierName && <Text size="xs" c="dimmed" lineClamp={1}>{r.supplierName}</Text>}
+      </div>
+
+      {/* Журнал приходов */}
+      <FadeSwap swapKey={`${page}-${pageSize}`}>
+        <Card withBorder radius="md" padding={0}>
+          {isLoading ? (
+            <Stack gap={6} p="md">
+              {[...Array(8)].map((_, i) => <Skeleton key={i} height={40} radius="sm" />)}
+            </Stack>
+          ) : (
+            <TableScroll minWidth={980}>
+              <Table highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Материал</Table.Th>
+                    <Table.Th>Дата</Table.Th>
+                    <Table.Th data-priority="3">Категория</Table.Th>
+                    <Table.Th ta="right">Количество</Table.Th>
+                    <Table.Th ta="right" data-priority="2">Цена</Table.Th>
+                    <Table.Th ta="right">Сумма</Table.Th>
+                    <Table.Th>Документ</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {receipts.map((r) => {
+                    const q = Number(r.qty);
+                    const p = Number(r.unitPrice);
+                    return (
+                      <Table.Tr key={r.id}>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode ?? '—'}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name ?? '—'}</Text>
+                        </Table.Td>
+                        <Table.Td ff="monospace">{formatDate(r.movementDate)}</Table.Td>
+                        <Table.Td data-priority="3">
+                          <Badge variant="light" color="gray" size="sm">
+                            {CATEGORY_LABELS[r.material?.category ?? ''] ?? r.material?.category ?? '—'}
+                          </Badge>
+                        </Table.Td>
+                        <Table.Td ff="monospace" ta="right">
+                          {num(q, 3)} {r.material?.unit ?? ''}
+                        </Table.Td>
+                        <Table.Td ff="monospace" ta="right" data-priority="2">{p > 0 ? `${num(p)} ₸` : '—'}</Table.Td>
+                        <Table.Td ff="monospace" fw={600} ta="right">
+                          {p > 0 ? `${num(q * p)} ₸` : '—'}
+                        </Table.Td>
+                        <Table.Td>
+                          {r.paymentDocumentId ? (
+                            <ReceiptRef id={r.paymentDocumentId} number={r.documentNumber ?? '—'} size="sm" bold={false} />
+                          ) : (
+                            <Text size="sm" ff="monospace">{r.documentNumber ?? '—'}</Text>
+                          )}
+                          {r.supplierName && <Text size="xs" c="dimmed" lineClamp={1}>{r.supplierName}</Text>}
+                        </Table.Td>
+                      </Table.Tr>
+                    );
+                  })}
+                  {receipts.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={7}>
+                        <Text size="sm" c="dimmed" ta="center" py="lg">Приходов нет</Text>
                       </Table.Td>
                     </Table.Tr>
-                  );
-                })}
-                {receipts.length === 0 && (
-                  <Table.Tr>
-                    <Table.Td colSpan={7}>
-                      <Text size="sm" c="dimmed" ta="center" py="lg">Приходов нет</Text>
-                    </Table.Td>
-                  </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </Box>
-        )}
-      </Card>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          )}
+        </Card>
+      </FadeSwap>
+
+      <PaginationBar
+        page={page}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+        noun="приходов"
+        sticky
+      />
     </Stack>
   );
 }

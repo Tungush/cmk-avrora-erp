@@ -11,7 +11,9 @@ import {
 import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
-import { Stagger } from '../../components/motion';
+import { Stagger, FadeSwap } from '../../components/motion';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 
 interface OverrideRow {
@@ -45,6 +47,10 @@ interface ExpiringRow {
   expiresAt: string;
   daysLeft: number;
 }
+
+/** Карточки перехватов каскадим по 12 — столько же, сколько успевает Stagger */
+const CARDS_PER_PAGE = 12;
+const ROWS_PER_PAGE = 25;
 
 /**
  * Партии и резервы (24.08.2026) — двери для того, что было построено
@@ -122,6 +128,15 @@ export function BatchesReserves() {
     }),
   });
 
+  // Все три списка приходят целиком — страницы режем на клиенте.
+  // Хуки — до раннего возврата на загрузке, иначе React их потеряет.
+  const ov = overrides?.data ?? [];
+  const an = anomalies ?? [];
+  const ex = expiring?.data ?? [];
+  const ovPaged = usePagedList(ov, CARDS_PER_PAGE);
+  const anPaged = usePagedList(an, ROWS_PER_PAGE);
+  const exPaged = usePagedList(ex, ROWS_PER_PAGE);
+
   if (l1 || l2 || l3) {
     return (
       <Stack gap="md">
@@ -130,176 +145,210 @@ export function BatchesReserves() {
     );
   }
 
-  const ov = overrides?.data ?? [];
-  const an = anomalies ?? [];
-  const ex = expiring?.data ?? [];
-
   return (
     <Stack gap="lg">
       {/* ===== Перехваты: решает директор ===== */}
       <Card withBorder radius="md" padding="md" id="overrides">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="red" radius="md" size="sm"><IconGavel size={14} /></ThemeIcon>
-          <Text fw={700} size="sm">Перехваты резервов</Text>
-          {ov.length > 0 && <Badge color="red" variant="filled" radius="xl" size="sm">{ov.length}</Badge>}
+          <ThemeIcon variant="light" color="red" radius="md" size="md"><IconGavel size={16} /></ThemeIcon>
+          <Text fw={700} size="md">Перехваты резервов</Text>
+          {ov.length > 0 && <Badge color="red" variant="filled" radius="xl" size="md">{ov.length}</Badge>}
         </Group>
         {ov.length === 0 ? (
           <Text size="sm" c="dimmed">Запросов нет — металл никто ни у кого не просит</Text>
         ) : (
-          <Stagger>
-            {ov.map((o) => (
-              <Card key={o.id} withBorder radius="md" padding="sm" mb="xs" bg="var(--mantine-color-default-hover)">
-                <Group justify="space-between" wrap="wrap" gap="sm">
-                  <Stack gap={4} style={{ flex: 1, minWidth: 260 }}>
-                    <Group gap={8} wrap="wrap">
-                      {o.requestedByOrder && (
-                        <OrderRef id={o.requestedByOrder.id} number={o.requestedByOrder.orderNumber} />
-                      )}
-                      <Text size="sm" c="dimmed">просит {o.qtyRequested} {o.material.unit} у</Text>
-                      {o.holderOrder && (
-                        <OrderRef id={o.holderOrder.id} number={o.holderOrder.orderNumber} />
-                      )}
-                      {o.ageHours > 24 && (
-                        <Badge color="orange" variant="light" radius="xl" size="sm">
-                          ждёт {Math.floor(o.ageHours / 24)} дн
-                        </Badge>
+          <>
+            <FadeSwap swapKey={ovPaged.page}>
+              <Stagger>
+                {ovPaged.slice.map((o) => (
+                  <Card key={o.id} withBorder radius="md" padding="sm" mb="xs" bg="var(--mantine-color-default-hover)">
+                    <Group justify="space-between" wrap="wrap" gap="sm">
+                      <Stack gap={4} style={{ flex: 1, minWidth: 260 }}>
+                        <Group gap={8} wrap="wrap">
+                          {o.requestedByOrder && (
+                            <OrderRef id={o.requestedByOrder.id} number={o.requestedByOrder.orderNumber} />
+                          )}
+                          <Text size="sm" c="dimmed">просит {o.qtyRequested} {o.material.unit} у</Text>
+                          {o.holderOrder && (
+                            <OrderRef id={o.holderOrder.id} number={o.holderOrder.orderNumber} />
+                          )}
+                          {o.ageHours > 24 && (
+                            <Badge color="orange" variant="light" radius="xl" size="sm">
+                              ждёт {Math.floor(o.ageHours / 24)} дн
+                            </Badge>
+                          )}
+                        </Group>
+                        <Text size="xs" c="dimmed">
+                          {o.material.name} · {formatCurrency(o.unitPrice)}/{o.material.unit} · в резерве {o.reservedQty} {o.material.unit}
+                        </Text>
+                        <Text size="sm" style={{ fontStyle: 'italic' }}>«{o.reason}»</Text>
+                      </Stack>
+                      {canDecide ? (
+                        <Group gap="xs">
+                          <Button size="sm" color="success"
+                            onClick={() => decide.mutate({ id: o.id, approve: true })}
+                            loading={decide.isPending}>
+                            Разрешить
+                          </Button>
+                          <Button size="sm" variant="light" color="danger"
+                            onClick={() => setDeciding(o)}>
+                            Отказать
+                          </Button>
+                        </Group>
+                      ) : (
+                        <Badge color="gray" variant="light" radius="xl">решает директор</Badge>
                       )}
                     </Group>
-                    <Text size="xs" c="dimmed">
-                      {o.material.name} · {formatCurrency(o.unitPrice)}/{o.material.unit} · в резерве {o.reservedQty} {o.material.unit}
-                    </Text>
-                    <Text size="sm" style={{ fontStyle: 'italic' }}>«{o.reason}»</Text>
-                  </Stack>
-                  {canDecide ? (
-                    <Group gap="xs">
-                      <Button size="sm" color="success"
-                        onClick={() => decide.mutate({ id: o.id, approve: true })}
-                        loading={decide.isPending}>
-                        Разрешить
-                      </Button>
-                      <Button size="sm" variant="light" color="danger"
-                        onClick={() => setDeciding(o)}>
-                        Отказать
-                      </Button>
-                    </Group>
-                  ) : (
-                    <Badge color="gray" variant="light" radius="xl">решает директор</Badge>
-                  )}
-                </Group>
-              </Card>
-            ))}
-          </Stagger>
+                  </Card>
+                ))}
+              </Stagger>
+            </FadeSwap>
+            <PaginationBar
+              page={ovPaged.page}
+              total={ovPaged.total}
+              pageSize={CARDS_PER_PAGE}
+              onPageChange={ovPaged.setPage}
+              noun="запросов"
+              variant="compact"
+            />
+          </>
         )}
       </Card>
 
       {/* ===== Карантин цен: подтверждает снабжение ===== */}
       <Card withBorder radius="md" padding="md" id="quarantine">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="yellow" radius="md" size="sm"><IconFlask size={14} /></ThemeIcon>
-          <Text fw={700} size="sm">Карантин цен</Text>
-          {an.length > 0 && <Badge color="yellow" variant="filled" radius="xl" size="sm">{an.length}</Badge>}
+          <ThemeIcon variant="light" color="yellow" radius="md" size="md"><IconFlask size={16} /></ThemeIcon>
+          <Text fw={700} size="md">Карантин цен</Text>
+          {an.length > 0 && <Badge color="yellow" variant="filled" radius="xl" size="md">{an.length}</Badge>}
         </Group>
-        <Text size="xs" c="dimmed" mb="sm">
+        <Text size="sm" c="dimmed" mb="sm">
           Цена партии разошлась с медианой по материалу — в расчёты она не попадёт,
           пока снабжение не подтвердит, что это не ошибка ввода
         </Text>
         {an.length === 0 ? (
           <Text size="sm" c="dimmed">Карантин пуст — подозрительных цен нет</Text>
         ) : (
-          <Table.ScrollContainer minWidth={640}>
-            <Table verticalSpacing="xs" fz="sm" highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Материал</Table.Th>
-                  <Table.Th ta="right">Цена партии</Table.Th>
-                  <Table.Th ta="right">Отклонение</Table.Th>
-                  <Table.Th>Приход</Table.Th>
-                  <Table.Th />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {an.map((a) => (
-                  <Table.Tr key={a.batchId}>
-                    <Table.Td>
-                      <Text size="sm">{a.material.name}</Text>
-                      <Text size="xs" c="dimmed" ff="monospace">{a.material.materialCode}</Text>
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace" fw={600}>{formatCurrency(a.unitPrice)}</Table.Td>
-                    <Table.Td ta="right">
-                      <Tooltip label={a.hint}>
-                        <Badge color="red" variant="light" radius="xl">
-                          ×{a.anomalyFactor ?? '—'}
-                        </Badge>
-                      </Tooltip>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" c="dimmed">
-                        {formatDate(a.receiptDate)}{a.supplierName ? ` · ${a.supplierName}` : ''}
-                        {a.documentNumber ? ` · ${a.documentNumber}` : ''}
-                      </Text>
-                    </Table.Td>
-                    <Table.Td>
-                      {canClearAnomaly ? (
-                        <Button size="compact-sm" variant="light"
-                          onClick={() => clearAnomaly.mutate(a.batchId)}
-                          loading={clearAnomaly.isPending}>
-                          Цена верна
-                        </Button>
-                      ) : (
-                        <Badge color="gray" variant="light" radius="xl" size="sm">снабжение</Badge>
-                      )}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+          <>
+            <FadeSwap swapKey={anPaged.page}>
+              <TableScroll minWidth={780}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Материал</Table.Th>
+                      <Table.Th ta="right">Цена партии</Table.Th>
+                      <Table.Th ta="right">Отклонение</Table.Th>
+                      <Table.Th>Приход</Table.Th>
+                      <Table.Th />
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {anPaged.slice.map((a) => (
+                      <Table.Tr key={a.batchId}>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{a.material.materialCode}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{a.material.name}</Text>
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace" fw={600}>{formatCurrency(a.unitPrice)}</Table.Td>
+                        <Table.Td ta="right">
+                          <Tooltip label={a.hint}>
+                            <Badge color="red" variant="light" radius="xl" size="sm">
+                              ×{a.anomalyFactor ?? '—'}
+                            </Badge>
+                          </Tooltip>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{formatDate(a.receiptDate)}</Text>
+                          {(a.supplierName || a.documentNumber) && (
+                            <Text size="xs" c="dimmed" lineClamp={1}>
+                              {[a.supplierName, a.documentNumber].filter(Boolean).join(' · ')}
+                            </Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td>
+                          {canClearAnomaly ? (
+                            <Button size="compact-sm" variant="light"
+                              onClick={() => clearAnomaly.mutate(a.batchId)}
+                              loading={clearAnomaly.isPending}>
+                              Цена верна
+                            </Button>
+                          ) : (
+                            <Badge color="gray" variant="light" radius="xl" size="sm">снабжение</Badge>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            </FadeSwap>
+            <PaginationBar
+              page={anPaged.page}
+              total={anPaged.total}
+              pageSize={ROWS_PER_PAGE}
+              onPageChange={anPaged.setPage}
+              noun="партий"
+              variant="compact"
+            />
+          </>
         )}
       </Card>
 
       {/* ===== Истекающие резервы ===== */}
       <Card withBorder radius="md" padding="md" id="expiring">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="orange" radius="md" size="sm"><IconClockExclamation size={14} /></ThemeIcon>
-          <Text fw={700} size="sm">Резервы истекают</Text>
-          {ex.length > 0 && <Badge color="orange" variant="filled" radius="xl" size="sm">{ex.length}</Badge>}
+          <ThemeIcon variant="light" color="orange" radius="md" size="md"><IconClockExclamation size={16} /></ThemeIcon>
+          <Text fw={700} size="md">Резервы истекают</Text>
+          {ex.length > 0 && <Badge color="orange" variant="filled" radius="xl" size="md">{ex.length}</Badge>}
         </Group>
-        <Text size="xs" c="dimmed" mb="sm">
+        <Text size="sm" c="dimmed" mb="sm">
           Резерв без движения снимается через 30 дней сам — металл вернётся
           в свободный остаток. Если заказ ещё жив, продлите резерв пересчётом калькуляции
         </Text>
         {ex.length === 0 ? (
           <Text size="sm" c="dimmed">В ближайшие 3 дня ничего не истекает</Text>
         ) : (
-          <Table.ScrollContainer minWidth={560}>
-            <Table verticalSpacing="xs" fz="sm" highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Заказ</Table.Th>
-                  <Table.Th>Материал</Table.Th>
-                  <Table.Th ta="right">Кол-во</Table.Th>
-                  <Table.Th ta="right">Истекает</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {ex.map((r) => (
-                  <Table.Tr key={r.id}>
-                    <Table.Td><OrderRef id={r.order.id} number={r.order.orderNumber} focus="supply" /></Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{r.material.name}</Text>
-                      <Text size="xs" c="dimmed" ff="monospace">{r.material.materialCode}</Text>
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">{r.qty} {r.material.unit}</Table.Td>
-                    <Table.Td ta="right">
-                      <Badge color={r.daysLeft <= 1 ? 'red' : 'orange'} variant="light" radius="xl">
-                        {r.daysLeft === 0 ? 'сегодня' : `${r.daysLeft} дн`}
-                      </Badge>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Table.ScrollContainer>
+          <>
+            <FadeSwap swapKey={exPaged.page}>
+              <TableScroll minWidth={640}>
+                <Table highlightOnHover>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Заказ</Table.Th>
+                      <Table.Th>Материал</Table.Th>
+                      <Table.Th ta="right">Кол-во</Table.Th>
+                      <Table.Th ta="right">Истекает</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {exPaged.slice.map((r) => (
+                      <Table.Tr key={r.id}>
+                        <Table.Td><OrderRef id={r.order.id} number={r.order.orderNumber} focus="supply" /></Table.Td>
+                        <Table.Td>
+                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material.materialCode}</Text>
+                          <Text size="xs" c="dimmed" lineClamp={1}>{r.material.name}</Text>
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">{r.qty} {r.material.unit}</Table.Td>
+                        <Table.Td ta="right">
+                          <Badge color={r.daysLeft <= 1 ? 'red' : 'orange'} variant="light" radius="xl" size="sm">
+                            {r.daysLeft === 0 ? 'сегодня' : `${r.daysLeft} дн`}
+                          </Badge>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            </FadeSwap>
+            <PaginationBar
+              page={exPaged.page}
+              total={exPaged.total}
+              pageSize={ROWS_PER_PAGE}
+              onPageChange={exPaged.setPage}
+              noun="резервов"
+              variant="compact"
+            />
+          </>
         )}
       </Card>
 

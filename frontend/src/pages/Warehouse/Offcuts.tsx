@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  Card, Stack, Text, Table, Skeleton, Box, Group, Button, Modal,
-  Select, NumberInput, TextInput, Badge, ActionIcon, Tooltip,
+  Card, Stack, Text, Table, Skeleton, Group, Button, Modal,
+  Select, NumberInput, TextInput, ActionIcon, Tooltip,
 } from '@mantine/core';
 import { IconPlus, IconCheck, IconSearch, IconTrash, IconPencil } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,6 +10,9 @@ import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useMaterials } from '../../hooks/useCatalog';
 import { formatDate } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const num = (n: number, d = 1) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -85,89 +88,117 @@ export function Offcuts() {
   });
 
   const rows: OffcutRow[] = data?.data ?? [];
+  const totalPieces = rows.reduce((s, r) => s + Number(r.qty), 0);
+
+  // Сервер отдаёт список целиком — страницы режем на клиенте
+  const [pageSize, setPageSize] = usePageSize('warehouse-offcuts', 50);
+  const paged = usePagedList(rows, pageSize, search);
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="sm">
-        <TextInput
-          placeholder="Код или наименование материала…"
-          leftSection={<IconSearch size={15} />}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          w={280}
-          size="sm"
-        />
-        {canEdit && (
-          <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
-            Записать обрезок
-          </Button>
-        )}
-      </Group>
+      <div className="toolbar-sticky">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <Group gap="lg" wrap="wrap">
+            <TextInput
+              placeholder="Код или наименование материала…"
+              leftSection={<IconSearch size={16} />}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              w={320}
+            />
+            <Text size="sm" c="dimmed">
+              Строк:{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{rows.length.toLocaleString('ru-RU')}</Text>
+              {' '}· штук:{' '}
+              <Text span fw={700} ff="monospace" c="var(--gray-9)">{num(totalPieces, 0)}</Text>
+            </Text>
+          </Group>
+          {canEdit && (
+            <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
+              Записать обрезок
+            </Button>
+          )}
+        </Group>
+      </div>
 
-      <Card withBorder radius="md" padding={0}>
-        {isLoading ? (
-          <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
-        ) : (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Материал</Table.Th>
-                  <Table.Th ta="right">Длина, мм</Table.Th>
-                  <Table.Th ta="right">Ширина, мм</Table.Th>
-                  <Table.Th ta="right">Штук</Table.Th>
-                  <Table.Th>Заметка</Table.Th>
-                  <Table.Th>Обновлено</Table.Th>
-                  {canEdit && <Table.Th w={90} />}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((r) => (
-                  <Table.Tr key={r.id}>
-                    <Table.Td>
-                      <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material.materialCode}</Text>
-                      <Text size="xs" c="dimmed" lineClamp={1}>{r.material.name}</Text>
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace" fw={700}>{num(Number(r.lengthMm))}</Table.Td>
-                    <Table.Td ta="right" ff="monospace">
-                      {r.widthMm ? num(Number(r.widthMm)) : <Text span c="dimmed">—</Text>}
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace" fw={700}>{num(Number(r.qty), 0)}</Table.Td>
-                    <Table.Td><Text size="xs" c="dimmed" lineClamp={1}>{r.note ?? '—'}</Text></Table.Td>
-                    <Table.Td ff="monospace" fz="xs">{formatDate(r.updatedAt)}</Table.Td>
-                    {canEdit && (
-                      <Table.Td>
-                        <Group gap={4} wrap="nowrap">
-                          <Tooltip label="Изменить количество">
-                            <ActionIcon variant="subtle" size="sm"
-                              onClick={() => { setEditing(r); setQty(Number(r.qty)); setNote(r.note ?? ''); }}>
-                              <IconPencil size={14} />
-                            </ActionIcon>
-                          </Tooltip>
-                          <Tooltip label="Убрать строку">
-                            <ActionIcon variant="subtle" color="danger" size="sm" onClick={() => remove.mutate(r.id)}>
-                              <IconTrash size={14} />
-                            </ActionIcon>
-                          </Tooltip>
-                        </Group>
-                      </Table.Td>
-                    )}
-                  </Table.Tr>
-                ))}
-                {rows.length === 0 && (
+      <FadeSwap swapKey={`${paged.page}-${pageSize}`}>
+        <Card withBorder radius="md" padding={0}>
+          {isLoading ? (
+            <Stack gap={6} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={40} radius="sm" />)}</Stack>
+          ) : (
+            <TableScroll minWidth={canEdit ? 920 : 820}>
+              <Table highlightOnHover>
+                <Table.Thead>
                   <Table.Tr>
-                    <Table.Td colSpan={canEdit ? 7 : 6}>
-                      <Text size="sm" c="dimmed" ta="center" py="lg">
-                        Обрезков не записано — кладовщик добавляет их кнопкой сверху
-                      </Text>
-                    </Table.Td>
+                    <Table.Th>Материал</Table.Th>
+                    <Table.Th ta="right">Длина, мм</Table.Th>
+                    <Table.Th ta="right">Ширина, мм</Table.Th>
+                    <Table.Th ta="right">Штук</Table.Th>
+                    <Table.Th>Заметка</Table.Th>
+                    <Table.Th>Обновлено</Table.Th>
+                    {canEdit && <Table.Th w={100} />}
                   </Table.Tr>
-                )}
-              </Table.Tbody>
-            </Table>
-          </Box>
-        )}
-      </Card>
+                </Table.Thead>
+                <Table.Tbody>
+                  {paged.slice.map((r) => (
+                    <Table.Tr key={r.id}>
+                      <Table.Td>
+                        <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material.materialCode}</Text>
+                        <Text size="xs" c="dimmed" lineClamp={1}>{r.material.name}</Text>
+                      </Table.Td>
+                      <Table.Td ta="right" ff="monospace" fw={700}>{num(Number(r.lengthMm))}</Table.Td>
+                      <Table.Td ta="right" ff="monospace">
+                        {r.widthMm ? num(Number(r.widthMm)) : <Text span c="dimmed">—</Text>}
+                      </Table.Td>
+                      <Table.Td ta="right" ff="monospace" fw={700}>{num(Number(r.qty), 0)}</Table.Td>
+                      <Table.Td><Text size="sm" c="dimmed" lineClamp={1}>{r.note ?? '—'}</Text></Table.Td>
+                      <Table.Td ff="monospace">{formatDate(r.updatedAt)}</Table.Td>
+                      {canEdit && (
+                        <Table.Td>
+                          <Group gap={4} wrap="nowrap">
+                            <Tooltip label="Изменить количество">
+                              <ActionIcon variant="subtle" size="md" aria-label="Изменить количество"
+                                onClick={() => { setEditing(r); setQty(Number(r.qty)); setNote(r.note ?? ''); }}>
+                                <IconPencil size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                            <Tooltip label="Убрать строку">
+                              <ActionIcon variant="subtle" color="danger" size="md" aria-label="Убрать строку"
+                                onClick={() => remove.mutate(r.id)}>
+                                <IconTrash size={16} />
+                              </ActionIcon>
+                            </Tooltip>
+                          </Group>
+                        </Table.Td>
+                      )}
+                    </Table.Tr>
+                  ))}
+                  {rows.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={canEdit ? 7 : 6}>
+                        <Text size="sm" c="dimmed" ta="center" py="lg">
+                          Обрезков не записано — кладовщик добавляет их кнопкой сверху
+                        </Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          )}
+        </Card>
+      </FadeSwap>
+
+      <PaginationBar
+        page={paged.page}
+        total={paged.total}
+        pageSize={pageSize}
+        onPageChange={paged.setPage}
+        onPageSizeChange={setPageSize}
+        noun="строк"
+        sticky
+      />
+
       <Text size="xs" c="dimmed">
         Каждая длина — отдельная строка: обрезки разных длин с разным количеством.
         Ноль штук убирает строку.

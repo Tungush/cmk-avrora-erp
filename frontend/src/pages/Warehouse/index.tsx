@@ -8,26 +8,32 @@ import {
   IconGauge,
   IconScissors,
 } from '@tabler/icons-react';
+import { useSearchParams } from 'react-router-dom';
 import { MaterialsStock } from './MaterialsStock';
 import { BatchesReserves } from './BatchesReserves';
 import { FinishedGoodsStock } from './FinishedGoodsStock';
 import { MinStock } from './MinStock';
 import { Offcuts } from './Offcuts';
-import { useSearchParams } from 'react-router-dom';
+import { FadeSwap } from '../../components/motion';
 
 /** Склад сырья — то, из чего делают изделия */
 const RAW = ['METAL', 'HARDWARE', 'COMPONENTS'];
 /** Кладовая — расходники и инструмент, в изделие не входят */
 const STOREROOM = ['CONSUMABLES', 'INSTRUMENTS'];
 
+const TABS = ['stock', 'storeroom', 'fg', 'batches', 'minstock', 'offcuts'] as const;
+type TabKey = (typeof TABS)[number];
+
 export function Warehouse() {
   // Вкладка живёт в адресе: ссылки «Требует решения» с экрана директора
   // ведут прямо в «Партии и резервы», а не на первую попавшуюся вкладку
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') ?? 'stock';
+  const raw = params.get('tab') ?? 'stock';
+  const tab: TabKey = (TABS as readonly string[]).includes(raw) ? (raw as TabKey) : 'stock';
   const setTab = (v: string) => setParams((prev) => {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
+
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
       <Stack gap={4}>
@@ -39,23 +45,27 @@ export function Warehouse() {
         </Text>
       </Stack>
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'stock')} radius="md" keepMounted={false}>
-        <Tabs.List mb="md">
-          <Tabs.Tab value="stock" leftSection={<IconBoxSeam size={15} />}>Склад сырья</Tabs.Tab>
-          <Tabs.Tab value="storeroom" leftSection={<IconTool size={15} />}>Кладовая</Tabs.Tab>
-          <Tabs.Tab value="fg" leftSection={<IconBuildingWarehouse size={15} />}>Склад ГП</Tabs.Tab>
-          <Tabs.Tab value="batches" leftSection={<IconGavel size={15} />}>Партии и резервы</Tabs.Tab>
-          <Tabs.Tab value="minstock" leftSection={<IconGauge size={15} />}>Мин. остатки</Tabs.Tab>
-          <Tabs.Tab value="offcuts" leftSection={<IconScissors size={15} />}>Обрезки</Tabs.Tab>
+      {/* Панели рисуем сами под списком вкладок: так смена вкладки
+          анимируется одним FadeSwap, а не «мигает» при перемонтировании */}
+      <Tabs value={tab} onChange={(v) => setTab(v ?? 'stock')} radius="md">
+        <Tabs.List>
+          <Tabs.Tab value="stock" leftSection={<IconBoxSeam size={16} />}>Склад сырья</Tabs.Tab>
+          <Tabs.Tab value="storeroom" leftSection={<IconTool size={16} />}>Кладовая</Tabs.Tab>
+          <Tabs.Tab value="fg" leftSection={<IconBuildingWarehouse size={16} />}>Склад ГП</Tabs.Tab>
+          <Tabs.Tab value="batches" leftSection={<IconGavel size={16} />}>Партии и резервы</Tabs.Tab>
+          <Tabs.Tab value="minstock" leftSection={<IconGauge size={16} />}>Мин. остатки</Tabs.Tab>
+          <Tabs.Tab value="offcuts" leftSection={<IconScissors size={16} />}>Обрезки</Tabs.Tab>
         </Tabs.List>
-
-        <Tabs.Panel value="stock"><MaterialsStock only={RAW} /></Tabs.Panel>
-        <Tabs.Panel value="storeroom"><MaterialsStock only={STOREROOM} /></Tabs.Panel>
-        <Tabs.Panel value="fg"><FinishedGoodsStock /></Tabs.Panel>
-        <Tabs.Panel value="batches"><BatchesReserves /></Tabs.Panel>
-        <Tabs.Panel value="minstock"><MinStock /></Tabs.Panel>
-        <Tabs.Panel value="offcuts"><Offcuts /></Tabs.Panel>
       </Tabs>
+
+      <FadeSwap swapKey={tab} style={{ minWidth: 0 }}>
+        {tab === 'stock' && <MaterialsStock only={RAW} pageKey="warehouse-stock" />}
+        {tab === 'storeroom' && <MaterialsStock only={STOREROOM} pageKey="warehouse-storeroom" />}
+        {tab === 'fg' && <FinishedGoodsStock />}
+        {tab === 'batches' && <BatchesReserves />}
+        {tab === 'minstock' && <MinStock />}
+        {tab === 'offcuts' && <Offcuts />}
+      </FadeSwap>
     </Stack>
   );
 }

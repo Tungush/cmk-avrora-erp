@@ -16,6 +16,31 @@ import {
 /** Пружина системы: быстрая, плотная, без перелёта */
 export const SPRING = { type: 'spring', stiffness: 420, damping: 34, mass: 0.9 } as const;
 
+/**
+ * Движение можно выключить целиком: системная настройка prefers-reduced-motion
+ * ИЛИ localStorage `ui-motion=off` (кнопка в шапке; так же снимаются
+ * скриншоты в скрытой вкладке, где rAF не тикает и вход зависает на 0).
+ */
+export function useMotionOff(): boolean {
+  const reduced = useReducedMotion();
+  const [off, setOff] = React.useState(() => {
+    // Вкладка открыта в фоне: rAF не тикает, анимация входа не проигрывается,
+    // и блок навсегда остаётся с opacity 0 — пользователь видит пустоту.
+    // В таком случае показываем всё сразу, без анимации.
+    if (typeof document !== 'undefined' && document.hidden) return true;
+    try { return localStorage.getItem('ui-motion') === 'off'; } catch { return false; }
+  });
+  useEffect(() => {
+    const onChange = () => {
+      try { setOff(localStorage.getItem('ui-motion') === 'off'); } catch { /* приватный режим */ }
+    };
+    window.addEventListener('ui-motion-change', onChange);
+    window.addEventListener('storage', onChange);
+    return () => { window.removeEventListener('ui-motion-change', onChange); window.removeEventListener('storage', onChange); };
+  }, []);
+  return !!reduced || off;
+}
+
 /** Появление снизу с растворением — вход любого блока */
 export function FadeRise({
   children, delay = 0, y = 10, style,
@@ -25,7 +50,7 @@ export function FadeRise({
   y?: number;
   style?: React.CSSProperties;
 }) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionOff();
   if (reduced) return <div style={style}>{children}</div>;
   return (
     <motion.div
@@ -44,7 +69,7 @@ export function FadeRise({
  * Больше 12 элементов не каскадим — дальше это уже ожидание, а не эффект.
  */
 export function Stagger({ children }: { children: React.ReactNode }) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionOff();
   const items = React.Children.toArray(children);
   if (reduced) return <>{children}</>;
   return (
@@ -70,7 +95,7 @@ export function Stagger({ children }: { children: React.ReactNode }) {
 export function AnimatedNumber({
   value, format,
 }: { value: number; format?: (n: number) => string }) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionOff();
   const spring = useSpring(reduced ? value : 0, { stiffness: 90, damping: 24 });
   const display = useTransform(spring, (v) =>
     (format ?? ((n: number) => Math.round(n).toLocaleString('ru-RU')))(v),
@@ -87,7 +112,7 @@ export function AnimatedNumber({
 
 /** Раскрытие по высоте — для разворачивающихся карточек */
 export function Collapse({ opened, children }: { opened: boolean; children: React.ReactNode }) {
-  const reduced = useReducedMotion();
+  const reduced = useMotionOff();
   if (reduced) return opened ? <>{children}</> : null;
   return (
     <AnimatePresence initial={false}>
@@ -102,6 +127,32 @@ export function Collapse({ opened, children }: { opened: boolean; children: Reac
           {children}
         </motion.div>
       )}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * Смена содержимого по ключу (страница пагинации, вкладка, фильтр):
+ * старое растворяется, новое поднимается — пользователь видит, что
+ * данные обновились, а не «мигнули».
+ */
+export function FadeSwap({
+  swapKey, children, style,
+}: { swapKey: React.Key; children: React.ReactNode; style?: React.CSSProperties }) {
+  const reduced = useMotionOff();
+  if (reduced) return <div style={style}>{children}</div>;
+  return (
+    <AnimatePresence mode="wait" initial={false}>
+      <motion.div
+        key={String(swapKey)}
+        initial={{ opacity: 0, y: 6 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -4, transition: { duration: 0.12 } }}
+        transition={{ ...SPRING, duration: 0.22 }}
+        style={style}
+      >
+        {children}
+      </motion.div>
     </AnimatePresence>
   );
 }

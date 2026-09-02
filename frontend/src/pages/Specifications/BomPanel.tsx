@@ -1,15 +1,21 @@
 import React, { useMemo, useState } from 'react';
 import {
   Card, Stack, Group, Text, Table, Badge, Button, Select, NumberInput,
-  ActionIcon, Skeleton, Box, Tooltip,
+  ActionIcon, Skeleton, Tooltip,
 } from '@mantine/core';
-import { IconPlus, IconTrash, IconCheck, IconLock } from '@tabler/icons-react';
+import { IconPlus, IconTrash, IconCheck, IconLock, IconInfoCircle } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useBom, useMaterials, useAddBomItem, useUpdateBomItem, useRemoveBomItem } from '../../hooks/useCatalog';
 import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
+
+/** Строк состава на странице: больше — уже не «состав», а простыня */
+const BOM_PAGE_SIZE = 25;
 
 /** Строка состава: расход правится инлайн (engineer), удаление — крестиком */
 function BomRow({
@@ -39,7 +45,7 @@ function BomRow({
 
   return (
     <Table.Tr>
-      <Table.Td>
+      <Table.Td style={{ minWidth: 220 }}>
         <Text size="sm" ff="monospace" fw={600} c="brand.7">{item.material?.materialCode ?? '—'}</Text>
         <Text size="xs" c="dimmed" lineClamp={1}>{item.material?.name ?? '—'}</Text>
       </Table.Td>
@@ -52,10 +58,10 @@ function BomRow({
             min={0}
             step={0.01}
             decimalScale={4}
-            size="xs"
-            w={100}
+            w={150}
+            ml="auto"
             styles={{ input: { textAlign: 'right', fontFamily: 'var(--ff-num)' } }}
-            rightSection={dirty ? <IconCheck size={12} style={{ color: 'var(--ok-6)' }} /> : undefined}
+            rightSection={dirty ? <IconCheck size={15} style={{ color: 'var(--ok-6)' }} /> : undefined}
           />
         ) : (
           <Text size="sm" ff="monospace">{num(Number(item.qtyPerUnit), 4)}</Text>
@@ -82,11 +88,11 @@ function BomRow({
             <ActionIcon
               variant="subtle"
               color="danger"
-              size="sm"
+              size="md"
               onClick={() => remove.mutate(item.id)}
               loading={remove.isPending}
             >
-              <IconTrash size={14} />
+              <IconTrash size={16} />
             </ActionIcon>
           </Tooltip>
         </Table.Td>
@@ -121,6 +127,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
   );
 
   const items: any[] = bom ?? [];
+  const paged = usePagedList(items, BOM_PAGE_SIZE, articleId);
   const total = items.reduce(
     (s, i) => s + Number(i.qtyPerUnit) * Number(i.material?.purchasePrice ?? 0),
     0,
@@ -148,13 +155,15 @@ export function BomPanel({ articleId }: { articleId: string }) {
     <Card withBorder radius="md" padding="md">
       <Group justify="space-between" mb="sm" wrap="wrap" gap="xs">
         <Group gap="xs">
-          <Text fw={700} size="sm">Состав изделия</Text>
-          <Badge variant="light" color="gray" size="sm">{items.length} позиций</Badge>
+          <Text fw={700} size="md">Состав изделия</Text>
+          <Badge variant="light" color="gray" size="lg" h={22} px={8}>{items.length} позиций</Badge>
         </Group>
-        <Group gap="xs">
-          <Text size="sm" ff="monospace" fw={700}>Материалы: {num(total)} ₸/ед.</Text>
+        <Group gap={6} wrap="nowrap">
+          <Text size="md" ff="monospace" fw={700}>Материалы: {num(total)} ₸/ед.</Text>
           <Tooltip label="Учётная цена — средневзвешенная по приходам со склада. Приходы приезжают из заказов поставщику в 1С" multiline w={260}>
-            <Text size="xs" c="dimmed" style={{ cursor: 'help' }}>ⓘ</Text>
+            <ActionIcon variant="subtle" color="gray" size="md" aria-label="Что такое учётная цена">
+              <IconInfoCircle size={18} />
+            </ActionIcon>
           </Tooltip>
         </Group>
       </Group>
@@ -165,26 +174,40 @@ export function BomPanel({ articleId }: { articleId: string }) {
           {canEdit ? ' Добавьте позиции ниже.' : ''}
         </Text>
       ) : (
-        <Box style={{ overflowX: 'auto' }}>
-          <Table highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>Материал</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Расход на ед.</Table.Th>
-                <Table.Th>Ед.</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Учётная цена</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Последний закуп</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Стоимость</Table.Th>
-                {canEdit && <Table.Th w={40} />}
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {items.map((item) => (
-                <BomRow key={item.id} item={item} articleId={articleId} canEdit={canEdit} />
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Box>
+        <Stack gap="xs">
+          <FadeSwap swapKey={paged.page}>
+            <TableScroll minWidth={820}>
+              <Table highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Материал</Table.Th>
+                    <Table.Th style={{ textAlign: 'right' }}>Расход на ед.</Table.Th>
+                    <Table.Th>Ед.</Table.Th>
+                    <Table.Th style={{ textAlign: 'right' }}>Учётная цена</Table.Th>
+                    <Table.Th style={{ textAlign: 'right' }}>Последний закуп</Table.Th>
+                    <Table.Th style={{ textAlign: 'right' }}>Стоимость</Table.Th>
+                    {canEdit && <Table.Th w={48} />}
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {paged.slice.map((item) => (
+                    <BomRow key={item.id} item={item} articleId={articleId} canEdit={canEdit} />
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
+          {paged.total > BOM_PAGE_SIZE && (
+            <PaginationBar
+              page={paged.page}
+              total={paged.total}
+              pageSize={BOM_PAGE_SIZE}
+              onPageChange={paged.setPage}
+              variant="compact"
+              noun="позиций"
+            />
+          )}
+        </Stack>
       )}
 
       {canEdit ? (
@@ -198,8 +221,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
             searchable
             onSearchChange={setMaterialSearch}
             clearable
-            style={{ flex: 1, minWidth: 260 }}
-            size="sm"
+            style={{ flex: '1 1 280px', minWidth: 0 }}
             nothingFoundMessage="Материал не найден в «Базе сырья»"
           />
           <NumberInput
@@ -209,12 +231,11 @@ export function BomPanel({ articleId }: { articleId: string }) {
             min={0}
             step={0.01}
             decimalScale={4}
-            w={130}
-            size="sm"
+            style={{ flex: '0 1 180px', minWidth: 140 }}
           />
           <Button
-            size="sm"
-            leftSection={<IconPlus size={15} />}
+            size="md"
+            leftSection={<IconPlus size={16} />}
             onClick={handleAdd}
             disabled={!newMaterialId || !(Number(newQty) > 0)}
             loading={addItem.isPending}
@@ -224,7 +245,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
         </Group>
       ) : (
         <Group gap="xs" mt="sm">
-          <IconLock size={13} style={{ color: 'var(--gray-5)' }} />
+          <IconLock size={14} style={{ color: 'var(--gray-5)' }} />
           <Text size="xs" c="dimmed">Состав меняет инженер (право bom:write)</Text>
         </Group>
       )}

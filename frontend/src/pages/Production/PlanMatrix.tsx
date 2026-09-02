@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Card, Stack, Text, Table, Skeleton, Box, Group, Button, Modal,
+  Card, Stack, Text, Table, Skeleton, Group, Button, Modal,
   Select, NumberInput, SegmentedControl, Tooltip, Alert,
 } from '@mantine/core';
 import { IconPlus, IconCheck, IconInfoCircle } from '@tabler/icons-react';
@@ -9,12 +9,24 @@ import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useArticles } from '../../hooks/useCatalog';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const MONTH_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 const num = (n: number) => n.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
 
 interface Cell { plan: number; fact: number; demand: number }
 interface Row { article: { id: string; articleCode: string; name: string }; cells: Record<string, Cell> }
+
+/** Итоговая строка закреплена внизу прокрутки: как в таблице, а не «где-то там» */
+const stickyTotal: React.CSSProperties = {
+  position: 'sticky',
+  bottom: 0,
+  zIndex: 1,
+  background: 'var(--app-surface)',
+  borderTop: '2px solid var(--mantine-color-default-border)',
+};
 
 /**
  * План производства «изделие × месяц» (28.08.2026). В Excel этот разрез
@@ -23,6 +35,9 @@ interface Row { article: { id: string; articleCode: string; name: string }; cell
  * Три числа в ячейке: план (решение плановика — единственное, что
  * хранится), факт выпуска (живой, из движений ГП) и потребность заказов
  * (по плану вывоза). Кликом по ячейке плановик правит план.
+ *
+ * Таблица тянется внутри себя: колонка изделия и шапка месяцев закреплены,
+ * строки — по 25 на страницу, итог считается по всему году, не по странице.
  */
 export function PlanMatrix() {
   const qc = useQueryClient();
@@ -63,33 +78,38 @@ export function PlanMatrix() {
     }),
   });
 
-  const rows: Row[] = data?.data ?? [];
-  const months: string[] = data?.months ?? [];
+  const rows: Row[] = useMemo(() => data?.data ?? [], [data]);
+  const months: string[] = useMemo(() => data?.months ?? [], [data]);
 
-  const totals = months.map((m) => rows.reduce(
+  const [pageSize, setPageSize] = usePageSize('plan-matrix', 25);
+  const { page, setPage, slice, total } = usePagedList(rows, pageSize, year);
+
+  const totals = useMemo(() => months.map((m) => rows.reduce(
     (acc, r) => ({
       plan: acc.plan + (r.cells[m]?.plan ?? 0),
       fact: acc.fact + (r.cells[m]?.fact ?? 0),
       demand: acc.demand + (r.cells[m]?.demand ?? 0),
     }),
     { plan: 0, fact: 0, demand: 0 },
-  ));
+  )), [rows, months]);
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="sm">
-        <SegmentedControl
-          value={year}
-          onChange={setYear}
-          data={[String(currentYear - 1), String(currentYear), String(currentYear + 1)]}
-          size="sm"
-        />
-        {canEdit && (
-          <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => setAddOpen(true)}>
-            Добавить изделие в план
-          </Button>
-        )}
-      </Group>
+      <div className="toolbar-sticky">
+        <Group justify="space-between" wrap="wrap" gap="sm">
+          <SegmentedControl
+            value={year}
+            onChange={setYear}
+            data={[String(currentYear - 1), String(currentYear), String(currentYear + 1)]}
+            size="sm"
+          />
+          {canEdit && (
+            <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => setAddOpen(true)}>
+              Добавить изделие в план
+            </Button>
+          )}
+        </Group>
+      </div>
 
       {rows.length === 0 && !isLoading && (
         <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />} radius="md">
@@ -100,88 +120,102 @@ export function PlanMatrix() {
         </Alert>
       )}
 
-      <Card withBorder radius="md" padding={0}>
-        {isLoading ? (
-          <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
-        ) : rows.length > 0 && (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table withColumnBorders fz="xs" verticalSpacing={4}>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th style={{ minWidth: 180, position: 'sticky', left: 0, background: 'var(--mantine-color-body)', zIndex: 1 }}>
-                    Изделие
-                  </Table.Th>
-                  {months.map((m, i) => (
-                    <Table.Th key={m} ta="center" style={{ minWidth: 72 }}>
-                      {MONTH_SHORT[i]}
-                    </Table.Th>
-                  ))}
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((r) => (
-                  <Table.Tr key={r.article.id}>
-                    <Table.Td style={{ position: 'sticky', left: 0, background: 'var(--mantine-color-body)', zIndex: 1 }}>
-                      <Text size="xs" ff="monospace" fw={700} c="brand.7">{r.article.articleCode}</Text>
-                      <Text size="xs" c="dimmed" lineClamp={1}>{r.article.name}</Text>
-                    </Table.Td>
-                    {months.map((m) => {
-                      const c = r.cells[m] ?? { plan: 0, fact: 0, demand: 0 };
-                      const empty = !c.plan && !c.fact && !c.demand;
-                      const behind = c.plan > 0 && c.fact < c.plan;
-                      return (
-                        <Table.Td
-                          key={m}
-                          ta="center"
-                          onClick={canEdit ? () => { setEditCell({ row: r, month: m }); setQty(c.plan || ''); } : undefined}
-                          style={{
-                            cursor: canEdit ? 'pointer' : undefined,
-                            background: empty ? undefined
-                              : c.plan > 0 && c.fact >= c.plan
-                                ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.08))'
-                                : behind ? 'light-dark(var(--mantine-color-yellow-0), rgba(250,176,5,0.08))'
-                                  : undefined,
-                          }}
-                        >
-                          {empty ? (
-                            <Text size="xs" c="dimmed">·</Text>
-                          ) : (
-                            <Tooltip label={`план ${num(c.plan)} · факт ${num(c.fact)} · заказы ${num(c.demand)}`}>
-                              <Stack gap={0}>
-                                <Text size="xs" ff="monospace" fw={700}>{c.plan ? num(c.plan) : '—'}</Text>
-                                <Text size="xs" ff="monospace" c={behind ? 'yellow.8' : 'teal.7'}>
-                                  {c.fact ? num(c.fact) : ''}
-                                </Text>
-                                {c.demand > 0 && (
-                                  <Text size="xs" ff="monospace" c="dimmed">з:{num(c.demand)}</Text>
-                                )}
-                              </Stack>
-                            </Tooltip>
-                          )}
-                        </Table.Td>
-                      );
-                    })}
+      <FadeSwap swapKey={`${year}|${page}`}>
+        <Card withBorder radius="md" padding={0}>
+          {isLoading ? (
+            <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
+          ) : rows.length > 0 && (
+            <TableScroll minWidth={1300} maxHeight="max(360px, calc(100vh - 320px))">
+              <Table withColumnBorders verticalSpacing={6}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th style={{ minWidth: 220 }}>Изделие</Table.Th>
+                    {months.map((m, i) => (
+                      <Table.Th key={m} ta="center" style={{ minWidth: 88 }}>
+                        {MONTH_SHORT[i]}
+                      </Table.Th>
+                    ))}
                   </Table.Tr>
-                ))}
-                <Table.Tr style={{ borderTop: '2px solid var(--mantine-color-default-border)' }}>
-                  <Table.Td style={{ position: 'sticky', left: 0, background: 'var(--mantine-color-body)', zIndex: 1 }}>
-                    <Text size="xs" fw={700}>Итого</Text>
-                  </Table.Td>
-                  {totals.map((t, i) => (
-                    <Table.Td key={months[i]} ta="center">
-                      <Stack gap={0}>
-                        <Text size="xs" ff="monospace" fw={700}>{t.plan ? num(t.plan) : '—'}</Text>
-                        <Text size="xs" ff="monospace" c="teal.7">{t.fact ? num(t.fact) : ''}</Text>
-                      </Stack>
-                    </Table.Td>
+                </Table.Thead>
+                <Table.Tbody>
+                  {slice.map((r) => (
+                    <Table.Tr key={r.article.id}>
+                      <Table.Td>
+                        <Text size="sm" ff="monospace" fw={700} c="brand.7">{r.article.articleCode}</Text>
+                        <Text size="xs" c="dimmed" lineClamp={1}>{r.article.name}</Text>
+                      </Table.Td>
+                      {months.map((m) => {
+                        const c = r.cells[m] ?? { plan: 0, fact: 0, demand: 0 };
+                        const empty = !c.plan && !c.fact && !c.demand;
+                        const behind = c.plan > 0 && c.fact < c.plan;
+                        return (
+                          <Table.Td
+                            key={m}
+                            ta="center"
+                            onClick={canEdit ? () => { setEditCell({ row: r, month: m }); setQty(c.plan || ''); } : undefined}
+                            style={{
+                              cursor: canEdit ? 'pointer' : undefined,
+                              background: empty ? undefined
+                                : c.plan > 0 && c.fact >= c.plan
+                                  ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.08))'
+                                  : behind ? 'light-dark(var(--mantine-color-yellow-0), rgba(250,176,5,0.08))'
+                                    : undefined,
+                            }}
+                          >
+                            {empty ? (
+                              <Text size="sm" c="dimmed">·</Text>
+                            ) : (
+                              <Tooltip label={`план ${num(c.plan)} · факт ${num(c.fact)} · заказы ${num(c.demand)}`}>
+                                <Stack gap={0}>
+                                  <Text size="sm" ff="monospace" fw={700}>{c.plan ? num(c.plan) : '—'}</Text>
+                                  <Text size="xs" ff="monospace" c={behind ? 'yellow.8' : 'teal.7'}>
+                                    {c.fact ? num(c.fact) : ''}
+                                  </Text>
+                                  {c.demand > 0 && (
+                                    <Text size="xs" ff="monospace" c="dimmed">з:{num(c.demand)}</Text>
+                                  )}
+                                </Stack>
+                              </Tooltip>
+                            )}
+                          </Table.Td>
+                        );
+                      })}
+                    </Table.Tr>
                   ))}
-                </Table.Tr>
-              </Table.Tbody>
-            </Table>
-          </Box>
-        )}
-      </Card>
-      <Text size="xs" c="dimmed">
+                  <Table.Tr>
+                    <Table.Td style={{ ...stickyTotal, left: 0, zIndex: 2 }}>
+                      <Text size="sm" fw={700}>Итого за год</Text>
+                      <Text size="xs" c="dimmed">{num(total)} изд.</Text>
+                    </Table.Td>
+                    {totals.map((t, i) => (
+                      <Table.Td key={months[i]} ta="center" style={stickyTotal}>
+                        <Stack gap={0}>
+                          <Text size="sm" ff="monospace" fw={700}>{t.plan ? num(t.plan) : '—'}</Text>
+                          <Text size="xs" ff="monospace" c="teal.7">{t.fact ? num(t.fact) : ''}</Text>
+                        </Stack>
+                      </Table.Td>
+                    ))}
+                  </Table.Tr>
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          )}
+        </Card>
+      </FadeSwap>
+
+      {!isLoading && total > 0 && (
+        <PaginationBar
+          page={page}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          noun="изделий"
+          sticky
+        />
+      )}
+
+      <Text size="sm" c="dimmed">
         В ячейке: <Text span fw={700}>план</Text> / <Text span c="teal.7">факт выпуска</Text> /
         <Text span c="dimmed"> з: потребность заказов</Text>. Жёлтая заливка — факт отстаёт от плана.
       </Text>

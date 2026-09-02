@@ -9,6 +9,8 @@ import {
 } from '../../hooks/useCatalog';
 import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FadeSwap, Stagger } from '../../components/motion';
 
 const SERIES_OPTIONS = [
   { value: 'k', label: 'k — крепёж' },
@@ -17,6 +19,12 @@ const SERIES_OPTIONS = [
   { value: 't', label: 't — трубные' },
   { value: 'z', label: 'z — заказные' },
 ];
+
+/** Заявок на странице списка */
+const REQUESTS_PAGE_SIZE = 25;
+
+/** Бейдж вне таблицы: lg — 13 px (единственный размер не мельче 12 px), высота под строку */
+const tagProps = { size: 'lg', h: 22, px: 8, variant: 'light' } as const;
 
 /**
  * Модал «Запросить номенклатуру»: артикула нет — заявка уходит на создание
@@ -66,7 +74,7 @@ export function RequestNomenclatureModal({
   return (
     <Modal opened={opened} onClose={onClose} title={<Text fw={700}>Заявка на номенклатуру</Text>} size="md" radius="md" centered>
       <Stack gap="sm">
-        <Text size="xs" c="dimmed">
+        <Text size="sm" c="dimmed">
           Артикула нет в справочнике — заявка уходит на создание номенклатуры.
           При одобрении будет присвоен следующий свободный артикул серии.
         </Text>
@@ -114,6 +122,7 @@ export function NomenclatureRequestsModal({
   const canDecide = can('write', 'article.core'); // engineer, admin
   const { data: requests, isLoading } = useNomenclatureRequests();
   const decide = useDecideNomenclatureRequest();
+  const paged = usePagedList(requests ?? [], REQUESTS_PAGE_SIZE, opened);
 
   const handle = async (id: string, decision: 'approve' | 'reject') => {
     try {
@@ -142,53 +151,67 @@ export function NomenclatureRequestsModal({
       ) : !requests || requests.length === 0 ? (
         <Text size="sm" c="dimmed" py="md">Заявок нет</Text>
       ) : (
-        <Stack gap="xs">
-          {requests.map((r) => {
-            const meta = STATUS_META[r.status] ?? { label: r.status, color: 'gray' };
-            return (
-              <Card key={r.id} withBorder radius="md" padding="sm">
-                <Group justify="space-between" wrap="wrap" gap="sm">
-                  <Stack gap={2} style={{ flex: 1, minWidth: 220 }}>
-                    <Group gap="xs">
-                      <Text size="sm" fw={600} lineClamp={1}>{r.proposedName}</Text>
-                      <Badge variant="light" color={meta.color} size="sm">{meta.label}</Badge>
-                      {r.article && (
-                        <Badge variant="light" color="brand" size="sm" ff="monospace">{r.article.articleCode}</Badge>
-                      )}
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      {r.requestedBy ?? '—'} · {formatDate(r.createdAt)}
-                      {r.series ? ` · серия «${r.series}»` : ''}
-                    </Text>
-                    {r.reason && <Text size="xs" c="dimmed" fs="italic" lineClamp={1}>{r.reason}</Text>}
-                  </Stack>
-                  {r.status === 'PENDING' && canDecide && (
-                    <Group gap="xs" wrap="nowrap">
-                      <Button
-                        size="xs"
-                        color="success"
-                        leftSection={<IconCheck size={13} />}
-                        onClick={() => handle(r.id, 'approve')}
-                        loading={decide.isPending}
-                      >
-                        Присвоить артикул
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="light"
-                        color="gray"
-                        leftSection={<IconX size={13} />}
-                        onClick={() => handle(r.id, 'reject')}
-                        loading={decide.isPending}
-                      >
-                        Отклонить
-                      </Button>
-                    </Group>
-                  )}
-                </Group>
-              </Card>
-            );
-          })}
+        <Stack gap="sm">
+          <FadeSwap swapKey={paged.page}>
+            <Stack gap="xs">
+              <Stagger>
+                {paged.slice.map((r) => {
+                  const meta = STATUS_META[r.status] ?? { label: r.status, color: 'gray' };
+                  return (
+                    <Card key={r.id} withBorder radius="md" padding="sm">
+                      <Group justify="space-between" wrap="wrap" gap="sm">
+                        <Stack gap={4} style={{ flex: 1, minWidth: 220 }}>
+                          <Group gap="xs" wrap="wrap">
+                            <Text size="md" fw={600} lineClamp={1}>{r.proposedName}</Text>
+                            <Badge {...tagProps} color={meta.color}>{meta.label}</Badge>
+                            {r.article && (
+                              <Badge {...tagProps} color="brand" ff="monospace">{r.article.articleCode}</Badge>
+                            )}
+                          </Group>
+                          <Text size="xs" c="dimmed">
+                            {r.requestedBy ?? '—'} · {formatDate(r.createdAt)}
+                            {r.series ? ` · серия «${r.series}»` : ''}
+                          </Text>
+                          {r.reason && <Text size="xs" c="dimmed" fs="italic" lineClamp={1}>{r.reason}</Text>}
+                        </Stack>
+                        {r.status === 'PENDING' && canDecide && (
+                          <Group gap="xs" wrap="nowrap">
+                            <Button
+                              color="success"
+                              leftSection={<IconCheck size={15} />}
+                              onClick={() => handle(r.id, 'approve')}
+                              loading={decide.isPending}
+                            >
+                              Присвоить артикул
+                            </Button>
+                            <Button
+                              variant="light"
+                              color="gray"
+                              leftSection={<IconX size={15} />}
+                              onClick={() => handle(r.id, 'reject')}
+                              loading={decide.isPending}
+                            >
+                              Отклонить
+                            </Button>
+                          </Group>
+                        )}
+                      </Group>
+                    </Card>
+                  );
+                })}
+              </Stagger>
+            </Stack>
+          </FadeSwap>
+          {paged.total > REQUESTS_PAGE_SIZE && (
+            <PaginationBar
+              page={paged.page}
+              total={paged.total}
+              pageSize={REQUESTS_PAGE_SIZE}
+              onPageChange={paged.setPage}
+              variant="compact"
+              noun="заявок"
+            />
+          )}
         </Stack>
       )}
     </Modal>

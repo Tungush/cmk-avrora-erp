@@ -1,0 +1,207 @@
+import React, { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Group, Text, TextInput, Skeleton, Tooltip } from '@mantine/core';
+import { IconSearch, IconAntenna, IconClockExclamation, IconCircleCheck, IconCurrencyTenge } from '@tabler/icons-react';
+import { Link } from 'react-router-dom';
+import api from '../../api/client';
+import { Mast, MastLoader } from '../../components/Mast';
+import { PulseRow } from '../../components/SectionHeader';
+import { FitScreen, usePageKeys } from '../../components/FitScreen';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
+import { formatDate } from '../../utils/formatters';
+
+/**
+ * Объекты — базовые станции (02.09.2026, просьба владельца: «объекты как
+ * мачты для базовых станций»).
+ *
+ * Телеком считает не заказами, а площадками: на одну БС идут разные заказы
+ * и разные изделия, а спрашивают всегда про объект — «мачта на Dudar
+ * готова?». Такого среза в системе не было вовсе.
+ *
+ * Каждый объект нарисован своей мачтой: секции загораются по мере того,
+ * как цех отмечает изделия. Это не украшение — готовность площадки видна
+ * раньше, чем прочитаешь цифру.
+ *
+ * Площадка приходит из 1С (orders.project_site). Заказы, где её не
+ * заполнили, сюда не попадают — так и написано в пустом состоянии.
+ */
+
+interface SiteRow {
+  site: string;
+  projectGroup: string;
+  customerName: string;
+  ordersCount: number;
+  overdueOrders: number;
+  linesCount: number;
+  doneLines: number;
+  amount: string;
+  nearestDate: string | null;
+  maxOverdueDays: number;
+}
+
+const money = (v: string | number) =>
+  Number(v || 0).toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+
+/** Человеческое имя площадки: KZ-ALM_Dudar → ALM · Dudar */
+const siteTitle = (code: string) => code.replace(/^KZ-/, '').replace(/_/g, ' · ');
+
+type Slice = 'all' | 'overdue' | 'ready';
+
+/** Карточек на страницу: три ряда по четыре — экран не тянется */
+const PER_PAGE = 12;
+
+export function Sites() {
+  const [search, setSearch] = useState('');
+  const [slice, setSlice] = useState<Slice>('all');
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['order-sites'],
+    queryFn: () => api.get<{ data: SiteRow[] }>('/orders/sites').then((r) => r.data),
+    refetchInterval: 120_000,
+  });
+
+  const rows = data?.data ?? [];
+
+  const groups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const base = q
+      ? rows.filter((r) => r.site.toLowerCase().includes(q) || r.customerName.toLowerCase().includes(q))
+      : rows;
+    return {
+      all: base,
+      overdue: base.filter((r) => r.overdueOrders > 0),
+      ready: base.filter((r) => r.linesCount > 0 && r.doneLines >= r.linesCount),
+    };
+  }, [rows, search]);
+
+  const visible = groups[slice];
+  const paged = usePagedList(visible, PER_PAGE, `${search}|${slice}`);
+  usePageKeys(paged.page, Math.max(1, Math.ceil(paged.total / PER_PAGE)), paged.setPage);
+
+  const totalAmount = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
+
+  const header = (
+    <div>
+      <Group justify="space-between" align="center" wrap="nowrap" gap="md" mb="sm">
+        <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
+          <Text fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+            Объекты
+          </Text>
+          <Text size="sm" c="dimmed" lineClamp={1}>
+            базовые станции: что для площадки уже изготовлено
+          </Text>
+        </Group>
+        <TextInput
+          placeholder="Площадка или заказчик..."
+          leftSection={<IconSearch size={16} />}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          size="sm"
+          w={280}
+        />
+      </Group>
+      <PulseRow
+        loading={isLoading && !data}
+        items={[
+          {
+            key: 'all', label: 'Площадок', value: groups.all.length.toLocaleString('ru-RU'),
+            hint: 'объект указан в заказе из 1С', icon: <IconAntenna size={17} />,
+            onClick: () => setSlice('all'), active: slice === 'all',
+          },
+          {
+            key: 'overdue', label: 'С просрочкой', value: groups.overdue.length.toLocaleString('ru-RU'),
+            hint: 'срок вывоза прошёл', tone: 'danger', icon: <IconClockExclamation size={17} />,
+            onClick: () => setSlice('overdue'), active: slice === 'overdue',
+          },
+          {
+            key: 'ready', label: 'Собраны полностью', value: groups.ready.length.toLocaleString('ru-RU'),
+            hint: 'все изделия изготовлены', tone: 'ok', icon: <IconCircleCheck size={17} />,
+            onClick: () => setSlice('ready'), active: slice === 'ready',
+          },
+          {
+            key: 'money', label: 'Сумма по объектам', value: money(totalAmount),
+            hint: '₸ по позициям заказов', tone: 'brand', icon: <IconCurrencyTenge size={17} />,
+          },
+        ]}
+      />
+    </div>
+  );
+
+  const footer = (
+    <PaginationBar
+      page={paged.page}
+      total={paged.total}
+      pageSize={PER_PAGE}
+      onPageChange={paged.setPage}
+      noun="объектов"
+    />
+  );
+
+  return (
+    <FitScreen header={header} footer={footer}>
+      {isLoading && !data ? (
+        <div className="site-grid">
+          {[...Array(8)].map((_, i) => <Skeleton key={i} height={158} radius="lg" />)}
+        </div>
+      ) : paged.total === 0 ? (
+        <MastLoader
+          title={search ? 'Такой площадки нет' : 'Объекты пока не заполнены'}
+          hint={search ? undefined
+            : 'Площадка приходит из 1С полем «проект/объект». Пока оно пустое, заказ виден только в реестре.'}
+        />
+      ) : (
+        <FadeSwap swapKey={`${paged.page}|${slice}`}>
+          <div className="site-grid">
+            {paged.slice.map((s) => <SiteCard key={s.site} row={s} />)}
+          </div>
+        </FadeSwap>
+      )}
+    </FitScreen>
+  );
+}
+
+/** Одна площадка: мачта растёт по готовности, цифры — рядом */
+function SiteCard({ row }: { row: SiteRow }) {
+  const progress = row.linesCount > 0 ? row.doneLines / row.linesCount : 0;
+  const done = row.linesCount > 0 && row.doneLines >= row.linesCount;
+  const overdue = row.overdueOrders > 0;
+
+  return (
+    <Link
+      to={`/orders?search=${encodeURIComponent(row.site)}`}
+      className="site-card glass-lit"
+      data-state={done ? 'done' : overdue ? 'overdue' : undefined}
+    >
+      <div className="site-card__mast">
+        <Mast height={100} sections={6} progress={progress} stroke={1.3} />
+      </div>
+
+      <div className="site-card__body">
+        <Tooltip label={row.site} openDelay={500}>
+          <div className="site-card__title">{siteTitle(row.site)}</div>
+        </Tooltip>
+        <div className="site-card__sub">{row.customerName || '—'}</div>
+
+        <div className="site-card__stat">
+          <b>{row.doneLines}</b><span>/{row.linesCount} изделий</span>
+        </div>
+
+        <div className="site-card__meta">
+          <span>{row.ordersCount} зак.</span>
+          <span>{money(row.amount)} ₸</span>
+        </div>
+
+        {overdue ? (
+          <span className="worklist__chip" data-tone="danger">просрочка {row.maxOverdueDays} дн</span>
+        ) : row.nearestDate ? (
+          <span className="worklist__chip">вывоз {formatDate(row.nearestDate)}</span>
+        ) : done ? (
+          <span className="worklist__chip" data-tone="info">собрано</span>
+        ) : (
+          <span className="worklist__chip">срок не задан</span>
+        )}
+      </div>
+    </Link>
+  );
+}

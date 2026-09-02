@@ -28,6 +28,9 @@ import {
   formatCurrency, formatDate, formatNumber, ROUTING_STAGE_LABELS,
 } from '../../utils/formatters';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const STAGE_OPTIONS = (Object.keys(ROUTING_STAGE_LABELS) as RoutingStageCode[])
   .map((value) => ({ value, label: ROUTING_STAGE_LABELS[value] }));
@@ -790,7 +793,8 @@ function AcceptModal({ request, onClose }: {
               </Text>
             </Alert>
           ) : (
-            <Table withTableBorder withColumnBorders verticalSpacing={6}>
+            <TableScroll minWidth={520} stickyFirstColumn={false}>
+            <Table verticalSpacing={8}>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Заказ</Table.Th>
@@ -846,6 +850,7 @@ function AcceptModal({ request, onClose }: {
                 </Table.Tr>
               </Table.Tbody>
             </Table>
+            </TableScroll>
           )}
           {works.length > 0 && rest > 1e-6 && (
             <Text size="xs" c="danger.7">
@@ -932,7 +937,8 @@ function AllocationsPanel({ request, canAllocate }: {
           {canAllocate && data.status !== 'CANCELLED' ? ' — нажмите «Разнести»' : ''}
         </Text>
       ) : (
-        <Table verticalSpacing={6} withTableBorder>
+        <TableScroll minWidth={720}>
+        <Table verticalSpacing={8}>
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Заказ</Table.Th>
@@ -986,6 +992,7 @@ function AllocationsPanel({ request, canAllocate }: {
             ))}
           </Table.Tbody>
         </Table>
+        </TableScroll>
       )}
 
       {data.supplierActs.length > 0 && (
@@ -1068,6 +1075,8 @@ function RequestsTab() {
     [rows],
   );
   const { data: descriptions } = useDescriptions(sorted.map((r) => r.id));
+  // 25 заявок на страницу: непринятые всё равно сверху, дальше — листать
+  const paged = usePagedList(sorted, 25, sorted.length);
 
   const drafts = sorted.filter((r) => r.status === 'DRAFT');
   const selectedRows = drafts.filter((r) => selected.has(r.id));
@@ -1210,7 +1219,8 @@ function RequestsTab() {
             </Text>
           </Stack>
         ) : (
-          <Table.ScrollContainer minWidth={900}>
+          <TableScroll minWidth={960} stickyFirstColumn={false}>
+            <FadeSwap swapKey={paged.page}>
             <Table highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
@@ -1233,7 +1243,7 @@ function RequestsTab() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {sorted.map((r) => {
+                {paged.slice.map((r) => {
                   const targetQty = r.actualQty ?? r.plannedQty;
                   const sentDays = daysSince(r.bitrixSentAt);
                   const opened = expandedId === r.id;
@@ -1428,9 +1438,13 @@ function RequestsTab() {
                 })}
               </Table.Tbody>
             </Table>
-          </Table.ScrollContainer>
+            </FadeSwap>
+          </TableScroll>
         )}
       </Card>
+      {!isLoading && sorted.length > 0 && (
+        <PaginationBar page={paged.page} total={paged.total} pageSize={25} onPageChange={paged.setPage} noun="заявок" sticky />
+      )}
 
       {creating && <RequestFormModal editing={null} onClose={() => setCreating(false)} />}
       {editing && <RequestFormModal editing={editing} onClose={() => setEditing(null)} />}
@@ -1549,11 +1563,12 @@ function AllocatedTab() {
 
   const totalOwed = data.data.reduce((s, w) => s + (w.isAccepted ? w.amount ?? 0 : 0), 0);
   const openCount = data.data.filter((w) => !w.isAccepted).length;
+  const worksPaged = usePagedList(data.data, 25, data.data.length);
 
   return (
     <Stack gap="md">
       {data.byContractor.length > 0 && (
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md">
           {data.byContractor.map((c) => (
             <Card key={c.id} withBorder radius="md" padding="md">
               <Group gap="xs" mb={6} wrap="nowrap">
@@ -1614,7 +1629,8 @@ function AllocatedTab() {
             </Text>
           </Stack>
         ) : (
-          <Table.ScrollContainer minWidth={980}>
+          <TableScroll minWidth={1000}>
+            <FadeSwap swapKey={worksPaged.page}>
             <Table highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
@@ -1630,7 +1646,7 @@ function AllocatedTab() {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {data.data.map((w) => (
+                {worksPaged.slice.map((w) => (
                   <Table.Tr key={w.id}>
                     <Table.Td>
                       <OrderRef id={w.order.id} number={w.order.orderNumber} focus="cost" />
@@ -1688,9 +1704,13 @@ function AllocatedTab() {
                 ))}
               </Table.Tbody>
             </Table>
-          </Table.ScrollContainer>
+          </FadeSwap>
+          </TableScroll>
         )}
       </Card>
+      {data.data.length > 0 && (
+        <PaginationBar page={worksPaged.page} total={worksPaged.total} pageSize={25} onPageChange={worksPaged.setPage} noun="строк" sticky />
+      )}
 
       {/* Приёмка одной строки: объём в единицах ставки замораживает сумму */}
       <Modal

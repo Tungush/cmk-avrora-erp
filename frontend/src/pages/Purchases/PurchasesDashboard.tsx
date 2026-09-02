@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Stack, Group, Text, Card, SimpleGrid, Table, Badge, Skeleton, Box,
-  SegmentedControl, Progress, Alert, Anchor,
+  Stack, Group, Text, Card, SimpleGrid, Table, Skeleton, Box,
+  SegmentedControl, Alert, Anchor,
 } from '@mantine/core';
 import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { purchasesApi } from '../../api/purchases';
 import { ReceiptRef } from '../../components/ReceiptCard/ReceiptCardProvider';
-import { formatMoney, formatDate } from '../../utils/formatters';
+import { formatMoney } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 const pct = (v: number) => `${(v * 100).toFixed(1).replace('.0', '')} %`;
+const EMPTY: never[] = [];
+/** Панельные таблицы дашборда — по 25 строк, дальше страницы */
+const PANEL_PAGE = 25;
 
 const DIMENSIONS = [
   { value: 'project', label: 'Проект' },
@@ -24,11 +30,14 @@ function Kpi({ label, value, hint, tone }: {
   label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: string;
 }) {
   return (
-    <Card withBorder radius="md" padding="md">
+    <Card withBorder radius="md" padding="md" style={{ minWidth: 0, overflow: 'hidden' }}>
       <Text size="xs" c="dimmed" fw={600} tt="uppercase" style={{ letterSpacing: '0.05em' }}>
         {label}
       </Text>
-      <Text fw={800} c={tone} style={{ fontSize: 'clamp(18px, 2vw, 24px)', lineHeight: 1.2 }} mt={6}>
+      <Text
+        fw={800} c={tone} mt={6}
+        style={{ fontSize: 'clamp(18px, 2vw, 24px)', lineHeight: 1.2, overflowWrap: 'anywhere' }}
+      >
         {value}
       </Text>
       {hint && <Text size="xs" c="dimmed" mt={4}>{hint}</Text>}
@@ -44,12 +53,17 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
     refetchInterval: 60_000,
   });
 
+  // Все три списка приходят целиком — страницы режем на клиенте
+  const rows = useMemo(() => data?.dimensions[dim] ?? EMPTY, [data, dim]);
+  const dimPaged = usePagedList(rows, PANEL_PAGE, dim);
+  const unpaidPaged = usePagedList(data?.unpaidDocs ?? EMPTY, PANEL_PAGE);
+  const suppliersPaged = usePagedList(data?.suppliers ?? EMPTY, PANEL_PAGE);
+
   if (isLoading || !data) {
     return <Stack gap="md">{[...Array(3)].map((_, i) => <Skeleton key={i} height={120} radius="md" />)}</Stack>;
   }
 
   const { kpi } = data;
-  const rows = data.dimensions[dim] ?? [];
   // Один-единственный ключ на все документы — это не разрез, а константа.
   // Рисуем честную подпись вместо графика из одного столбика.
   const degenerate = rows.length <= 1;
@@ -59,7 +73,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
 
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
+      <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="md">
         <Kpi
           label="Должны поставщикам"
           value={formatMoney(kpi.owed.amount)}
@@ -103,7 +117,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
       <Card withBorder radius="md" padding="md">
         <Group justify="space-between" mb="sm" wrap="wrap" gap="sm">
           <Text fw={700} size="sm">Куда ушли деньги</Text>
-          <SegmentedControl size="xs" data={DIMENSIONS} value={dim} onChange={setDim} />
+          <SegmentedControl size="sm" data={DIMENSIONS} value={dim} onChange={setDim} style={{ maxWidth: '100%', overflowX: 'auto' }} />
         </Group>
 
         {degenerate ? (
@@ -114,42 +128,60 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
             </Text>
           </Alert>
         ) : (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover verticalSpacing="xs">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>{DIMENSIONS.find((d) => d.value === dim)?.label}</Table.Th>
-                  <Table.Th ta="right">ДО</Table.Th>
-                  <Table.Th ta="right">Телеком</Table.Th>
-                  <Table.Th ta="right">Другие</Table.Th>
-                  <Table.Th ta="right">Всего</Table.Th>
-                  <Table.Th ta="right">Доля</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((r) => (
-                  <Table.Tr key={r.key ?? '__none__'}>
-                    <Table.Td>
-                      {r.key ? (
-                        <Anchor size="sm" onClick={() => onOpenRegistry({ [dimParam(dim)]: r.key! })}>
-                          {r.key}
-                        </Anchor>
-                      ) : (
-                        <Text size="sm" c="dimmed" fs="italic">не указано в 1С</Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">{r.docs}</Table.Td>
-                    <Table.Td ta="right" ff="monospace" fz="xs">{formatMoney(r.telecom)}</Table.Td>
-                    <Table.Td ta="right" ff="monospace" fz="xs">{formatMoney(r.other)}</Table.Td>
-                    <Table.Td ta="right" ff="monospace" fw={700}>{formatMoney(r.total)}</Table.Td>
-                    <Table.Td ta="right" ff="monospace" fz="xs" c="dimmed">
-                      {data.totalKzt ? pct(r.total / data.totalKzt) : '—'}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Box>
+          <>
+            <FadeSwap swapKey={`${dim}:${dimPaged.page}`}>
+              <TableScroll minWidth={760}>
+                <Table highlightOnHover verticalSpacing="xs">
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>{DIMENSIONS.find((d) => d.value === dim)?.label}</Table.Th>
+                      <Table.Th ta="right">ДО</Table.Th>
+                      <Table.Th ta="right" data-priority="3">Телеком</Table.Th>
+                      <Table.Th ta="right" data-priority="3">Другие</Table.Th>
+                      <Table.Th ta="right">Всего</Table.Th>
+                      <Table.Th ta="right">Доля</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {dimPaged.slice.map((r) => (
+                      <Table.Tr key={r.key ?? '__none__'}>
+                        <Table.Td>
+                          {r.key ? (
+                            <Anchor size="sm" onClick={() => onOpenRegistry({ [dimParam(dim)]: r.key! })}>
+                              {r.key}
+                            </Anchor>
+                          ) : (
+                            <Text size="sm" c="dimmed" fs="italic">не указано в 1С</Text>
+                          )}
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace">{r.docs}</Table.Td>
+                        <Table.Td ta="right" ff="monospace" data-priority="3">{formatMoney(r.telecom)}</Table.Td>
+                        <Table.Td ta="right" ff="monospace" data-priority="3">{formatMoney(r.other)}</Table.Td>
+                        <Table.Td ta="right" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>
+                          {formatMoney(r.total)}
+                          {/* Разбивка по направлениям — подстрокой, когда колонки спрятаны */}
+                          <Text size="xs" c="dimmed" hiddenFrom="xl">
+                            телеком {formatMoney(r.telecom)} · другие {formatMoney(r.other)}
+                          </Text>
+                        </Table.Td>
+                        <Table.Td ta="right" ff="monospace" c="dimmed">
+                          {data.totalKzt ? pct(r.total / data.totalKzt) : '—'}
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </TableScroll>
+            </FadeSwap>
+            <PaginationBar
+              page={dimPaged.page}
+              total={dimPaged.total}
+              pageSize={PANEL_PAGE}
+              onPageChange={dimPaged.setPage}
+              noun="строк"
+              variant="compact"
+            />
+          </>
         )}
         <Text size="xs" c="dimmed" mt="sm">
           Только тенговые документы. Что заказано — видно у всех {kpi.owed.totalDocs} ДО,
@@ -159,7 +191,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="md">
         {/* Блок Б. Кому платить */}
-        <Card withBorder radius="md" padding="md">
+        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
           <Text fw={700} size="sm" mb="xs">Кому платить</Text>
           <SimpleGrid cols={2} spacing="xs" mb="sm">
             {data.buckets.map((b) => (
@@ -170,72 +202,99 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
               </Box>
             ))}
           </SimpleGrid>
-          <Box style={{ overflowX: 'auto', maxHeight: 320, overflowY: 'auto' }}>
-            <Table highlightOnHover verticalSpacing={4} fz="xs">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>№ ДО</Table.Th>
-                  <Table.Th ta="right">Дней</Table.Th>
-                  <Table.Th>Поставщик</Table.Th>
-                  <Table.Th ta="right">Остаток</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {data.unpaidDocs.map((d) => (
-                  <Table.Tr key={d.id}>
-                    <Table.Td><ReceiptRef id={d.id} number={d.doNumber} size="xs" /></Table.Td>
-                    <Table.Td ta="right" ff="monospace" c={d.ageDays > 90 ? 'danger.7' : undefined}>
-                      {d.ageDays}
-                    </Table.Td>
-                    <Table.Td><Text size="xs" lineClamp={1}>{d.supplier}</Text></Table.Td>
-                    <Table.Td ta="right" ff="monospace" fw={600}>
-                      {formatMoney(d.unpaidAmount, d.currency)}
-                    </Table.Td>
+          <FadeSwap swapKey={unpaidPaged.page}>
+            <TableScroll minWidth={520}>
+              <Table highlightOnHover verticalSpacing={6}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>№ ДО</Table.Th>
+                    <Table.Th ta="right">Дней</Table.Th>
+                    <Table.Th>Поставщик</Table.Th>
+                    <Table.Th ta="right">Остаток</Table.Th>
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Box>
+                </Table.Thead>
+                <Table.Tbody>
+                  {unpaidPaged.slice.map((d) => (
+                    <Table.Tr key={d.id}>
+                      <Table.Td><ReceiptRef id={d.id} number={d.doNumber} size="sm" /></Table.Td>
+                      <Table.Td ta="right" ff="monospace" c={d.ageDays > 90 ? 'danger.7' : undefined}>
+                        {d.ageDays}
+                      </Table.Td>
+                      <Table.Td><Text size="sm" lineClamp={1}>{d.supplier}</Text></Table.Td>
+                      <Table.Td ta="right" ff="monospace" fw={600} style={{ whiteSpace: 'nowrap' }}>
+                        {formatMoney(d.unpaidAmount, d.currency)}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                  {unpaidPaged.slice.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={4}>
+                        <Text size="sm" c="dimmed" ta="center" py="md">Неоплаченных ДО нет</Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
+          <PaginationBar
+            page={unpaidPaged.page}
+            total={unpaidPaged.total}
+            pageSize={PANEL_PAGE}
+            onPageChange={unpaidPaged.setPage}
+            noun="ДО"
+            variant="compact"
+          />
         </Card>
 
         {/* Блок В. Поставщики */}
-        <Card withBorder radius="md" padding="md">
+        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
           <Text fw={700} size="sm">Поставщики: кто нас держит</Text>
           <Text size="xs" c="dimmed" mb="sm">
             Топ-5 = {pct(data.supplierStats.top5Share)} закупа, топ-10 = {pct(data.supplierStats.top10Share)}.
             Всего {data.supplierStats.total}, разовых — {data.supplierStats.oneOff}.
           </Text>
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover verticalSpacing={4} fz="xs">
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Поставщик</Table.Th>
-                  <Table.Th ta="right">ДО</Table.Th>
-                  <Table.Th ta="right">Законтрактовано</Table.Th>
-                  <Table.Th ta="right">Остаток</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {data.suppliers.map((s) => (
-                  <Table.Tr key={s.id}>
-                    <Table.Td>
-                      <Anchor size="xs" onClick={() => onOpenRegistry({ supplierId: s.id })} lineClamp={1}>
-                        {s.name}
-                      </Anchor>
-                      {s.noReceipt > 0 && (
-                        <Text size="xs" c="dimmed">{s.noReceipt} без прихода</Text>
-                      )}
-                    </Table.Td>
-                    <Table.Td ta="right" ff="monospace">{s.docs}</Table.Td>
-                    <Table.Td ta="right" ff="monospace">{formatMoney(s.total)}</Table.Td>
-                    <Table.Td ta="right" ff="monospace" c={s.unpaid > 0 ? 'danger.7' : undefined}>
-                      {formatMoney(s.unpaid)}
-                    </Table.Td>
+          <FadeSwap swapKey={suppliersPaged.page}>
+            <TableScroll minWidth={560}>
+              <Table highlightOnHover verticalSpacing={6}>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Поставщик</Table.Th>
+                    <Table.Th ta="right">ДО</Table.Th>
+                    <Table.Th ta="right">Законтрактовано</Table.Th>
+                    <Table.Th ta="right">Остаток</Table.Th>
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Box>
+                </Table.Thead>
+                <Table.Tbody>
+                  {suppliersPaged.slice.map((s) => (
+                    <Table.Tr key={s.id}>
+                      <Table.Td>
+                        <Anchor size="sm" onClick={() => onOpenRegistry({ supplierId: s.id })} lineClamp={1}>
+                          {s.name}
+                        </Anchor>
+                        {s.noReceipt > 0 && (
+                          <Text size="xs" c="dimmed">{s.noReceipt} без прихода</Text>
+                        )}
+                      </Table.Td>
+                      <Table.Td ta="right" ff="monospace">{s.docs}</Table.Td>
+                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatMoney(s.total)}</Table.Td>
+                      <Table.Td ta="right" ff="monospace" c={s.unpaid > 0 ? 'danger.7' : undefined} style={{ whiteSpace: 'nowrap' }}>
+                        {formatMoney(s.unpaid)}
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
+          <PaginationBar
+            page={suppliersPaged.page}
+            total={suppliersPaged.total}
+            pageSize={PANEL_PAGE}
+            onPageChange={suppliersPaged.setPage}
+            noun="поставщиков"
+            variant="compact"
+          />
         </Card>
       </SimpleGrid>
 
@@ -259,8 +318,8 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
                 {c.label}
               </Anchor>
               <Group gap="md" wrap="nowrap">
-                <Text size="sm" ff="monospace" fw={700}>{c.docs} ДО</Text>
-                <Text size="sm" ff="monospace" c="dimmed" style={{ minWidth: 140, textAlign: 'right' }}>
+                <Text size="sm" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>{c.docs} ДО</Text>
+                <Text size="sm" ff="monospace" c="dimmed" style={{ minWidth: 140, textAlign: 'right', whiteSpace: 'nowrap' }}>
                   {formatMoney(c.amount)}
                 </Text>
               </Group>

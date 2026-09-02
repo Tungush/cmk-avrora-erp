@@ -135,6 +135,8 @@ func main() {
 	ordersH := orders.NewOrdersHandler(pool)
 	protected.GET("/orders", ordersH.FindAll)
 	protected.GET("/orders/inbox", auth.RequireRoles("planner", "sales_manager", "director", "admin"), ordersH.Inbox)
+	// Объекты (базовые станции): срез по площадкам, до маршрута /orders/:id
+	protected.GET("/orders/sites", ordersH.Sites)
 	protected.POST("/orders/:id/accept", auth.RequireRoles("planner", "sales_manager", "director", "admin"), ordersH.AcceptOrder)
 	protected.GET("/orders/:id", ordersH.FindOne)
 	protected.GET("/orders/:id/material-availability", ordersH.MaterialAvailability)

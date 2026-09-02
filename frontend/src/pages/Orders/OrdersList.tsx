@@ -4,6 +4,7 @@ import { IconTable, IconChartBar } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { OrdersRegistry } from './OrdersRegistry';
 import { OrdersDashboard } from './OrdersDashboard';
+import { FadeSwap } from '../../components/motion';
 
 export function OrdersList() {
   // Вкладка в адресе — ссылки с других экранов могут вести сразу на дашборд
@@ -16,7 +17,7 @@ export function OrdersList() {
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
       <Stack gap={4}>
-        <Text fw={900} style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+        <Text fw={900} style={{ fontSize: 'clamp(22px, 2.4vw, 28px)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
           Заказы
         </Text>
         <Text size="sm" c="dimmed">
@@ -24,14 +25,18 @@ export function OrdersList() {
         </Text>
       </Stack>
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'registry')} radius="md" keepMounted={false}>
-        <Tabs.List mb="md">
-          <Tabs.Tab value="registry" leftSection={<IconTable size={15} />}>Реестр</Tabs.Tab>
-          <Tabs.Tab value="dashboard" leftSection={<IconChartBar size={15} />}>Дашборд</Tabs.Tab>
+      <Tabs value={tab} onChange={(v) => setTab(v ?? 'registry')} radius="md">
+        <Tabs.List>
+          <Tabs.Tab value="registry" leftSection={<IconTable size={16} />}>Реестр</Tabs.Tab>
+          <Tabs.Tab value="dashboard" leftSection={<IconChartBar size={16} />}>Дашборд</Tabs.Tab>
         </Tabs.List>
-        <Tabs.Panel value="registry"><OrdersRegistry /></Tabs.Panel>
-        <Tabs.Panel value="dashboard"><OrdersDashboard /></Tabs.Panel>
       </Tabs>
+
+      {/* Содержимое вкладки живёт вне Tabs.Panel: так смена вкладки
+          анимируется, а не «мигает» — старое растворяется, новое поднимается */}
+      <FadeSwap swapKey={tab}>
+        {tab === 'dashboard' ? <OrdersDashboard /> : <OrdersRegistry />}
+      </FadeSwap>
     </Stack>
   );
 }

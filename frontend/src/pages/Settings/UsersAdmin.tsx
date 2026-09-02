@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import {
-  Card, Stack, Text, Table, Skeleton, Box, Group, Button, Modal,
-  TextInput, PasswordInput, Badge, MultiSelect, Switch, Tooltip,
+  Card, Stack, Text, Table, Skeleton, Group, Button, Modal,
+  TextInput, PasswordInput, Badge, MultiSelect, Switch, Tooltip, ActionIcon,
 } from '@mantine/core';
 import { IconPlus, IconCheck, IconKey, IconPencil } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { formatDate } from '../../utils/formatters';
+import { TableScroll } from '../../components/TableScroll';
+import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap } from '../../components/motion';
 
 interface UserRow {
   id: string;
@@ -17,6 +20,8 @@ interface UserRow {
   roles: Array<{ code: string; name: string }>;
   employee: { id: string; name: string } | null;
 }
+
+const EMPTY: never[] = [];
 
 /**
  * Пользователи и роли (28.08.2026). Учётки жили только в сиде — завести
@@ -85,11 +90,14 @@ export function UsersAdmin() {
     onError: fail,
   });
 
-  const rows = users ?? [];
+  const rows = users ?? EMPTY;
+  // Список приходит целиком — страницы режем на клиенте
+  const [pageSize, setPageSize] = usePageSize('users-admin', 25);
+  const { page, setPage, slice, total } = usePagedList(rows, pageSize);
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
+      <Group justify="space-between" wrap="wrap" gap="sm">
         <Text size="sm" c="dimmed">
           Учёток: <Text span fw={700} ff="monospace">{rows.length}</Text>
           {' '}· активных: <Text span fw={700} ff="monospace">{rows.filter((u) => u.isActive).length}</Text>
@@ -101,70 +109,92 @@ export function UsersAdmin() {
 
       <Card withBorder radius="md" padding={0}>
         {isLoading ? (
-          <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
+          <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={40} radius="sm" />)}</Stack>
         ) : (
-          <Box style={{ overflowX: 'auto' }}>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th>Email</Table.Th>
-                  <Table.Th>Роли</Table.Th>
-                  <Table.Th>Сотрудник</Table.Th>
-                  <Table.Th>Создан</Table.Th>
-                  <Table.Th>Доступ</Table.Th>
-                  <Table.Th w={110} />
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {rows.map((u) => (
-                  <Table.Tr key={u.id} style={{ opacity: u.isActive ? 1 : 0.55 }}>
-                    <Table.Td>
-                      <Text size="sm" fw={600} ff="monospace">{u.email}</Text>
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap={4}>
-                        {u.roles.map((r) => (
-                          <Badge key={r.code} size="xs" variant="light"
-                            color={r.code === 'admin' ? 'red' : 'gray'}>
-                            {r.name}
-                          </Badge>
-                        ))}
-                      </Group>
-                    </Table.Td>
-                    <Table.Td>
-                      <Text size="xs" c="dimmed">{u.employee?.name ?? '—'}</Text>
-                    </Table.Td>
-                    <Table.Td ff="monospace" fz="xs">{formatDate(u.createdAt)}</Table.Td>
-                    <Table.Td>
-                      <Switch
-                        size="sm"
-                        checked={u.isActive}
-                        onChange={() => toggleActive.mutate(u)}
-                      />
-                    </Table.Td>
-                    <Table.Td>
-                      <Group gap={4} wrap="nowrap">
-                        <Tooltip label="Роли">
-                          <Button size="compact-xs" variant="subtle"
-                            onClick={() => { setTarget(u); setRoles(u.roles.map((r) => r.code)); setModal('edit'); }}>
-                            <IconPencil size={14} />
-                          </Button>
-                        </Tooltip>
-                        <Tooltip label="Новый пароль">
-                          <Button size="compact-xs" variant="subtle" color="gray"
-                            onClick={() => { setTarget(u); setPassword(''); setModal('password'); }}>
-                            <IconKey size={14} />
-                          </Button>
-                        </Tooltip>
-                      </Group>
-                    </Table.Td>
+          <FadeSwap swapKey={page}>
+            <TableScroll minWidth={860}>
+              <Table highlightOnHover>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Email</Table.Th>
+                    <Table.Th>Роли</Table.Th>
+                    <Table.Th>Сотрудник</Table.Th>
+                    <Table.Th data-priority="3">Создан</Table.Th>
+                    <Table.Th>Доступ</Table.Th>
+                    <Table.Th w={100} />
                   </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Box>
+                </Table.Thead>
+                <Table.Tbody>
+                  {slice.map((u) => (
+                    <Table.Tr key={u.id} style={{ opacity: u.isActive ? 1 : 0.55 }}>
+                      <Table.Td>
+                        <Text size="sm" fw={600} ff="monospace">{u.email}</Text>
+                        {/* Дата заведения — подстрокой, когда колонка спрятана на ноутбуке */}
+                        <Text size="xs" c="dimmed" hiddenFrom="xl">с {formatDate(u.createdAt)}</Text>
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap={4}>
+                          {u.roles.map((r) => (
+                            <Badge key={r.code} variant="light"
+                              color={r.code === 'admin' ? 'red' : 'gray'}>
+                              {r.name}
+                            </Badge>
+                          ))}
+                        </Group>
+                      </Table.Td>
+                      <Table.Td>
+                        <Text size="sm" c="dimmed">{u.employee?.name ?? '—'}</Text>
+                      </Table.Td>
+                      <Table.Td ff="monospace" data-priority="3" style={{ whiteSpace: 'nowrap' }}>{formatDate(u.createdAt)}</Table.Td>
+                      <Table.Td>
+                        <Switch
+                          size="md"
+                          checked={u.isActive}
+                          onChange={() => toggleActive.mutate(u)}
+                          aria-label={u.isActive ? 'Отключить доступ' : 'Включить доступ'}
+                        />
+                      </Table.Td>
+                      <Table.Td>
+                        <Group gap={4} wrap="nowrap">
+                          <Tooltip label="Роли">
+                            <ActionIcon variant="subtle" size="lg" aria-label="Роли"
+                              onClick={() => { setTarget(u); setRoles(u.roles.map((r) => r.code)); setModal('edit'); }}>
+                              <IconPencil size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                          <Tooltip label="Новый пароль">
+                            <ActionIcon variant="subtle" size="lg" color="gray" aria-label="Новый пароль"
+                              onClick={() => { setTarget(u); setPassword(''); setModal('password'); }}>
+                              <IconKey size={16} />
+                            </ActionIcon>
+                          </Tooltip>
+                        </Group>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                  {slice.length === 0 && (
+                    <Table.Tr>
+                      <Table.Td colSpan={6}>
+                        <Text size="sm" c="dimmed" ta="center" py="lg">Пользователей нет</Text>
+                      </Table.Td>
+                    </Table.Tr>
+                  )}
+                </Table.Tbody>
+              </Table>
+            </TableScroll>
+          </FadeSwap>
         )}
       </Card>
+
+      <PaginationBar
+        page={page}
+        total={total}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        noun="учёток"
+        sticky
+      />
 
       <Modal opened={modal === 'create'} onClose={() => setModal(null)}
         title={<Text fw={700}>Новый пользователь</Text>} radius="md" centered>

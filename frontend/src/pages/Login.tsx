@@ -1,35 +1,53 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Container,
-  Paper,
-  TextInput,
-  PasswordInput,
-  Button,
-  Title,
-  Text,
-  Stack,
-  Group,
-  Box,
-  Flex,
-  SimpleGrid,
+  TextInput, PasswordInput, Button, Text, Stack, Group, Box, Badge,
 } from '@mantine/core';
-import { IconArrowRight, IconCheck } from '@tabler/icons-react';
+import { IconArrowRight, IconCheck, IconShieldLock } from '@tabler/icons-react';
+import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/auth';
-import { LogoLockup } from '../components/Brand';
+import { LogoMark } from '../components/Brand';
 import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
+import { useCursorLight, useMagnetic } from '../components/Aurora';
+import { useMotionOff } from '../components/motion';
+import { Mast } from '../components/Mast';
 
 // Общий PIN на восемь операционных ролей убран (30.08.2026, решение
 // пользователя): у каждого человека личный email+пароль, заводит и
 // меняет роли Settings → Пользователи (users.controller.ts).
+
+/** Настоящие числа завода, а не витринные «1200+» и «24/7» */
+const STATS = [
+  { value: '2 160', label: 'изделий в каталоге' },
+  { value: '3 147', label: 'материалов с ценами партий' },
+  { value: '3 866', label: 'норм труда' },
+];
+
 export function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const submitRef = useRef<HTMLButtonElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const reduced = useMotionOff();
+
+  useCursorLight();
+  useMagnetic(submitRef, 4);
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
+
+  /** Слои сцены сдвигаются за курсором на разную глубину — параллакс */
+  const onSceneMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (reduced) return;
+    const el = sceneRef.current;
+    if (!el) return;
+    const dx = e.clientX / window.innerWidth - 0.5;
+    const dy = e.clientY / window.innerHeight - 0.5;
+    el.style.setProperty('--par-x', `${dx * 26}px`);
+    el.style.setProperty('--par-y', `${dy * 26}px`);
+  }, [reduced]);
 
   // Ошибка входа — это ошибка, а не повод пускать под тестовыми данными:
   // тот же принцип честности, что и в runWithFallback (fallback.ts).
@@ -57,118 +75,168 @@ export function Login() {
     }
   }, [email, password, setAuth, navigate]);
 
-  // Настоящие числа завода, а не витринные «1200+» и «24/7»:
-  // конкретика — единственная статистика, которой верят
-  const stats = [
-    { value: '2 160', label: 'изделий в каталоге' },
-    { value: '3 147', label: 'материалов с ценами партий' },
-    { value: '3 866', label: 'норм труда по видам работ' },
-  ];
+  const rise = (delay: number) => (reduced
+    ? {}
+    : {
+      initial: { opacity: 0, y: 18 },
+      animate: { opacity: 1, y: 0 },
+      transition: { duration: 0.6, delay, ease: [0.25, 1, 0.5, 1] as const },
+    });
 
   return (
-    <Box mih="100vh" bg="gray.0" style={{ overflowX: 'hidden' }}>
-      <Flex mih="100vh" align="stretch" wrap="nowrap">
-        <Box w="50%" display={{ base: 'none', lg: 'block' }} style={{ flex: '0 0 50%' }}>
-          <Box
-            mih="100vh"
-            h="100%"
-            bg="dark.9"
-            pos="relative"
-            p={{ base: 32, lg: 48, xl: 80 }}
-            style={{ overflow: 'hidden' }}
-          >
-            {/* Медленное сияние раскалённого металла — живой фон, не отвлекает */}
-            <div className="aurora" />
+    <div className="login-scene" ref={sceneRef} onPointerMove={onSceneMove}>
+      {/* Сияние раскалённого металла: три пятна на разной глубине */}
+      <div className="login-scene__glow login-scene__glow--a" style={{ transform: 'translate3d(calc(var(--par-x, 0px) * -1), calc(var(--par-y, 0px) * -1), 0)' }} />
+      <div className="login-scene__glow login-scene__glow--b" style={{ transform: 'translate3d(var(--par-x, 0px), var(--par-y, 0px), 0)' }} />
+      <div className="login-scene__glow login-scene__glow--c" />
+      <div className="login-scene__grid" />
+      {/* Мачта под базовую станцию: то, что завод и делает. Секции встают
+          снизу вверх, как при монтаже, потом загорается авиационный огонь */}
+      <div className="login-mast"><Mast height={620} sections={7} stroke={1.2} /></div>
 
-            <Stack justify="space-between" h="100%" pos="relative" style={{ zIndex: 1 }}>
-              <Stack gap="xl">
-                <LogoLockup onDark markSize={44} />
+      <Box
+        mih="100vh"
+        px={{ base: 20, md: 40 }}
+        py={{ base: 40, md: 56 }}
+        style={{ position: 'relative', zIndex: 1, display: 'grid', placeItems: 'center' }}
+      >
+        <div style={{ width: '100%', maxWidth: 1120 }}>
+          <Group justify="space-between" align="flex-start" wrap="wrap" gap={56}>
 
-                <Stack gap="lg" mt={64}>
-                  <Title order={1} c="white" fw={900} lh={1.04} style={{ fontSize: 38, letterSpacing: '-0.03em', maxWidth: 560 }}>
-                    Заказ, цех и себестоимость — в одном окне
-                  </Title>
-                  <Text c="dark.3" size="lg" maw={480} lh={1.6}>
-                    Заказы приходят из 1С, цех отмечает работы, цена считается
-                    по партиям металла. Таблица на 44 листа больше не нужна.
-                  </Text>
-                </Stack>
-              </Stack>
-
-              <SimpleGrid cols={{ base: 1, md: 3 }} spacing={40} mt={80}>
-                {stats.map((stat) => (
-                  <Stack gap={4} key={stat.label}>
-                    <Text c="white" fz={28} fw={800}>{stat.value}</Text>
-                    <Text c="dark.4" size="xs" fw={500} style={{ letterSpacing: '0.02em' }}>{stat.label}</Text>
+            {/* Левая колонна: обещание системы */}
+            <Box style={{ flex: '1 1 420px', minWidth: 0, maxWidth: 560 }} visibleFrom="md">
+              <motion.div {...rise(0)}>
+                <Group gap={14} wrap="nowrap" mb={48}>
+                  <LogoMark size={44} color="#F5A623" />
+                  <Stack gap={2}>
+                    <Text fw={800} c="white" size="lg" lh={1} style={{ letterSpacing: '0.02em' }}>
+                      АВРОРА
+                    </Text>
+                    <Text size="xs" fw={600} lh={1}
+                      style={{ letterSpacing: '0.3em', color: 'rgba(255,255,255,0.5)' }}>
+                      ЦМК·ERP
+                    </Text>
                   </Stack>
-                ))}
-              </SimpleGrid>
-            </Stack>
-          </Box>
-        </Box>
-
-        <Box style={{ flex: 1, minWidth: 0 }}>
-          <Container size={460} py={60} px="md" mih="100vh" display="flex" style={{ alignItems: 'center' }}>
-            <Paper withBorder shadow="sm" p="xl" radius="lg" w="100%">
-              <Stack gap="lg">
-                <Group display={{ base: 'flex', lg: 'none' }} mb="xs">
-                  <LogoLockup markSize={34} />
                 </Group>
+              </motion.div>
 
-                <Stack gap={6}>
-                  <Title order={2} fw={900} style={{ fontSize: 32, letterSpacing: '-0.02em' }}>
-                    Вход в систему
-                  </Title>
-                  <Text c="dimmed" size="sm">
-                    Личный email и пароль
-                  </Text>
-                </Stack>
-
-                <form onSubmit={handleLogin}>
-                  <Stack gap="md">
-                    <TextInput
-                      label="Email"
-                      placeholder="name@avh.kz"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      size="md"
-                      required
-                      withAsterisk
-                      autoComplete="username"
-                      autoFocus
-                    />
-                    <PasswordInput
-                      label="Пароль"
-                      placeholder="Пароль вашего логина"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      size="md"
-                      required
-                      withAsterisk
-                      autoComplete="current-password"
-                    />
-                    <Button
-                      type="submit"
-                      size="md"
-                      h={48}
-                      loading={loading}
-                      rightSection={<IconArrowRight size={18} />}
-                      loaderProps={{ type: 'dots' }}
-                      mt="md"
-                    >
-                      Войти
-                    </Button>
-                  </Stack>
-                </form>
-
-                <Text ta="center" c="dimmed" size="xs" mt="md">
-                  Логин и пароль выдаёт администратор или директор
+              <motion.div {...rise(0.08)}>
+                <Text
+                  component="h1"
+                  className="login-title"
+                  fw={900}
+                  style={{ fontSize: 'clamp(34px, 4.2vw, 54px)', lineHeight: 1.06, margin: 0 }}
+                >
+                  Заказ, цех и себестоимость —<br />в одном окне
                 </Text>
-              </Stack>
-            </Paper>
-          </Container>
-        </Box>
-      </Flex>
-    </Box>
+              </motion.div>
+
+              <motion.div {...rise(0.16)}>
+                <Text mt={24} size="lg" lh={1.65} style={{ color: 'rgba(255,255,255,0.62)', maxWidth: 460 }}>
+                  Заказы приходят из 1С, цех отмечает работы, цена считается
+                  по партиям металла. Таблица на 44 листа больше не нужна.
+                </Text>
+              </motion.div>
+
+              <motion.div {...rise(0.24)}>
+                <Group gap={40} mt={56} wrap="wrap">
+                  {STATS.map((s) => (
+                    <Stack gap={4} key={s.label}>
+                      <Text fw={800} c="white" style={{ fontSize: 30, letterSpacing: '-0.02em' }}>
+                        {s.value}
+                      </Text>
+                      <Text size="sm" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.label}</Text>
+                    </Stack>
+                  ))}
+                </Group>
+              </motion.div>
+            </Box>
+
+            {/* Правая колонна: стеклянная панель входа */}
+            <Box style={{ flex: '0 1 420px', width: '100%', maxWidth: 440 }}>
+              <motion.div
+                {...(reduced ? {} : {
+                  initial: { opacity: 0, y: 26, scale: 0.98 },
+                  animate: { opacity: 1, y: 0, scale: 1 },
+                  transition: { duration: 0.7, delay: 0.1, ease: [0.25, 1, 0.5, 1] as const },
+                })}
+              >
+                <div className="login-card">
+                  <Box p={{ base: 24, sm: 36 }}>
+                    <Stack gap="xl">
+                      <Group gap={12} hiddenFrom="md">
+                        <LogoMark size={34} color="#F5A623" />
+                        <Text fw={800} c="white" size="lg">АВРОРА</Text>
+                      </Group>
+
+                      <Stack gap={8}>
+                        <Badge
+                          variant="light"
+                          radius="xl"
+                          leftSection={<IconShieldLock size={13} />}
+                          style={{
+                            background: 'rgba(245, 166, 35, 0.14)',
+                            color: '#F5C542',
+                            border: '1px solid rgba(245, 166, 35, 0.25)',
+                            width: 'fit-content',
+                          }}
+                        >
+                          Личный доступ
+                        </Badge>
+                        <Text component="h2" fw={800} c="white"
+                          style={{ fontSize: 30, letterSpacing: '-0.02em', margin: 0 }}>
+                          Вход в систему
+                        </Text>
+                        <Text size="sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                          Личный email и пароль — их выдаёт администратор
+                        </Text>
+                      </Stack>
+
+                      <form onSubmit={handleLogin}>
+                        <Stack gap="md">
+                          <TextInput
+                            label="Email"
+                            placeholder="name@avh.kz"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            size="md"
+                            required
+                            autoComplete="username"
+                            autoFocus
+                          />
+                          <PasswordInput
+                            label="Пароль"
+                            placeholder="Пароль вашего логина"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            size="md"
+                            required
+                            autoComplete="current-password"
+                          />
+                          <Button
+                            ref={submitRef}
+                            className="magnetic"
+                            type="submit"
+                            size="md"
+                            h={52}
+                            fullWidth
+                            loading={loading}
+                            rightSection={<IconArrowRight size={18} />}
+                            loaderProps={{ type: 'dots' }}
+                            mt="sm"
+                          >
+                            Войти
+                          </Button>
+                        </Stack>
+                      </form>
+                    </Stack>
+                  </Box>
+                </div>
+              </motion.div>
+            </Box>
+          </Group>
+        </div>
+      </Box>
+    </div>
   );
 }
