@@ -85,79 +85,78 @@ export function Login() {
 
   return (
     <div className="login-scene" ref={sceneRef} onPointerMove={onSceneMove}>
-      {/* Сияние раскалённого металла: три пятна на разной глубине */}
-      <div className="login-scene__glow login-scene__glow--a" style={{ transform: 'translate3d(calc(var(--par-x, 0px) * -1), calc(var(--par-y, 0px) * -1), 0)' }} />
-      <div className="login-scene__glow login-scene__glow--b" style={{ transform: 'translate3d(var(--par-x, 0px), var(--par-y, 0px), 0)' }} />
-      <div className="login-scene__glow login-scene__glow--c" />
-      <div className="login-scene__grid" />
+      {/* Слева — голубая панель с обещанием системы и мачтой, справа белая
+          карточка входа на сером холсте. Так устроен и сам референс */}
+      <div className="login-split">
+        <div className="login-hero">
+          {/* Мачта под базовую станцию: то, что завод и делает. Секции
+              встают снизу вверх, как при монтаже, потом поднимаются
+              антенны и загорается авиационный огонь */}
+          <div className="login-mast" aria-hidden>
+            <Mast height={520} sections={8} stroke={1.9} signal />
+          </div>
 
-      <Box
-        mih="100vh"
-        px={{ base: 20, md: 40 }}
-        py={{ base: 40, md: 56 }}
-        style={{ position: 'relative', zIndex: 1, display: 'grid', placeItems: 'center' }}
-      >
-        <div style={{ width: '100%', maxWidth: 1340 }}>
-          <Group justify="space-between" align="center" wrap="wrap" gap={48}>
-
-            {/* Мачта под базовую станцию: то, что завод и делает. Секции
-                встают снизу вверх, как при монтаже, потом поднимаются
-                антенны и загорается авиационный огонь */}
-            <Box className="login-mast" visibleFrom="lg">
-              <Mast height={560} sections={8} stroke={1.9} signal />
-            </Box>
-
-            {/* Средняя колонна: обещание системы */}
-            <Box style={{ flex: '1 1 380px', minWidth: 0, maxWidth: 520 }} visibleFrom="md">
-              <motion.div {...rise(0)}>
-                <Group gap={14} wrap="nowrap" mb={48}>
-                  <LogoMark size={44} color="#F5A623" />
+          <div className="login-hero__text">
+            <motion.div {...rise(0)}>
+                <Group gap={14} wrap="nowrap" mb={40}>
+                  <LogoMark size={44} color="#DDFD2C" />
                   <Stack gap={2}>
-                    <Text fw={800} c="white" size="lg" lh={1} style={{ letterSpacing: '0.02em' }}>
+                    <Text fw={700} size="lg" lh={1} style={{ letterSpacing: '0.02em', color: '#fff' }}>
                       АВРОРА
                     </Text>
                     <Text size="xs" fw={600} lh={1}
-                      style={{ letterSpacing: '0.3em', color: 'rgba(255,255,255,0.5)' }}>
+                      style={{ letterSpacing: '0.3em', color: 'rgba(255,255,255,0.65)' }}>
                       ЦМК·ERP
                     </Text>
                   </Stack>
                 </Group>
               </motion.div>
 
+              <motion.div {...rise(0.04)}>
+                <span className="mark" style={{ marginBottom: 14, display: 'inline-flex' }}>
+                  Завод металлоконструкций
+                </span>
+              </motion.div>
+
               <motion.div {...rise(0.08)}>
                 <Text
                   component="h1"
                   className="login-title"
-                  fw={900}
-                  style={{ fontSize: 'clamp(34px, 4.2vw, 54px)', lineHeight: 1.06, margin: 0 }}
+                  fw={300}
+                  style={{ fontSize: 'clamp(30px, 3.2vw, 44px)', lineHeight: 1.12, margin: '10px 0 0', color: '#fff' }}
                 >
                   Заказ, цех и себестоимость —<br />в одном окне
                 </Text>
               </motion.div>
 
               <motion.div {...rise(0.16)}>
-                <Text mt={24} size="lg" lh={1.65} style={{ color: 'rgba(255,255,255,0.62)', maxWidth: 460 }}>
+                <Text mt={24} size="lg" lh={1.65} style={{ color: 'rgba(255,255,255,0.82)', maxWidth: 460 }}>
                   Заказы приходят из 1С, цех отмечает работы, цена считается
                   по партиям металла. Таблица на 44 листа больше не нужна.
                 </Text>
               </motion.div>
 
               <motion.div {...rise(0.24)}>
-                <Group gap={40} mt={56} wrap="wrap">
+                <Group gap={30} mt={44} wrap="nowrap">
                   {STATS.map((s) => (
                     <Stack gap={4} key={s.label}>
-                      <Text fw={800} c="white" style={{ fontSize: 30, letterSpacing: '-0.02em' }}>
+                      <Text fw={300} c="white" style={{ fontSize: 28, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>
                         {s.value}
                       </Text>
-                      <Text size="sm" style={{ color: 'rgba(255,255,255,0.45)' }}>{s.label}</Text>
+                      <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{s.label}</Text>
                     </Stack>
                   ))}
                 </Group>
               </motion.div>
-            </Box>
+          </div>
+        </div>
 
-            {/* Правая колонна: стеклянная панель входа */}
-            <Box style={{ flex: '0 1 420px', width: '100%', maxWidth: 440 }}>
+        {/* Правая половина: белая карточка на сером холсте */}
+        <div className="login-form-side">
+          <div className="login-scene__glow login-scene__glow--a" />
+          <div className="login-scene__glow login-scene__glow--b" />
+          <div className="login-scene__grid" />
+          <Box style={{ width: '100%', maxWidth: 420, position: 'relative', zIndex: 1 }}>
               <motion.div
                 {...(reduced ? {} : {
                   initial: { opacity: 0, y: 26, scale: 0.98 },
@@ -169,8 +168,8 @@ export function Login() {
                   <Box p={{ base: 24, sm: 36 }}>
                     <Stack gap="xl">
                       <Group gap={12} hiddenFrom="md">
-                        <LogoMark size={34} color="#F5A623" />
-                        <Text fw={800} c="white" size="lg">АВРОРА</Text>
+                        <LogoMark size={34} color="#000000" />
+                        <Text fw={700} size="lg">АВРОРА</Text>
                       </Group>
 
                       <Stack gap={8}>
@@ -179,19 +178,19 @@ export function Login() {
                           radius="xl"
                           leftSection={<IconShieldLock size={13} />}
                           style={{
-                            background: 'rgba(245, 166, 35, 0.14)',
-                            color: '#F5C542',
-                            border: '1px solid rgba(245, 166, 35, 0.25)',
+                            background: 'var(--c-yellow)',
+                            color: '#000',
+                            border: 'none',
                             width: 'fit-content',
                           }}
                         >
                           Личный доступ
                         </Badge>
-                        <Text component="h2" fw={800} c="white"
-                          style={{ fontSize: 30, letterSpacing: '-0.02em', margin: 0 }}>
+                        <Text component="h2" fw={300}
+                          style={{ fontSize: 30, letterSpacing: '-0.03em', margin: 0 }}>
                           Вход в систему
                         </Text>
-                        <Text size="sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                        <Text size="sm" c="dimmed">
                           Личный email и пароль — их выдаёт администратор
                         </Text>
                       </Stack>
@@ -237,10 +236,9 @@ export function Login() {
                   </Box>
                 </div>
               </motion.div>
-            </Box>
-          </Group>
+          </Box>
         </div>
-      </Box>
+      </div>
     </div>
   );
 }

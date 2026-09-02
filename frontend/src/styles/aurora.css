@@ -1,67 +1,76 @@
 /* ===============================================================
    ЦМК АВРОРА — визуальная система
-   Палитра: WGSN × Coloro, ключевые цвета S/S 27 (задана владельцем
-   02.09.2026) поверх структуры референса Behance «ERP UI».
+   Референс владельца: Behance «Callivio — CRM SaaS UX/UI Design»
+   (Rondesign, 2025). Значения взяты с их же страницы «Typography & Color»:
 
-   Luminous Blue — цвет года 2027, Energy Orange, Pop Pink,
-   Meadowland Green, Clay. WGSN публикует их кодами Coloro, а не hex:
-   значения ниже — выверенные экранные соответствия, не «взяты с
-   потолка», но и не официальные (официальных цифровых просто нет).
+     #82ADD4 голубой   · #DDFD2C кислотный жёлтый
+     #F0F0ED серый фон · #FFFFFF белый · #000000 чёрный
+     Urbanist: Heading 30 / Subheading 20 / Body 15
 
-   Правило 60–30–10, как просил владелец:
-     60 % — молочно-глиняный холст и белые поверхности;
-     30 % — Luminous Blue: меню, шапки, ключевые карточки;
-     10 % — Energy Orange на действиях (CTA), Pop Pink точечно.
+   Язык поверхностей: тёплый светло-серый холст, белые карточки без
+   обводок с крупным скруглением, крупные ЛЁГКИЕ числа с мелкой единицей
+   рядом, тонкие волосяные разделители. Голубой — большая плоская панель,
+   жёлтый — маркер: маленькие пилюли и подсветка одного столбца в графике.
+   Действие — чёрная пилюля.
 
-   Шрифт Onest: у Urbanist из референса нет кириллицы вовсе.
-   Меню слева, а не сверху: в референсе 6 вкладок, у завода 11 разделов.
+   Две вынужденные замены:
+   1. Шрифт. В Urbanist только latin и latin-ext — кириллицы нет вовсе
+      (проверено по пакету), русский текст свалился бы на системный.
+      Onest: та же геометрия и открытые формы, кириллица родная.
+   2. Цвета состояний. У референса их нет — это маркетинговая палитра
+      из пяти цветов. «Просрочено» и «готово» пришлось завести самим,
+      приглушив их под общий тон.
    =============================================================== */
 
 :root {
-  /* --- Ключевые цвета S/S 27 --- */
-  --c-blue: #2B62E8;        /* Luminous Blue — цвет года 2027 */
-  --c-blue-ink: #1B44B0;    /* его тёмный вариант для текста по светлому */
-  --c-blue-deep: #0F1F4D;   /* глубокая подложка меню */
-  --c-orange: #F4642A;      /* Energy Orange — действие */
-  --c-orange-ink: #D14A15;
-  --c-pink: #E85E9B;        /* Pop Pink — точечно, «требует человека» */
-  --c-green: #6E9E5C;       /* Meadowland Green — «всё в порядке» */
-  --c-green-ink: #4F7C40;
-  --c-clay: #B58C79;        /* Clay — тёплый нейтральный */
+  /* --- Палитра референса, ровно те hex --- */
+  --c-blue: #82ADD4;        /* большая плоская панель, спокойный акцент */
+  --c-blue-ink: #4E7FA8;    /* тот же голубой, читаемый как текст */
+  --c-blue-deep: #2E5E88;
+  --c-yellow: #DDFD2C;      /* маркер: пилюли, подсветка, тонкие полосы */
+  --c-yellow-ink: #6E8500;  /* жёлтый нечитаем текстом — вот его тёмный брат */
+  --c-black: #000000;
+  --c-gray: #F0F0ED;
+
+  /* --- Состояния (заведены нами, референс их не даёт) --- */
+  --c-ok: #5F8C5A;
+  --c-ok-ink: #46703F;
+  --c-danger: #D6452F;
+  --c-danger-ink: #B33A26;
 
   /* --- Роли (имена сохранены с прошлой системы, чтобы не ломать разметку) --- */
-  --ref-coral: var(--c-orange);
-  --ref-coral-ink: var(--c-orange-ink);
-  --ref-green: var(--c-green);
-  --ref-green-ink: var(--c-green-ink);
-  --ref-amber: #E8A33C;
-  --ref-amber-ink: #B97A18;
+  --ref-coral: var(--c-blue-ink);      /* текстовый акцент: коды, ссылки */
+  --ref-coral-ink: var(--c-blue-ink);
+  --ref-green: var(--c-ok);
+  --ref-green-ink: var(--c-ok-ink);
+  --ref-amber: var(--c-yellow);
+  --ref-amber-ink: var(--c-yellow-ink);
   --ref-blue: var(--c-blue);
   --ref-blue-ink: var(--c-blue-ink);
-  --ref-pink: var(--c-pink);
-  --ref-clay: var(--c-clay);
-  --ref-ink: #0E1420;       /* чернила с синим уклоном — под цвет года */
-  --ref-muted: #7B8494;
-  --ref-orange: var(--c-orange);
+  --ref-pink: var(--c-danger);
+  --ref-clay: #C9C9C2;
+  --ref-ink: #000000;
+  --ref-muted: #8A8A85;
+  --ref-orange: var(--c-yellow);
 
-  /* Поверхности: 60 % холста — молочный с глиняным подтоном */
-  --ref-canvas: #F5F3F0;
+  /* Поверхности: холст тёплый светло-серый, карточка белая, обводок нет */
+  --ref-canvas: #F0F0ED;
   --ref-surface: #FFFFFF;
-  --ref-surface-sub: #FAF8F6;
-  --ref-line: #E7E2DC;
+  --ref-surface-sub: #F7F7F4;
+  --ref-line: #E6E6E2;
 
-  /* Подложка-заливка под сводками — синий wash цвета года */
-  --wash-green: linear-gradient(160deg, rgba(43, 98, 232, 0.10) 0%, rgba(43, 98, 232, 0.02) 46%, rgba(255,255,255,0) 78%);
+  /* Подложка под сводками — бледный голубой градиент референса */
+  --wash-green: linear-gradient(160deg, rgba(130, 173, 212, 0.16) 0%, rgba(130, 173, 212, 0.04) 46%, rgba(255,255,255,0) 78%);
 
-  /* Скругления референса: карточка 24, плитка 20, поле 14 */
-  --ref-r-card: 24px;
-  --ref-r-tile: 20px;
-  --ref-r-chip: 14px;
+  /* Скругления референса: карточка 20, плитка 16, пилюля 12 */
+  --ref-r-card: 20px;
+  --ref-r-tile: 16px;
+  --ref-r-chip: 12px;
 
-  /* Тени: мягкие, с синим подтоном — иначе серый по тёплому холсту грязнит */
-  --ref-sh: 0 1px 2px rgba(14, 20, 32, 0.03), 0 8px 24px -12px rgba(14, 20, 32, 0.12);
-  --ref-sh-hover: 0 2px 6px rgba(14, 20, 32, 0.06), 0 18px 40px -16px rgba(14, 20, 32, 0.20);
-  --ref-sh-pill: 0 6px 16px -6px rgba(212, 74, 21, 0.42);
+  /* Тени почти нет: карточки держатся на цвете, а не на объёме */
+  --ref-sh: 0 1px 2px rgba(0, 0, 0, 0.02), 0 10px 26px -18px rgba(0, 0, 0, 0.16);
+  --ref-sh-hover: 0 2px 6px rgba(0, 0, 0, 0.04), 0 20px 40px -22px rgba(0, 0, 0, 0.24);
+  --ref-sh-pill: 0 6px 16px -8px rgba(0, 0, 0, 0.45);
 
   /* Позиция курсора — пишет один обработчик, React не перерисовывается */
   --mx: 50%;
@@ -83,7 +92,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   width: 38vmax; height: 38vmax;
   margin-left: -19vmax; margin-top: -19vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(43, 98, 232, 0.14), transparent 62%);
+  background: radial-gradient(circle, rgba(130, 173, 212, 0.20), transparent 62%);
   filter: blur(60px);
   transform: translate3d(var(--cursor-x, 50vw), var(--cursor-y, 40vh), 0);
   will-change: transform;
@@ -98,15 +107,12 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   backdrop-filter: saturate(160%) blur(18px);
   border-bottom: 1px solid var(--ref-line) !important;
 }
-/* 30 % палитры — навигация в цвете года: глубокий синий, активный пункт
-   светится Luminous Blue. Меню видно всегда, поэтому именно оно задаёт
-   тон всей системе */
+/* Интерфейс референса светлый целиком: меню — белая панель, отделённая
+   от холста волосяной линией, активный пункт — чёрная пилюля */
 .mantine-AppShell-navbar {
-  background: linear-gradient(180deg, #142752 0%, var(--c-blue-deep) 58%, #0B1735 100%) !important;
-  border-right: none !important;
-  color: rgba(255, 255, 255, 0.72);
+  background: var(--ref-surface) !important;
+  border-right: 1px solid var(--ref-line) !important;
 }
-.mantine-AppShell-navbar .mantine-Text-root { color: inherit; }
 
 /* ---------------------------------------------------------------
    2. Карточка референса: белая, крупный радиус, мягкая тень
@@ -136,7 +142,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   position: absolute; inset: 0;
   border-radius: inherit;
   background: radial-gradient(420px circle at var(--mx) var(--my),
-    rgba(43, 98, 232, 0.10), transparent 62%);
+    rgba(130, 173, 212, 0.16), transparent 62%);
   opacity: 0;
   transition: opacity .35s var(--ease-out);
   pointer-events: none;
@@ -161,7 +167,7 @@ a:hover > .mantine-Card-root,
   background: var(--ref-surface) !important;
   border: 1px solid var(--ref-line) !important;
   border-radius: var(--ref-r-tile) !important;
-  box-shadow: 0 20px 44px -20px rgba(14, 20, 32, 0.28) !important;
+  box-shadow: 0 20px 44px -20px rgba(0, 0, 0, 0.24) !important;
 }
 
 /* ---------------------------------------------------------------
@@ -200,20 +206,21 @@ a:hover > .mantine-Card-root,
 /* Кнопка действия — тёмная пилюля «Handle» */
 .mantine-Button-root[data-variant='filled'] {
   background-image: none;
-  /* Цвет берёт Mantine (primary = Energy Orange), здесь только форма:
-     плоская заливка вместо градиента и мягкая тень под действием */
+  /* Действие в референсе — плоская ЧЁРНАЯ пилюля, без градиента */
+  background-color: var(--c-black);
   color: #fff;
   border: none;
   box-shadow: var(--ref-sh-pill);
 }
 .mantine-Button-root[data-variant='filled']:hover:not(:disabled) {
-  box-shadow: 0 10px 22px -8px rgba(212, 74, 21, 0.55);
+  background-color: #1A1A1A;
+  box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.40);
   transform: translateY(-1px);
   filter: none;
 }
 
 .mantine-Progress-section { background-image: none; background-color: var(--c-blue); }
-.mantine-Progress-root { background: rgba(14, 20, 32, 0.07); }
+.mantine-Progress-root { background: rgba(0, 0, 0, 0.06); }
 
 /* Значок «живое»: белая пилюля с зелёной точкой */
 .live-pill {
@@ -227,7 +234,7 @@ a:hover > .mantine-Card-root,
 .live-pill::before {
   content: ''; width: 7px; height: 7px; border-radius: 50%;
   background: var(--c-green);
-  box-shadow: 0 0 0 3px rgba(110, 158, 92, 0.26);
+  box-shadow: 0 0 0 3px rgba(95, 140, 90, 0.26);
 }
 
 /* Круглые кнопки-иконки в шапке — ряд кружков из макета */
@@ -243,21 +250,12 @@ a:hover > .mantine-Card-root,
    4. Меню: активный пункт — тёмная пилюля, как активная вкладка
    --------------------------------------------------------------- */
 
-/* Активная пилюля меню — Luminous Blue: на тёмно-синей подложке она
-   светится, а не тонет, как прежний почти-чёрный --pill-dark */
-.mantine-AppShell-navbar { --pill-dark: var(--c-blue); }
-
-/* Меню на глубоком синем: пункты светлые, активная пилюля — Luminous Blue */
+/* Активная пилюля меню — чёрная, как кнопка «Try Now» в референсе */
+.mantine-AppShell-navbar { --pill-dark: var(--c-black); }
 .nav-item { transition: background-color .15s var(--ease-out); border-radius: 999px; }
-.nav-item:hover { background: rgba(255, 255, 255, 0.07); }
-.nav-item .mantine-Text-root { color: rgba(255, 255, 255, 0.78); }
-.nav-item svg { color: rgba(255, 255, 255, 0.6) !important; }
+.nav-item:hover { background: var(--ref-surface-sub); }
 .nav-item[aria-current='page'] .mantine-Text-root { color: #fff !important; }
 .nav-item[aria-current='page'] svg { color: #fff !important; }
-.mantine-AppShell-navbar .mantine-Divider-root { border-color: rgba(255, 255, 255, 0.12) !important; }
-.mantine-AppShell-navbar .mantine-Text-root[data-dimmed], 
-.mantine-AppShell-navbar .mantine-Text-root { color: rgba(255, 255, 255, 0.55); }
-.mantine-AppShell-navbar .nav-item .mantine-Text-root { color: rgba(255, 255, 255, 0.78); }
 
 /* ---------------------------------------------------------------
    5. Вкладки, сегменты, пагинация — пилюли референса
@@ -305,8 +303,8 @@ a:hover > .mantine-Card-root,
 .mantine-Select-input:focus, .mantine-Textarea-input:focus,
 .mantine-PasswordInput-input:focus-within {
   background: var(--ref-surface);
-  border-color: rgba(43, 98, 232, 0.55);
-  box-shadow: 0 0 0 3px rgba(43, 98, 232, 0.16);
+  border-color: rgba(78, 127, 168, 0.55);
+  box-shadow: 0 0 0 3px rgba(130, 173, 212, 0.22);
 }
 
 /* ---------------------------------------------------------------
@@ -400,89 +398,144 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
   color: var(--ref-ink);
 }
-.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(244, 100, 42, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
-.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(110, 158, 92, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
-.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(232, 163, 60, 0.18); border-color: transparent; color: var(--ref-amber-ink); }
-.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(244, 100, 42, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(221, 253, 44, 0.30); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(95, 140, 90, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(221, 253, 44, 0.4); border-color: transparent; color: var(--ref-amber-ink); }
+.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(221, 253, 44, 0.30); border-color: transparent; color: var(--ref-coral-ink); }
 
 /* ---------------------------------------------------------------
    8. Экран входа: тёмная сцена, стеклянная панель, свет за курсором
    --------------------------------------------------------------- */
 
-.login-scene { position: relative; min-height: 100vh; overflow: hidden; background: #060A16; }
+/* ---------------------------------------------------------------
+   Экран входа по референсу Callivio: интерфейс светлый целиком.
+   Слева — большая голубая панель с мачтой (в референсе так сделана
+   панель «Hello, James!»), справа — белая карточка формы на сером
+   холсте. Чёрная пилюля действия, жёлтый маркер на значке.
+   --------------------------------------------------------------- */
+
+.login-scene {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--ref-canvas);
+  color: var(--ref-ink);
+}
+
+/* Две половины: голубая панель и серый холст с карточкой формы */
+.login-split {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.login-hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--c-blue);
+  color: #fff;
+  display: flex;
+  align-items: flex-end;
+  padding: 48px;
+}
+.login-hero::after {
+  /* Мягкий уход в жёлтый снизу — приём референса на баннерах */
+  content: '';
+  position: absolute;
+  inset: auto -10% -25% -20%;
+  height: 62%;
+  background: radial-gradient(ellipse at 28% 100%, rgba(221, 253, 44, 0.5), transparent 62%);
+  pointer-events: none;
+}
+.login-hero__text { position: relative; z-index: 2; max-width: 500px; }
+.login-hero .login-mast {
+  position: absolute;
+  right: -78px;
+  bottom: -24px;
+  z-index: 1;
+  opacity: 0.8;
+}
+.login-form-side {
+  position: relative;
+  display: grid;
+  place-items: center;
+  padding: 40px;
+  background: var(--ref-canvas);
+  overflow: hidden;
+}
+@media (max-width: 1100px) {
+  .login-split { grid-template-columns: 1fr; }
+  .login-hero { display: none; }
+}
+
 .login-scene__glow { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; will-change: transform; }
 .login-scene__glow--a {
-  width: 70vmax; height: 70vmax; top: -30vmax; right: -22vmax;
-  background: radial-gradient(circle, rgba(43, 98, 232, 0.42), transparent 62%);
+  width: 54vmax; height: 54vmax; top: -22vmax; right: -18vmax;
+  background: radial-gradient(circle, rgba(130, 173, 212, 0.30), transparent 62%);
   animation: aurora-drift-a 24s ease-in-out infinite;
 }
 .login-scene__glow--b {
-  width: 62vmax; height: 62vmax; bottom: -30vmax; left: -20vmax;
-  background: radial-gradient(circle, rgba(244, 100, 42, 0.46), transparent 60%);
+  width: 40vmax; height: 40vmax; bottom: -18vmax; right: 12vw;
+  background: radial-gradient(circle, rgba(221, 253, 44, 0.28), transparent 60%);
   animation: aurora-drift-b 30s ease-in-out infinite;
 }
-.login-scene__glow--c {
-  width: 44vmax; height: 44vmax; top: 20%; left: 30%;
-  background: radial-gradient(circle, rgba(232, 163, 60, 0.26), transparent 66%);
-  animation: aurora-drift-c 36s ease-in-out infinite;
-}
-@keyframes aurora-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-6vw,5vh,0) scale(1.12); } }
-@keyframes aurora-drift-b { 0%,100% { transform: translate3d(0,0,0) scale(1.08); } 50% { transform: translate3d(7vw,-6vh,0) scale(0.94); } }
-@keyframes aurora-drift-c { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-8vw,-7vh,0) scale(1.18); } }
+.login-scene__glow--c { display: none; }
+@keyframes aurora-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-4vw,4vh,0) scale(1.1); } }
+@keyframes aurora-drift-b { 0%,100% { transform: translate3d(0,0,0) scale(1.06); } 50% { transform: translate3d(5vw,-5vh,0) scale(0.95); } }
 
+/* Сетка — тонкая, тёмная по светлому, светится под курсором */
 .login-scene__grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+    linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
   background-size: 64px 64px;
-  mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 78%);
-  -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, #000 30%, transparent 78%);
   pointer-events: none;
+  mask-image:
+    radial-gradient(360px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.3) 55%, transparent 100%),
+    radial-gradient(ellipse 70% 60% at 70% 45%, #000 20%, transparent 76%);
+  -webkit-mask-image:
+    radial-gradient(360px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.3) 55%, transparent 100%),
+    radial-gradient(ellipse 70% 60% at 70% 45%, #000 20%, transparent 76%);
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
 }
 
+/* Карточка формы — белая, без стекла: у референса нет матовых панелей */
 .login-card {
   position: relative;
-  background: rgba(12, 18, 34, 0.56);
-  -webkit-backdrop-filter: saturate(160%) blur(28px);
-  backdrop-filter: saturate(160%) blur(28px);
-  border: 1px solid rgba(255,255,255,0.14);
+  background: var(--ref-surface);
+  border: 1px solid var(--ref-line);
   border-radius: var(--ref-r-card);
-  box-shadow: 0 32px 80px -24px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.16);
+  box-shadow: 0 24px 60px -32px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
 }
-.login-card::after {
-  content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
-  background: radial-gradient(340px circle at var(--mx) var(--my), rgba(43, 98, 232, 0.75), transparent 60%);
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
+.login-card::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(460px circle at var(--mx) var(--my), rgba(130, 173, 212, 0.16), transparent 62%);
+  opacity: 0;
+  transition: opacity .35s var(--ease-out);
   pointer-events: none;
 }
-.login-card .mantine-TextInput-input, .login-card .mantine-PasswordInput-input {
-  background: rgba(255,255,255,0.07);
-  border-color: rgba(255,255,255,0.16);
-  color: #fff;
-}
-.login-card .mantine-TextInput-input::placeholder,
-.login-card .mantine-PasswordInput-innerInput::placeholder { color: rgba(255,255,255,0.38); }
-.login-card .mantine-PasswordInput-innerInput { color: #fff; }
-.login-card .mantine-TextInput-input:focus,
-.login-card .mantine-PasswordInput-input:focus-within {
-  background: rgba(255,255,255,0.12);
-  border-color: rgba(43, 98, 232, 0.7);
-  box-shadow: 0 0 0 3px rgba(43, 98, 232, 0.20);
-}
-.login-card .mantine-InputWrapper-label { color: rgba(255,255,255,0.72); }
-/* Единственное действие на экране входа — Energy Orange, как и везде */
-.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--c-orange); color: #fff; }
-.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: var(--c-orange-ink); }
+.login-card:hover::before { opacity: 1; }
 
-.login-title {
-  background: linear-gradient(120deg, #FFFFFF 0%, #C9F7D6 52%, var(--ref-green) 100%);
-  -webkit-background-clip: text; background-clip: text; color: transparent;
-  letter-spacing: -0.03em;
+/* Мачта стоит на голубой панели — белая решётка, жёлтый огонь */
+.login-mast {
+  color: rgba(255, 255, 255, 0.72);
+  flex: 0 0 auto;
+  transform: translate3d(calc(var(--par-x, 0px) * 0.4), calc(var(--par-y, 0px) * 0.2), 0);
+  transition: transform .3s var(--ease-out);
 }
+
+/* Действие — чёрная пилюля, как «Try Now» в референсе */
+.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--c-black); color: #fff; }
+.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: #1A1A1A; }
+
+/* Заголовок на голубой панели — белый; градиентного текста в референсе нет */
+.login-title { letter-spacing: -0.03em; }
 
 .magnetic { transition: transform .18s var(--ease-out); will-change: transform; }
 
@@ -534,7 +587,7 @@ a:hover > .mantine-Card-root,
   border-bottom: 1px solid var(--ref-line);
   transition: background-color .15s var(--ease-out);
 }
-.worklist__row[data-done='true'] { background: rgba(110, 158, 92, 0.07); }
+.worklist__row[data-done='true'] { background: rgba(95, 140, 90, 0.07); }
 .worklist__row[data-done='true'] .worklist__name { color: var(--ref-muted); }
 .worklist__head {
   display: grid;
@@ -566,17 +619,17 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
 }
 .worklist__chip[data-tone='danger'] {
-  background: rgba(244, 100, 42, 0.10);
+  background: rgba(221, 253, 44, 0.26);
   color: var(--ref-coral-ink);
-  border-color: rgba(244, 100, 42, 0.26);
+  border-color: rgba(221, 253, 44, 0.34);
 }
 .worklist__chip[data-tone='warn'] {
-  background: rgba(232, 163, 60, 0.14);
+  background: rgba(221, 253, 44, 0.35);
   color: var(--ref-amber-ink);
-  border-color: rgba(232, 163, 60, 0.28);
+  border-color: rgba(221, 253, 44, 0.5);
 }
 .worklist__chip[data-tone='info'] {
-  background: rgba(14, 20, 32, 0.06);
+  background: rgba(0, 0, 0, 0.05);
   color: var(--ref-ink);
 }
 .worklist__row:hover { background: var(--ref-surface-sub); }
@@ -743,8 +796,8 @@ a:hover > .mantine-Card-root,
 .cost-totals__item { display: flex; flex-direction: column; gap: 1px; }
 
 /* Мачта базовой станции — фирменный знак */
-.mast-beacon__dot { fill: var(--ref-coral); }
-.mast-beacon__halo { fill: var(--ref-coral); opacity: 0; }
+.mast-beacon__dot { fill: var(--c-yellow); }
+.mast-beacon__halo { fill: var(--c-yellow); opacity: 0; }
 .mast-beacon .mast-beacon__dot { animation: mast-blink 2.6s ease-in-out infinite; }
 .mast-beacon .mast-beacon__halo { animation: mast-halo 2.6s ease-in-out infinite; }
 @keyframes mast-blink { 0%, 62%, 100% { opacity: 0.35; } 72%, 86% { opacity: 1; } }
@@ -761,15 +814,6 @@ a:hover > .mantine-Card-root,
 }
 .mast-empty__title { font-size: 16px; font-weight: 700; color: var(--ref-ink); }
 .mast-empty__hint { font-size: 13px; color: var(--ref-muted); text-align: center; max-width: 340px; }
-
-/* Мачта на экране входа: строится за текстом, огонь мигает */
-.login-mast {
-  color: rgba(255, 255, 255, 0.34);
-  flex: 0 0 auto;
-  /* Слегка идёт за курсором вместе с остальной сценой */
-  transform: translate3d(calc(var(--par-x, 0px) * 0.4), calc(var(--par-y, 0px) * 0.2), 0);
-  transition: transform .3s var(--ease-out);
-}
 
 
 /* Объекты: карточка площадки — мачта плюс цифры */
@@ -795,8 +839,8 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(244, 100, 42, 0.38); }
-.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(110,158,92,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
+.site-card[data-state='overdue'] { border-color: rgba(221, 253, 44, 0.36); }
+.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(95,140,90,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
@@ -851,9 +895,9 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(244, 100, 42, 0.38); }
+.site-card[data-state='overdue'] { border-color: rgba(221, 253, 44, 0.36); }
 .site-card[data-state='done'] {
-  background: linear-gradient(160deg, rgba(110, 158, 92, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
+  background: linear-gradient(160deg, rgba(95, 140, 90, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -953,16 +997,13 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out);
 }
 .digest-card:hover { box-shadow: var(--ref-sh-hover); }
-.digest-card[data-tone='danger'] { background: linear-gradient(165deg, rgba(244,100,42,.07), rgba(255,255,255,0) 58%), var(--ref-surface); }
-.digest-card[data-tone='warn']   { background: linear-gradient(165deg, rgba(232,163,60,.10), rgba(255,255,255,0) 58%), var(--ref-surface); }
-.digest-card[data-tone='ok']     { background: linear-gradient(165deg, rgba(110,158,92,.10), rgba(255,255,255,0) 58%), var(--ref-surface); }
-.digest-card[data-tone='brand']  { background: var(--ref-ink); color: #fff; border-color: transparent; }
+.digest-card[data-tone='brand']  { background: var(--c-blue); color: #fff; border-color: transparent; }
 .digest-card[data-tone='brand'] .kpi-icon { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.16); color: #fff; }
 .digest-card[data-tone='brand'] .mantine-Text-root { color: rgba(255,255,255,.62) !important; }
 .digest-card[data-tone='brand'] .digest-item { border-color: rgba(255,255,255,.10); }
 .digest-card[data-tone='brand'] .digest-item__label { color: rgba(255,255,255,.9); }
 .digest-card[data-tone='brand'] .digest-item__bar { background: rgba(255,255,255,.14); }
-.digest-card[data-tone='brand'] .digest-item__bar i { background: var(--ref-coral); }
+.digest-card[data-tone='brand'] .digest-item__bar i { background: var(--c-yellow); }
 
 .digest-card__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .digest-card__value {
@@ -974,9 +1015,10 @@ a:hover > .mantine-Card-root,
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.digest-card[data-tone='danger'] .digest-card__value { color: var(--ref-coral-ink); }
-.digest-card[data-tone='warn']   .digest-card__value { color: var(--ref-amber-ink); }
-.digest-card[data-tone='ok']     .digest-card__value { color: var(--ref-green-ink); }
+/* Число всегда чёрное: состояние несёт полоса слева. Жёлтый как текст
+   нечитаем, а разноцветные цифры в референсе не встречаются вовсе */
+.digest-card__value { color: var(--ref-ink); }
+.digest-card[data-tone='brand'] .digest-card__value { color: #fff; }
 
 .digest-card__body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .digest-item {
@@ -1011,11 +1053,11 @@ a:hover > .mantine-Card-root,
   grid-column: 1 / -1;
   height: 4px;
   border-radius: 999px;
-  background: rgba(14, 20, 32, 0.08);
+  background: rgba(0, 0, 0, 0.07);
   margin-top: 5px;
   overflow: hidden;
 }
-.digest-item__bar i { display: block; height: 100%; border-radius: 999px; background: var(--ref-coral); }
+.digest-item__bar i { display: block; height: 100%; border-radius: 999px; background: var(--c-blue); }
 
 .digest-card__action {
   display: flex;
@@ -1034,8 +1076,8 @@ a:hover > .mantine-Card-root,
   transition: transform .18s var(--ease-out), background-color .18s var(--ease-out);
 }
 .digest-card__action:hover { background: #1B211D; transform: translateY(-1px); }
-.digest-card[data-tone='brand'] .digest-card__action { background: var(--ref-coral); }
-.digest-card[data-tone='brand'] .digest-card__action:hover { background: #E24E27; }
+.digest-card[data-tone='brand'] .digest-card__action { background: var(--c-black); }
+.digest-card[data-tone='brand'] .digest-card__action:hover { background: #1A1A1A; }
 
 /* Переключатель «сводка ↔ список» — тёмная пилюля из референса */
 .view-switch {
@@ -1116,7 +1158,7 @@ a:hover > .mantine-Card-root,
   height: 2px;
   z-index: 10000;
   pointer-events: none;
-  background: linear-gradient(90deg, transparent, var(--c-orange), var(--c-blue), transparent);
+  background: linear-gradient(90deg, transparent, var(--c-yellow), var(--c-blue), transparent);
   background-size: 40% 100%;
   background-repeat: no-repeat;
   animation: load-sweep 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
@@ -1151,7 +1193,7 @@ a:hover > .mantine-Card-root,
 .mantine-Skeleton-root::after {
   background: linear-gradient(90deg,
     var(--ref-surface-sub) 0%,
-    rgba(43, 98, 232, 0.07) 45%,
+    rgba(130, 173, 212, 0.12) 45%,
     var(--ref-surface-sub) 90%) !important;
   background-size: 200% 100% !important;
   animation: skeleton-sweep 1.4s ease-in-out infinite !important;
@@ -1210,3 +1252,77 @@ a:hover > .mantine-Card-root,
   -webkit-mask-composite: source-over;
   mask-composite: add;
 }
+
+/* ---------------------------------------------------------------
+   12. Рисовка референса Callivio: лёгкие крупные числа, жёлтый маркер,
+       тонкая полоса-акцент у карточки, волосяные разделители
+   --------------------------------------------------------------- */
+
+/* Числа крупные и ЛЁГКИЕ — в референсе «10.8k» и «1 108 calls» набраны
+   тонким начертанием, а не жирным. Вес держит размер, а не толщина. */
+.kpi-value, .digest-card__value, .pulse-tile__value, .site-card__stat b {
+  font-weight: 300;
+  letter-spacing: -0.035em;
+}
+.digest-card__value { font-size: 34px; }
+.page-title, .login-title { font-weight: 300 !important; letter-spacing: -0.03em; }
+h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
+
+/* Единица рядом с числом — мельче и серее: «10.8k», «30s», «3.3/5» */
+.kpi-value small, .unit {
+  font-size: 0.5em;
+  font-weight: 400;
+  color: var(--ref-muted);
+  letter-spacing: 0;
+  margin-left: 2px;
+}
+
+/* Жёлтый маркер: маленькая пилюля, как «Section 9» и «13 %» в референсе.
+   Текст на нём всегда чёрный — жёлтый светлый, белое по нему не читается. */
+.mark {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--c-yellow);
+  color: #000;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.worklist__chip[data-tone='warn'] {
+  background: var(--c-yellow);
+  border-color: transparent;
+  color: #000;
+}
+
+/* Тонкая цветная полоса слева у карточки-показателя — приём референса:
+   она заменяет собой и рамку, и иконку в цветном круге */
+.digest-card::after {
+  content: '';
+  position: absolute;
+  left: 0; top: 16px; bottom: 16px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
+  background: var(--c-blue);
+  opacity: 0.9;
+}
+.digest-card[data-tone='warn']::after   { background: var(--c-yellow); }
+.digest-card[data-tone='danger']::after { background: var(--c-danger); }
+.digest-card[data-tone='ok']::after     { background: var(--c-ok); }
+.digest-card[data-tone='brand']::after  { background: var(--c-yellow); }
+.digest-card[data-tone='neutral']::after { background: var(--ref-line); }
+
+/* Карточка всегда белая: цвет состояния несёт только полоса слева —
+   в референсе цветных заливок у карточек нет вовсе */
+.digest-card[data-tone='danger'],
+.digest-card[data-tone='warn'],
+.digest-card[data-tone='ok'] { background: var(--ref-surface); }
+
+/* Карточки без обводок: держатся на белом и воздухе, а не на рамке */
+.mantine-Card-root, .mantine-Card-root[data-with-border] { border-color: transparent !important; }
+.digest-card, .site-card, .stage-cell { border-color: var(--ref-line); }
+
+/* Иконка показателя — светло-серый круг, без цветной заливки */
+.kpi-icon, .pulse-tile__icon { background: var(--ref-surface-sub); border-color: var(--ref-line); color: #000; }
