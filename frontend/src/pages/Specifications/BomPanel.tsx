@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Card, Stack, Group, Text, Table, Badge, Button, Select, NumberInput,
+  Card, Stack, Group, Text, Badge, Button, Select, NumberInput,
   ActionIcon, Skeleton, Tooltip,
 } from '@mantine/core';
 import { IconPlus, IconTrash, IconCheck, IconLock, IconInfoCircle } from '@tabler/icons-react';
@@ -8,7 +8,6 @@ import { notifications } from '@mantine/notifications';
 import { useBom, useMaterials, useAddBomItem, useUpdateBomItem, useRemoveBomItem } from '../../hooks/useCatalog';
 import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
-import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 
@@ -17,7 +16,14 @@ const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDig
 /** Строк состава на странице: больше — уже не «состав», а простыня */
 const BOM_PAGE_SIZE = 25;
 
-/** Строка состава: расход правится инлайн (engineer), удаление — крестиком */
+/**
+ * Строка состава: расход правится на месте, удаление — крестиком.
+ *
+ * Таблицы здесь больше нет (02.09.2026): шесть колонок не влезали в
+ * панель, появлялась боковая прокрутка, а поле расхода наезжало на
+ * прилипшую первую колонку — состав читался как поломанный. Строка
+ * тянется по ширине контейнера и не уезжает вбок никогда.
+ */
 function BomRow({
   item, articleId, canEdit,
 }: {
@@ -43,61 +49,56 @@ function BomRow({
     }
   };
 
+  const priceHint = lastPrice > 0
+    ? `Последний закуп ${num(lastPrice)} ₸`
+      + (item.material?.lastPurchaseDate ? ` от ${formatDate(item.material.lastPurchaseDate)}` : '')
+    : 'Закупок ещё не было';
+
   return (
-    <Table.Tr>
-      <Table.Td style={{ minWidth: 220 }}>
-        <Text size="sm" ff="monospace" fw={600} c="brand.7">{item.material?.materialCode ?? '—'}</Text>
-        <Text size="xs" c="dimmed" lineClamp={1}>{item.material?.name ?? '—'}</Text>
-      </Table.Td>
-      <Table.Td style={{ textAlign: 'right' }}>
-        {canEdit ? (
-          <NumberInput
-            value={qty}
-            onChange={setQty}
-            onBlur={save}
-            min={0}
-            step={0.01}
-            decimalScale={4}
-            w={150}
-            ml="auto"
-            styles={{ input: { textAlign: 'right', fontFamily: 'var(--ff-num)' } }}
-            rightSection={dirty ? <IconCheck size={15} style={{ color: 'var(--ok-6)' }} /> : undefined}
-          />
-        ) : (
-          <Text size="sm" ff="monospace">{num(Number(item.qtyPerUnit), 4)}</Text>
-        )}
-      </Table.Td>
-      <Table.Td><Text size="sm" c="dimmed">{item.material?.unit ?? '—'}</Text></Table.Td>
-      <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(price)} ₸</Table.Td>
-      <Table.Td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
-        {lastPrice > 0 ? (
-          <>
-            <Text size="sm" ff="monospace">{num(lastPrice)} ₸</Text>
-            {item.material?.lastPurchaseDate && (
-              <Text size="xs" c="dimmed">{formatDate(item.material.lastPurchaseDate)}</Text>
-            )}
-          </>
-        ) : (
-          <Text size="sm" c="dimmed">—</Text>
-        )}
-      </Table.Td>
-      <Table.Td ff="monospace" fw={600} style={{ textAlign: 'right' }}>{num(q * price)} ₸</Table.Td>
-      {canEdit && (
-        <Table.Td>
-          <Tooltip label="Убрать из состава">
-            <ActionIcon
-              variant="subtle"
-              color="danger"
-              size="md"
-              onClick={() => remove.mutate(item.id)}
-              loading={remove.isPending}
-            >
-              <IconTrash size={16} />
-            </ActionIcon>
-          </Tooltip>
-        </Table.Td>
+    <div className="bom-row">
+      <div className="bom-row__mat">
+        <span className="worklist__code">{item.material?.materialCode ?? '—'}</span>
+        <span className="worklist__name" title={item.material?.name ?? ''}>
+          {item.material?.name ?? '—'}
+        </span>
+      </div>
+
+      {canEdit ? (
+        <NumberInput
+          size="xs"
+          value={qty}
+          onChange={setQty}
+          onBlur={save}
+          min={0}
+          step={0.01}
+          decimalScale={4}
+          hideControls
+          w={92}
+          aria-label="Расход на единицу"
+          styles={{ input: { textAlign: 'right', fontFamily: 'var(--ff-num)' } }}
+          rightSection={dirty ? <IconCheck size={14} style={{ color: 'var(--ok-6)' }} /> : undefined}
+        />
+      ) : (
+        <span className="bom-row__num">{num(Number(item.qtyPerUnit), 4)}</span>
       )}
-    </Table.Tr>
+
+      <span className="bom-row__unit">{item.material?.unit ?? '—'}</span>
+
+      <Tooltip label={priceHint} openDelay={300}>
+        <span className="bom-row__num bom-row__price">{num(price)} ₸</span>
+      </Tooltip>
+
+      <span className="bom-row__num bom-row__sum">{num(q * price)} ₸</span>
+
+      {canEdit && (
+        <Tooltip label="Убрать из состава">
+          <ActionIcon variant="subtle" color="danger" size={28}
+            onClick={() => remove.mutate(item.id)} loading={remove.isPending}>
+            <IconTrash size={15} />
+          </ActionIcon>
+        </Tooltip>
+      )}
+    </div>
   );
 }
 
@@ -176,26 +177,19 @@ export function BomPanel({ articleId }: { articleId: string }) {
       ) : (
         <Stack gap="xs">
           <FadeSwap swapKey={paged.page}>
-            <TableScroll minWidth={820}>
-              <Table highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Материал</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Расход на ед.</Table.Th>
-                    <Table.Th>Ед.</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Учётная цена</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Последний закуп</Table.Th>
-                    <Table.Th style={{ textAlign: 'right' }}>Стоимость</Table.Th>
-                    {canEdit && <Table.Th w={48} />}
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {paged.slice.map((item) => (
-                    <BomRow key={item.id} item={item} articleId={articleId} canEdit={canEdit} />
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </TableScroll>
+            <div className="bom-list" data-editable={canEdit ? 'true' : undefined}>
+              <div className="bom-row bom-row--head">
+                <span>Материал</span>
+                <span>Расход</span>
+                <span>Ед.</span>
+                <span className="bom-row__price">Цена</span>
+                <span>Стоимость</span>
+                {canEdit && <span />}
+              </div>
+              {paged.slice.map((item) => (
+                <BomRow key={item.id} item={item} articleId={articleId} canEdit={canEdit} />
+              ))}
+            </div>
           </FadeSwap>
           {paged.total > BOM_PAGE_SIZE && (
             <PaginationBar

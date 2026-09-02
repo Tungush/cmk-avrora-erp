@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import {
   Card, Stack, Group, Text, Badge, SimpleGrid, Skeleton, Table, Alert,
 } from '@mantine/core';
@@ -11,6 +12,8 @@ import { exportCsv } from '../../utils/exportCsv';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { DigestCard, DigestGrid } from '../../components/Digest';
+import { ViewSwitch } from '../../components/ViewSwitch';
 
 interface CustomerDebtRow {
   customerId: string;
@@ -42,6 +45,9 @@ interface CustomerDebtsResponse {
  * «оплата неизвестна», чтобы долг был занижен честно, а не завышен молча.
  */
 export function Receivables() {
+  const navigate = useNavigate();
+  // Экран открывается сводкой, а не таблицей: список — за переключателем
+  const [view, setView] = useState<'digest' | 'list'>('digest');
   const { data, isLoading } = useQuery({
     queryKey: ['customer-debts'],
     queryFn: () => api.get<CustomerDebtsResponse>('/payment-documents/customer-debts').then((r) => r.data),
@@ -68,47 +74,65 @@ export function Receivables() {
 
   const { totals } = data;
 
+  const top = (key: 'debt' | 'contracted' | 'unknownAmount', limit = 4) => {
+    const rows = [...(data.customers ?? [])].filter((c) => c[key] > 0).sort((a, b) => b[key] - a[key]);
+    const max = rows[0]?.[key] ?? 1;
+    return rows.slice(0, limit).map((c) => ({
+      id: c.customerId,
+      label: c.customerName,
+      value: formatCurrency(c[key]),
+      sub: key === 'unknownAmount' ? `${c.unknownOrders} зак. без данных 1С` : `${c.orders} зак.`,
+      share: c[key] / max,
+      onClick: () => navigate(`/orders?search=${encodeURIComponent(c.customerName)}`),
+    }));
+  };
+
+  const paidPct = totals.contracted > 0 ? Math.round((totals.paid / totals.contracted) * 100) : 0;
+
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
-          <Group gap="xs" mb={4}>
-            <IconCoin size={15} style={{ color: 'var(--mantine-color-brand-6)' }} />
-            <Text size="xs" c="dimmed" fw={600}>ЗАКОНТРАКТОВАНО</Text>
-          </Group>
-          <Text fw={800} size="xl" ff="monospace">{formatCurrency(totals.contracted)}</Text>
-          <Text size="xs" c="dimmed">{totals.orders} активных заказов</Text>
-        </Card>
+      <ViewSwitch
+        value={view}
+        onChange={setView}
+        digestLabel="Кто должен"
+        listLabel={`Все заказчики · ${withDebt.length}`}
+      />
 
-        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
-          <Group gap="xs" mb={4}>
-            <IconWallet size={15} style={{ color: 'var(--mantine-color-success-6)' }} />
-            <Text size="xs" c="dimmed" fw={600}>ДОЛЖНЫ НАМ</Text>
-          </Group>
-          <Text fw={800} size="xl" ff="monospace" c="danger.7">{formatCurrency(totals.debt)}</Text>
-          <Text size="xs" c="dimmed">оплачено {formatCurrency(totals.paid)}</Text>
-        </Card>
+      {view === 'digest' ? (
+        <DigestGrid>
+          <DigestCard
+            title="Должны нам"
+            tone="danger"
+            icon={<IconCoin size={19} />}
+            value={formatCurrency(totals.debt)}
+            caption={`оплачено ${formatCurrency(totals.paid)} из ${formatCurrency(totals.contracted)} · ${paidPct} %`}
+            items={top('debt')}
+            emptyText="Долгов нет — всё оплачено"
+            action={{ label: 'Все должники', onClick: () => setView('list') }}
+          />
 
-        <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
-          <Group gap="xs" mb={4}>
-            <IconHelpCircle size={15} style={{ color: 'var(--mantine-color-gray-6)' }} />
-            <Text size="xs" c="dimmed" fw={600}>ОПЛАТА НЕИЗВЕСТНА</Text>
-          </Group>
-          <Text fw={800} size="xl" ff="monospace" c="dimmed">{formatCurrency(totals.unknownAmount)}</Text>
-          <Text size="xs" c="dimmed">{totals.unknownOrders} заказов без данных 1С</Text>
-        </Card>
-      </SimpleGrid>
+          <DigestCard
+            title="Законтрактовано"
+            tone="brand"
+            icon={<IconWallet size={19} />}
+            value={formatCurrency(totals.contracted)}
+            caption={`${totals.orders} активных заказов у ${totals.customers} заказчиков`}
+            items={top('contracted')}
+            emptyText="Активных заказов нет"
+          />
 
-      {totals.unknownOrders > 0 && (
-        <Alert color="gray" variant="light" radius="md" icon={<IconHelpCircle size={16} />}>
-          <Text size="sm">
-            По {totals.unknownOrders} заказам из {totals.orders} 1С не прислала данных об оплате.
-            Эта сумма не приравнена к нулю и не попала в «должны нам» — реальный долг
-            может быть больше на {formatCurrency(totals.unknownAmount)}.
-          </Text>
-        </Alert>
-      )}
-
+          <DigestCard
+            title="Оплата неизвестна"
+            tone="warn"
+            icon={<IconHelpCircle size={19} />}
+            value={formatCurrency(totals.unknownAmount)}
+            caption={`${totals.unknownOrders} заказов, по которым 1С не прислала оплату`}
+            items={top('unknownAmount')}
+            emptyText="По всем заказам оплата известна"
+          />
+        </DigestGrid>
+      ) : (
+      <>
       <Card withBorder radius="md" padding={0}>
         <Group justify="space-between" p="md" pb="sm" wrap="wrap" gap="sm">
           <Group gap="xs">
@@ -191,6 +215,8 @@ export function Receivables() {
         noun="заказчиков"
         sticky
       />
+      </>
+      )}
     </Stack>
   );
 }

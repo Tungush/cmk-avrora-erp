@@ -4,7 +4,7 @@ import {
   Badge, Modal, Textarea, SegmentedControl,
 } from '@mantine/core';
 import { IconSearch, IconCoin, IconCheck } from '@tabler/icons-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { useArticles } from '../../hooks/useCatalog';
@@ -15,6 +15,10 @@ import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { MastLoader } from '../../components/Mast';
+import { DigestCard, DigestGrid } from '../../components/Digest';
+import { ViewSwitch } from '../../components/ViewSwitch';
+import { IconRuler2, IconScale, IconAlertTriangle } from '@tabler/icons-react';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Прайс (28.08.2026). Данные о ценах жили в модели с самого начала, но
@@ -27,6 +31,7 @@ import { MastLoader } from '../../components/Mast';
  */
 export function Prices() {
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const hasRole = useAuthStore((s) => s.hasRole);
   const isDirector = hasRole(['director', 'admin']);
   const canRequest = hasRole(['engineer', 'accountant', 'sales_manager', 'admin']);
@@ -35,6 +40,8 @@ export function Prices() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = usePageSize('prices', 25);
   const [scope, setScope] = useState<'priced' | 'all'>('priced');
+  // Раздел открывается сводкой: 2 152 строки каталога — не ответ на вопрос
+  const [view, setView] = useState<'digest' | 'list'>('digest');
   const [reviewFor, setReviewFor] = useState<any | null>(null);
   const [reason, setReason] = useState('');
   useEffect(() => { setPage(1); }, [pageSize]);
@@ -42,6 +49,14 @@ export function Prices() {
   const { data, isLoading } = useArticles({
     search, page, pageSize,
     ...(scope === 'priced' ? { onlyPriced: true } : {}),
+  });
+
+  const digest = useQuery({
+    queryKey: ['price-digest'],
+    queryFn: () => api.get<{
+      total: number; priced: number; withSpec: number; comparable: number; belowCost: number;
+      thinnest: Array<{ id: string; articleCode: string; name: string; approvedPrice: string; specPrice: string; deviationPct: string }>;
+    }>('/articles/price-digest').then((r) => r.data),
   });
 
   const requestReview = useMutation({
@@ -89,6 +104,18 @@ export function Prices() {
       {/* Директор видит очередь заявок прямо здесь, не бегая на дашборд */}
       {isDirector && <PriceReviewsPanel />}
 
+      <ViewSwitch
+        value={view}
+        onChange={setView}
+        digestLabel="Что с ценами"
+        listLabel="Весь прайс"
+      />
+
+      {view === 'digest' ? (
+        <PriceDigest data={digest.data} loading={digest.isLoading} onList={() => setView('list')}
+          onSpecs={() => navigate('/specs')} />
+      ) : (
+      <>
       <div className="toolbar-sticky">
         <Group gap="sm" wrap="wrap" justify="space-between">
           <Group gap="sm" wrap="wrap">
@@ -204,6 +231,9 @@ export function Prices() {
         sticky
       />
 
+      </>
+      )}
+
       <Modal
         opened={reviewFor !== null}
         onClose={() => setReviewFor(null)}
@@ -247,5 +277,86 @@ export function Prices() {
         )}
       </Modal>
     </Stack>
+  );
+}
+
+/**
+ * Сводка прайса: цена утверждена у 176 изделий из 2 152, а сравнить её
+ * с себестоимостью не с чем — расчёт есть у двух. Это и есть ответ,
+ * ради которого сюда заходят; список остаётся за переключателем.
+ */
+function PriceDigest({
+  data, loading, onList, onSpecs,
+}: {
+  data?: {
+    total: number; priced: number; withSpec: number; comparable: number; belowCost: number;
+    thinnest: Array<{ id: string; articleCode: string; name: string; approvedPrice: string; specPrice: string; deviationPct: string }>;
+  };
+  loading: boolean;
+  onList: () => void;
+  onSpecs: () => void;
+}) {
+  const n = (v: number) => v.toLocaleString('ru-RU');
+  const total = data?.total ?? 0;
+  const priced = data?.priced ?? 0;
+  const withSpec = data?.withSpec ?? 0;
+  const comparable = data?.comparable ?? 0;
+  const noCost = Math.max(0, total - withSpec);
+  const pricedPct = total > 0 ? Math.round((priced / total) * 100) : 0;
+
+  return (
+    <DigestGrid>
+      <DigestCard
+        title="В прайсе"
+        tone="brand"
+        icon={<IconCoin size={19} />}
+        value={n(priced)}
+        caption={`изделий с утверждённой ценой из ${n(total)} · ${pricedPct} % каталога`}
+        loading={loading}
+        emptyText="Цена не утверждена ни у одного изделия"
+        action={{ label: 'Открыть прайс', onClick: onList }}
+      />
+
+      <DigestCard
+        title="Не с чем сравнить"
+        tone={comparable === 0 ? 'warn' : 'ok'}
+        icon={<IconScale size={19} />}
+        value={n(comparable)}
+        caption={comparable === 0
+          ? 'ни у одного изделия нет одновременно цены и расчёта — проверить наценку невозможно'
+          : 'изделий, где есть и цена, и расчёт себестоимости'}
+        loading={loading}
+        items={(data?.thinnest ?? []).slice(0, 4).map((a) => ({
+          id: a.id,
+          label: `${a.articleCode} · ${a.name}`,
+          value: `${Number(a.deviationPct).toFixed(0)} %`,
+          sub: `цена ${formatCurrency(Number(a.approvedPrice))} · расчёт ${formatCurrency(Number(a.specPrice))}`,
+        }))}
+        emptyText="Сравнить цену с себестоимостью пока не на чем"
+      />
+
+      <DigestCard
+        title="Ниже себестоимости"
+        tone={(data?.belowCost ?? 0) > 0 ? 'danger' : 'ok'}
+        icon={<IconAlertTriangle size={19} />}
+        value={n(data?.belowCost ?? 0)}
+        caption={(data?.belowCost ?? 0) > 0
+          ? 'изделий продаются дешевле, чем стоят заводу'
+          : 'убыточных цен не найдено'}
+        loading={loading}
+        emptyText="Убыточных цен нет"
+      />
+
+      <DigestCard
+        title="Нечего считать"
+        tone={noCost > 0 ? 'warn' : 'ok'}
+        icon={<IconRuler2 size={19} />}
+        value={n(noCost)}
+        caption="изделий без спецификации и норм — себестоимость по ним нулевая, цену обосновать нечем"
+        loading={loading}
+        emptyText="У всех изделий есть расчёт"
+        action={{ label: 'Завести спецификации', onClick: onSpecs }}
+      />
+    </DigestGrid>
   );
 }

@@ -97,6 +97,8 @@ func main() {
 
 	articles := catalog.NewArticlesHandler(pool)
 	protected.GET("/articles", articles.FindAll)
+	// Сводка прайса — до маршрута /articles/:id
+	protected.GET("/articles/price-digest", articles.PriceDigest)
 	protected.GET("/articles/:id", articles.FindOne)
 	protected.GET("/articles/:id/bom", articles.GetBom)
 	protected.POST("/articles", auth.RequireRoles("engineer", "admin"), articles.Create)

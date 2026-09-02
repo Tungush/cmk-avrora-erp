@@ -12,6 +12,7 @@ import {
   IconTruck, IconCheck, IconAlertTriangle, IconBuildingFactory, IconSend,
   IconPlus, IconChevronDown, IconChevronRight, IconTrash, IconPencil,
   IconClipboardList, IconListDetails, IconUserPlus, IconX, IconFileInvoice,
+  IconLayoutGrid,
 } from '@tabler/icons-react';
 import api from '../../api/client';
 import { ordersApi } from '../../api/orders';
@@ -31,6 +32,7 @@ import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { ContractorDigest } from './ContractorDigest';
 
 const STAGE_OPTIONS = (Object.keys(ROUTING_STAGE_LABELS) as RoutingStageCode[])
   .map((value) => ({ value, label: ROUTING_STAGE_LABELS[value] }));
@@ -1777,7 +1779,9 @@ function AllocatedTab() {
  */
 export function ContractorWork() {
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') === 'allocated' ? 'allocated' : 'requests';
+  const raw = params.get('tab');
+  // Раздел открывается сводкой: подряд — это деньги наружу, а не два реестра
+  const tab = raw === 'allocated' || raw === 'requests' ? raw : 'digest';
 
   const setTab = (v: string) => setParams((prev) => {
     const next = new URLSearchParams(prev);
@@ -1798,8 +1802,11 @@ export function ContractorWork() {
         </Text>
       </Stack>
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'requests')} radius="md" keepMounted={false}>
+      <Tabs value={tab} onChange={(v) => setTab(v ?? 'digest')} radius="md" keepMounted={false}>
         <Tabs.List mb="md">
+          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} />}>
+            Что требует решения
+          </Tabs.Tab>
           <Tabs.Tab value="requests" leftSection={<IconClipboardList size={15} />}>
             Заявки
           </Tabs.Tab>
@@ -1808,6 +1815,7 @@ export function ContractorWork() {
           </Tabs.Tab>
         </Tabs.List>
 
+        <Tabs.Panel value="digest"><ContractorDigest onGoTab={setTab} /></Tabs.Panel>
         <Tabs.Panel value="requests"><RequestsTab /></Tabs.Panel>
         <Tabs.Panel value="allocated"><AllocatedTab /></Tabs.Panel>
       </Tabs>

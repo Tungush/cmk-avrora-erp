@@ -17,6 +17,8 @@ import { OrderRef, useOrderCard } from '../../components/OrderCard/OrderCardProv
 import { useQueries } from '@tanstack/react-query';
 import { ordersApi } from '../../api/orders';
 import { PulseRow } from '../../components/SectionHeader';
+import { DigestCard, DigestGrid } from '../../components/Digest';
+import { ViewSwitch } from '../../components/ViewSwitch';
 import { IconClockExclamation, IconInbox, IconTruckDelivery, IconLayoutGrid } from '@tabler/icons-react';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
@@ -124,10 +126,12 @@ const PRESETS: Record<PresetCode, { label: string; permission: string | null; co
  * показывает, сколько сейчас в каждом состоянии.
  */
 function useSliceCounts() {
+  // Просим по 5 строк вместо одной: то же число в meta.total, но заодно
+  // приезжают сами заказы — сводке нужны не цифры, а виновники (02.09.2026)
   const slices = [
-    { key: 'overdue', params: { page: 1, pageSize: 1, overdueOnly: true } },
-    { key: 'new', params: { page: 1, pageSize: 1, status: 'NEW' } },
-    { key: 'ready', params: { page: 1, pageSize: 1, status: 'READY_TO_SHIP' } },
+    { key: 'overdue', params: { page: 1, pageSize: 5, overdueOnly: true } },
+    { key: 'new', params: { page: 1, pageSize: 5, status: 'NEW' } },
+    { key: 'ready', params: { page: 1, pageSize: 5, status: 'READY_TO_SHIP' } },
   ] as const;
   const results = useQueries({
     queries: slices.map((s) => ({
@@ -136,10 +140,14 @@ function useSliceCounts() {
       staleTime: 60_000,
     })),
   });
+  const rows = (i: number): any[] => ((results[i].data as any)?.data ?? []);
   return {
     overdue: (results[0].data as any)?.meta?.total ?? null,
     fresh: (results[1].data as any)?.meta?.total ?? null,
     ready: (results[2].data as any)?.meta?.total ?? null,
+    overdueRows: rows(0),
+    freshRows: rows(1),
+    readyRows: rows(2),
     loading: results.some((r) => r.isLoading),
   };
 }
@@ -157,6 +165,8 @@ export function OrdersRegistry() {
   // Размер страницы помнится для реестра заказов отдельно (25 / 50 / 100)
   const [pageSize, setPageSize] = usePageSize('orders', 25);
   const [viewName, setViewName] = useState('');
+  // Реестр открывается сводкой решений, а не таблицей на 384 строки
+  const [view, setView] = useState<'digest' | 'list'>('digest');
   const [saveViewOpened, setSaveViewOpened] = useState(false);
 
   const { data: savedViews } = useSavedViews('orders');
@@ -228,8 +238,86 @@ export function OrdersRegistry() {
   const isAll = !status && !overdueOnly;
   const fmt = (n: number | null) => (n === null ? '—' : n.toLocaleString('ru-RU'));
 
+  const openList = (slice: 'all' | 'overdue' | 'new' | 'ready') => {
+    applySlice(slice);
+    setView('list');
+  };
+
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
+      <ViewSwitch
+        value={view}
+        onChange={setView}
+        digestLabel="Что требует решения"
+        listLabel={`Реестр · ${fmt(meta ? total : null)}`}
+      />
+
+      {view === 'digest' ? (
+        <DigestGrid>
+          <DigestCard
+            title="Просрочено"
+            tone="danger"
+            icon={<IconClockExclamation size={19} />}
+            value={fmt(counts.overdue)}
+            caption="заказов, у которых плановая дата вывоза уже прошла"
+            loading={counts.loading}
+            items={counts.overdueRows.map((o: any) => ({
+              id: o.id,
+              label: `${o.orderNumber} · ${o.customer?.name ?? '—'}`,
+              value: `${o.overdueDays} дн`,
+              sub: `план ${formatDate(o.plannedShipmentDate)} · ${ORDER_STATUS_LABELS[o.status] ?? o.status}`,
+              onClick: () => openCard(o.id),
+            }))}
+            emptyText="Просроченных заказов нет"
+            action={{ label: 'Все просроченные', onClick: () => openList('overdue') }}
+          />
+
+          <DigestCard
+            title="Новые из 1С"
+            tone="brand"
+            icon={<IconInbox size={19} />}
+            value={fmt(counts.fresh)}
+            caption="ждут приёма в производство — пока не приняты, цех их не видит"
+            loading={counts.loading}
+            items={counts.freshRows.map((o: any) => ({
+              id: o.id,
+              label: `${o.orderNumber} · ${o.customer?.name ?? '—'}`,
+              value: formatDate(o.plannedShipmentDate),
+              sub: o.projectSite ? `объект ${o.projectSite}` : undefined,
+              onClick: () => openCard(o.id),
+            }))}
+            emptyText="Новых заказов нет"
+            action={{ label: 'Принять в работу', onClick: () => openList('new') }}
+          />
+
+          <DigestCard
+            title="К отгрузке"
+            tone="ok"
+            icon={<IconTruckDelivery size={19} />}
+            value={fmt(counts.ready)}
+            caption="изготовлены полностью — можно вывозить"
+            loading={counts.loading}
+            items={counts.readyRows.map((o: any) => ({
+              id: o.id,
+              label: `${o.orderNumber} · ${o.customer?.name ?? '—'}`,
+              value: formatDate(o.plannedShipmentDate),
+              onClick: () => openCard(o.id),
+            }))}
+            emptyText="Готовых к отгрузке нет"
+            action={{ label: 'Показать', onClick: () => openList('ready') }}
+          />
+
+          <DigestCard
+            title="Всего в реестре"
+            icon={<IconLayoutGrid size={19} />}
+            value={fmt(meta ? total : null)}
+            caption="активных заказов после приёма из 1С"
+            emptyText=""
+            action={{ label: 'Открыть реестр', onClick: () => openList('all') }}
+          />
+        </DigestGrid>
+      ) : (
+      <>
       <PulseRow
         loading={counts.loading && !meta}
         items={[
@@ -433,6 +521,8 @@ export function OrdersRegistry() {
         noun="заказов"
         sticky
       />
+      </>
+      )}
 
       {/* Мастера создания заказа здесь нет намеренно (решение 23.08.2026):
           заказ рождается сделкой Б24 → документом 1С → приходит в инбокс
