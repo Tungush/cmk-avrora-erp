@@ -801,8 +801,9 @@ a:hover > .mantine-Card-root,
   min-height: 0;
   overflow: hidden;
 }
-/* Пустое состояние занимает всю сетку, а не одну ячейку */
-.site-grid__empty { grid-column: 1 / -1; display: grid; place-items: center; }
+/* Пустое состояние занимает всю сетку, а не одну ячейку 150 px */
+.site-grid:has(> .site-grid__empty) { grid-template-columns: 1fr; grid-auto-rows: minmax(0, 1fr); }
+.site-grid__empty { grid-column: 1 / -1; display: grid; place-items: center; min-height: 0; }
 .site-card {
   display: flex;
   gap: 12px;
