@@ -4,7 +4,7 @@ import {
   ROLE_FAMILIES,
   allPermissionCodes,
   permissionsForRoles,
-} from '../../src/common/field-access';
+} from '../lib/field-access';
 
 /**
  * Сид RBAC на уровне полей (Этап 1, 07_ARCHITECTURE_AND_UX.md).

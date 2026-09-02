@@ -26,3 +26,6 @@ prisma/generated/
 
 # Слепки данных для отката (локальные, в репозиторий не идут)
 backend/backups/
+
+# Go build output
+backend-go/bin/

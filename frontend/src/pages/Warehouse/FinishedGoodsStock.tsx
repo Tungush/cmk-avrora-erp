@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Card, Stack, Text, Table, Badge, Skeleton, Box, Group, Button, Modal,
-  Select, NumberInput, TextInput, SegmentedControl, Tabs,
+  Select, NumberInput, TextInput, SegmentedControl, Tabs, Pagination,
 } from '@mantine/core';
 import { IconPlus, IconTruck, IconCheck, IconAdjustments } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -152,18 +152,23 @@ export function FinishedGoodsStock() {
   const canEdit = hasRole(['warehouse_fg', 'shop_foreman', 'admin']);
   const [modalOpen, setModalOpen] = useState(false);
   const [tab, setTab] = useState<string>('balance');
+  const [balancePage, setBalancePage] = useState(1);
+  const [movesPage, setMovesPage] = useState(1);
+  const pageSize = 100;
 
   const { data: balance, isLoading: loadingBalance } = useQuery({
-    queryKey: ['fg-balance'],
-    queryFn: () => api.get('/warehouse/finished-goods/balance').then((r) => r.data),
+    queryKey: ['fg-balance', balancePage],
+    queryFn: () => api.get('/warehouse/finished-goods/balance', { params: { page: balancePage, pageSize } }).then((r) => r.data),
   });
   const { data: movements, isLoading: loadingMoves } = useQuery({
-    queryKey: ['fg-stock'],
-    queryFn: () => api.get('/warehouse/finished-goods?pageSize=100').then((r) => r.data),
+    queryKey: ['fg-stock', movesPage],
+    queryFn: () => api.get('/warehouse/finished-goods', { params: { page: movesPage, pageSize } }).then((r) => r.data),
   });
 
   const balanceRows: any[] = balance?.data ?? [];
   const moveRows: any[] = movements?.data ?? [];
+  const balanceTotalPages = Math.max(1, Math.ceil((balance?.meta?.total ?? 0) / pageSize));
+  const movesTotalPages = Math.max(1, Math.ceil((movements?.meta?.total ?? 0) / pageSize));
 
   return (
     <Stack gap="md">
@@ -232,6 +237,11 @@ export function FinishedGoodsStock() {
               </Box>
             )}
           </Card>
+          {balanceTotalPages > 1 && (
+            <Group justify="center" mt="md">
+              <Pagination value={balancePage} onChange={setBalancePage} total={balanceTotalPages} size="sm" radius="md" />
+            </Group>
+          )}
           {balanceRows.some((r) => r.stockQty < 0) && (
             <Text size="xs" c="dimmed" mt="xs">
               Отрицательный остаток — отгрузок записано больше, чем приходов.
@@ -286,6 +296,11 @@ export function FinishedGoodsStock() {
               </Box>
             )}
           </Card>
+          {movesTotalPages > 1 && (
+            <Group justify="center" mt="md">
+              <Pagination value={movesPage} onChange={setMovesPage} total={movesTotalPages} size="sm" radius="md" />
+            </Group>
+          )}
         </Tabs.Panel>
       </Tabs>
 

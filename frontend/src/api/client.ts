@@ -1,10 +1,14 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/auth';
+import { API_BASE, IS_CROSS_ORIGIN } from './base';
 
-const API_TIMEOUT_MS = 2000;
+// Через интернет (фронт на Vercel, бэкенд на VPS) 2 с мало: к времени
+// запроса добавляются RTT и TLS-хендшейк. На том же origin оставляем
+// прежние 2 с — там медленный ответ означает проблему, а не сеть.
+const API_TIMEOUT_MS = IS_CROSS_ORIGIN ? 15000 : 2000;
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
   timeout: API_TIMEOUT_MS,
 });

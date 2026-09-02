@@ -18,7 +18,7 @@
  * Запуск: npm run quarantine:inventory-batches [-- --dry-run]
  */
 import { PrismaClient } from '@prisma/client';
-import { isPriceAnomaly, anomalyFactor } from '../src/common/material-batches';
+import { isPriceAnomaly, anomalyFactor } from './lib/material-batches';
 
 const ANOMALY_THRESHOLD = 5;
 const dryRun = process.argv.includes('--dry-run');

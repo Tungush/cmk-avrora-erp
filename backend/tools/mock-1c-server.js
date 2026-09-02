@@ -12,7 +12,7 @@
  *   GET /erp/hs/TurnOver/v1/get_d?clientorder_num=…&clientorder_year=…
  *
  * Запуск: node tools/mock-1c-server.js [порт]
- * Затем:  ONEC_BASE_URL=http://localhost:8081 npm run start:dev
+ * Затем:  ONEC_BASE_URL=http://localhost:8081 npm run dev   (из корня репозитория)
  */
 const http = require('http');
 const { URL } = require('url');

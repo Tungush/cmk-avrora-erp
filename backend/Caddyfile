@@ -1,0 +1,31 @@
+# HTTPS-вход для API. Сертификат Let's Encrypt выпускается и продлевается
+# сам — нужно лишь, чтобы A-запись {$API_DOMAIN} указывала на этот VPS,
+# а порты 80 и 443 были открыты.
+{
+	email {$LETSENCRYPT_EMAIL}
+}
+
+{$API_DOMAIN} {
+	encode gzip
+
+	# SSE: события идут потоком, буферизовать и обрывать их нельзя
+	@sse path /api/v1/events/stream
+	reverse_proxy @sse api:3000 {
+		flush_interval -1
+	}
+
+	reverse_proxy api:3000
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		-Server
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 20mb
+			roll_keep 5
+		}
+	}
+}

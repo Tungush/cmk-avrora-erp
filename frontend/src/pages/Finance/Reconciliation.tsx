@@ -1,7 +1,7 @@
 import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Card, Stack, Group, Text, Badge, SimpleGrid, Skeleton, Table, Box,
+  Card, Stack, Group, Text, Badge, SimpleGrid, Skeleton, Table, Box, Alert,
 } from '@mantine/core';
 import { IconScale, IconAlertTriangle, IconFileOff } from '@tabler/icons-react';
 import api from '../../api/client';
@@ -15,6 +15,7 @@ interface ReconciliationResponse {
     ordersCount: number;
     paymentDocsCount: number;
     balanceDueOrders: number;
+    unknownAmount: number;
     unpaidByDo: number;
     paidByDo: number;
     discrepancy: number;
@@ -97,8 +98,11 @@ export function Reconciliation() {
       <Card withBorder radius="md" padding={0}>
         <Group gap="xs" p="md" pb="sm">
           <IconScale size={17} style={{ color: 'var(--brand-6, #0057FF)' }} />
-          <Text fw={700} size="sm">Сверка по заказчикам</Text>
-          <Text size="xs" c="dimmed">— расхождение = долг по заказам − неоплачено по ДО</Text>
+          <Text fw={700} size="sm">Встречные долги по контрагентам</Text>
+          <Text size="xs" c="dimmed">
+            — «+» они должны нам больше, «−» мы им. Компании группы бывают
+            и заказчиком, и поставщиком одновременно
+          </Text>
         </Group>
         <Box style={{ overflowX: 'auto' }}>
           <Table highlightOnHover>
@@ -107,9 +111,9 @@ export function Reconciliation() {
                 <Table.Th>Заказчик</Table.Th>
                 <Table.Th style={{ textAlign: 'right' }}>Заказов</Table.Th>
                 <Table.Th style={{ textAlign: 'right' }}>ДО</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Долг по заказам</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Не оплачено по ДО</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }}>Расхождение</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }}>Они должны нам</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }}>Мы должны им</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }}>Сальдо</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -120,12 +124,19 @@ export function Reconciliation() {
                     <Table.Td><Text size="sm" lineClamp={1}>{c.customerName}</Text></Table.Td>
                     <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{c.ordersCount}</Table.Td>
                     <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{c.paymentDocsCount}</Table.Td>
-                    <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(c.balanceDueOrders)} ₸</Table.Td>
-                    <Table.Td ff="monospace" style={{ textAlign: 'right' }}>{num(c.unpaidByDo)} ₸</Table.Td>
+                    <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {c.balanceDueOrders > 0 ? `${num(c.balanceDueOrders)} ₸` : <Text span c="dimmed">—</Text>}
+                      {c.unknownAmount > 0 && (
+                        <Text size="xs" c="dimmed">+{num(c.unknownAmount)} ₸ неизв.</Text>
+                      )}
+                    </Table.Td>
+                    <Table.Td ff="monospace" style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      {c.unpaidByDo > 0 ? `${num(c.unpaidByDo)} ₸` : <Text span c="dimmed">—</Text>}
+                    </Table.Td>
                     <Table.Td style={{ textAlign: 'right' }}>
                       {big ? (
                         <Badge
-                          color={c.discrepancy > 0 ? 'danger' : 'warning'}
+                          color={c.discrepancy > 0 ? 'success' : 'warning'}
                           variant="light"
                           radius="xl"
                           leftSection={<IconAlertTriangle size={11} />}
@@ -133,7 +144,7 @@ export function Reconciliation() {
                           {c.discrepancy > 0 ? '+' : ''}{num(c.discrepancy)} ₸
                         </Badge>
                       ) : (
-                        <Badge color="success" variant="light" radius="xl">сходится</Badge>
+                        <Badge color="gray" variant="light" radius="xl">в ноль</Badge>
                       )}
                     </Table.Td>
                   </Table.Tr>
@@ -151,6 +162,17 @@ export function Reconciliation() {
         </Box>
       </Card>
 
+      {orders.length === 0 ? (
+        <Alert color="gray" variant="light" radius="md" icon={<IconFileOff size={16} />}>
+          <Text size="sm" fw={600} mb={4}>Закуп под конкретный заказ пока не виден</Text>
+          <Text size="sm">
+            Все {totals.docsWithoutOrder.toLocaleString('ru-RU')} договоров-оснований пришли
+            из 1С без ссылки на заказ на продажу — колонка «Заказ на продажу» листа «19.20-7п»
+            в выгрузке пустая. Пока её не заполнят, ответить «сколько закупили под этот
+            заказ» нельзя ни здесь, ни в таблице.
+          </Text>
+        </Alert>
+      ) : (
       <Card withBorder radius="md" padding={0}>
         <Group gap="xs" p="md" pb="sm">
           <IconScale size={17} style={{ color: 'var(--warn-6, #FF9500)' }} />
@@ -188,17 +210,11 @@ export function Reconciliation() {
                   </Table.Td>
                 </Table.Tr>
               ))}
-              {orders.length === 0 && (
-                <Table.Tr>
-                  <Table.Td colSpan={6}>
-                    <Text size="sm" c="dimmed" ta="center" py="lg">ДО с привязкой к заказам нет</Text>
-                  </Table.Td>
-                </Table.Tr>
-              )}
             </Table.Tbody>
           </Table>
         </Box>
       </Card>
+      )}
     </Stack>
   );
 }

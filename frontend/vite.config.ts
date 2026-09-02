@@ -9,7 +9,9 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // Локальный Go-бэкенд (backend-go/scripts/dev.sh); в Docker-образе
+        // он же слушает :3000 и сам раздаёт этот фронтенд.
+        target: 'http://localhost:3100',
         changeOrigin: true,
       },
     },

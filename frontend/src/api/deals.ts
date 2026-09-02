@@ -35,8 +35,13 @@ export interface DealInput {
   source?: string;
 }
 
+export interface DealsPage {
+  data: Deal[];
+  meta: { page: number; pageSize: number; total: number };
+}
+
 export const dealsApi = {
-  list: () => api.get<Deal[]>('/deals'),
+  list: (params?: { page?: number; pageSize?: number }) => api.get<DealsPage>('/deals', { params }),
   create: (input: DealInput) => api.post<Deal>('/deals', input),
   update: (id: string, input: Partial<DealInput>) => api.patch<Deal>(`/deals/${id}`, input),
   remove: (id: string) => api.delete(`/deals/${id}`),

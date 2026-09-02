@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card, Stack, Group, Text, Badge, Table, Skeleton, Button, TextInput,
-  NumberInput, Checkbox, ActionIcon, TableScrollContainer,
+  NumberInput, Checkbox, ActionIcon, TableScrollContainer, Pagination,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconTrash, IconTarget, IconPlus } from '@tabler/icons-react';
@@ -25,10 +25,12 @@ const emptyForm = {
 export function Pipeline() {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm);
+  const [page, setPage] = useState(1);
+  const pageSize = 50;
 
   const { data: deals, isLoading } = useQuery({
-    queryKey: ['deals', 'pipeline'],
-    queryFn: () => dealsApi.list().then((r) => r.data),
+    queryKey: ['deals', 'pipeline', page],
+    queryFn: () => dealsApi.list({ page, pageSize }).then((r) => r.data),
   });
 
   const create = useMutation({
@@ -70,7 +72,9 @@ export function Pipeline() {
     return <Stack gap="md">{[...Array(2)].map((_, i) => <Skeleton key={i} height={140} radius="md" />)}</Stack>;
   }
 
-  const rows = deals ?? [];
+  const rows = deals?.data ?? [];
+  const total = deals?.meta?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const canSubmit = form.customerName.trim().length > 0;
 
   return (
@@ -110,7 +114,7 @@ export function Pipeline() {
       <Card withBorder radius="md" padding="md">
         <Group justify="space-between" mb="sm">
           <Text fw={700} size="sm">Прогноз спроса</Text>
-          <Badge variant="light" color="gray" radius="xl">{rows.length}</Badge>
+          <Badge variant="light" color="gray" radius="xl">{total}</Badge>
         </Group>
         {rows.length === 0 ? (
           <Text size="sm" c="dimmed">Пока пусто — заполните строку выше</Text>
@@ -159,6 +163,11 @@ export function Pipeline() {
               </Table.Tbody>
             </Table>
           </TableScrollContainer>
+        )}
+        {totalPages > 1 && (
+          <Group justify="center" mt="md">
+            <Pagination value={page} onChange={setPage} total={totalPages} size="sm" radius="md" />
+          </Group>
         )}
       </Card>
     </Stack>

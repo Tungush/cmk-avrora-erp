@@ -6,11 +6,13 @@ import {
   IconTool,
   IconBuildingWarehouse,
   IconGauge,
+  IconScissors,
 } from '@tabler/icons-react';
 import { MaterialsStock } from './MaterialsStock';
 import { BatchesReserves } from './BatchesReserves';
 import { FinishedGoodsStock } from './FinishedGoodsStock';
 import { MinStock } from './MinStock';
+import { Offcuts } from './Offcuts';
 import { useSearchParams } from 'react-router-dom';
 
 /** Склад сырья — то, из чего делают изделия */
@@ -44,6 +46,7 @@ export function Warehouse() {
           <Tabs.Tab value="fg" leftSection={<IconBuildingWarehouse size={15} />}>Склад ГП</Tabs.Tab>
           <Tabs.Tab value="batches" leftSection={<IconGavel size={15} />}>Партии и резервы</Tabs.Tab>
           <Tabs.Tab value="minstock" leftSection={<IconGauge size={15} />}>Мин. остатки</Tabs.Tab>
+          <Tabs.Tab value="offcuts" leftSection={<IconScissors size={15} />}>Обрезки</Tabs.Tab>
         </Tabs.List>
 
         <Tabs.Panel value="stock"><MaterialsStock only={RAW} /></Tabs.Panel>
@@ -51,6 +54,7 @@ export function Warehouse() {
         <Tabs.Panel value="fg"><FinishedGoodsStock /></Tabs.Panel>
         <Tabs.Panel value="batches"><BatchesReserves /></Tabs.Panel>
         <Tabs.Panel value="minstock"><MinStock /></Tabs.Panel>
+        <Tabs.Panel value="offcuts"><Offcuts /></Tabs.Panel>
       </Tabs>
     </Stack>
   );

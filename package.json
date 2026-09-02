@@ -12,10 +12,14 @@
     "db:down": "docker compose -f backend/docker-compose.yml down",
     "db:setup": "npm --prefix backend run db:setup",
     "dev": "npm run db:up && concurrently -n BACKEND,FRONTEND -c magenta,cyan -k \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "npm --prefix backend run start:local",
+    "dev:backend": "npm run db:setup && bash backend-go/scripts/dev.sh",
     "dev:frontend": "npm --prefix frontend run dev",
     "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install",
-    "build": "concurrently -n BACKEND,FRONTEND -c magenta,cyan \"npm --prefix backend run build\" \"npm --prefix frontend run build\""
+    "build": "npm --prefix frontend run build",
+    "build:go": "cd backend-go && go build -o bin/server ./cmd/server",
+    "docker:build": "docker build -f backend-go/Dockerfile -t cmk-avrora-erp .",
+    "prod:up": "docker compose -f backend/docker-compose.yml --profile prod up -d --build && docker image prune -f",
+    "prod:logs": "docker compose -f backend/docker-compose.yml logs -f api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

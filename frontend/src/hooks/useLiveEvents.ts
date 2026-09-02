@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/auth';
+import { API_BASE } from '../api/base';
 
 /**
  * Подписка на живые события (§3.4): пересчёт себестоимости в одном окне
@@ -13,7 +14,7 @@ export function useLiveCostUpdates() {
 
   useEffect(() => {
     if (!token) return;
-    const es = new EventSource(`/api/v1/events/stream?token=${encodeURIComponent(token)}`);
+    const es = new EventSource(`${API_BASE}/events/stream?token=${encodeURIComponent(token)}`);
     es.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);

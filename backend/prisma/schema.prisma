@@ -360,6 +360,7 @@ model Material {
   batches                MaterialBatch[]
   aliases                MaterialAlias[]
   purchaseOrderLines     PaymentDocumentLine[]
+  offcuts                Offcut[]
 
   @@map("materials")
 }
@@ -1054,6 +1055,7 @@ model Order {
   acceptanceActs         AcceptanceAct[]
   productionStages       ProductionStage[]
   finishedGoodsMovements FinishedGoodsMovement[]
+  offcutUsages           OffcutUsage[]
 
   // ---- Данные из 1С (владелец — 1С, мы только читаем; 08_INTEGRATION_1C.md §2)
   /// Номер заказа в 1С, когда наш orderNumber — прежний «адемовский» (П-100014-22)
@@ -1075,6 +1077,11 @@ model Order {
   divisionCode       String?   @map("division_code") @db.VarChar(20)
   clientAgreement    String?   @map("client_agreement") @db.VarChar(100)
   onecSyncedAt       DateTime? @map("onec_synced_at")
+  /// Номер документа «Производство без заказа» из production.posted —
+  /// нужен, чтобы позже сматчить асинхронный production.costed
+  /// (финальная себестоимость приходит только по номеру документа, без orderId)
+  productionDocNumber String?  @map("production_doc_number") @db.VarChar(60)
+  productionDocDate   DateTime? @map("production_doc_date")
 
   // Full fidelity import from Google Sheets
   sourceSheet      String?            @map("source_sheet") @db.VarChar(100)
@@ -1332,6 +1339,128 @@ model MaterialStockMovement {
 
   @@index([itemId, movementDate])
   @@map("material_stock_movements")
+}
+
+/// Кредитная линия ДАМУ (запрос бизнеса 31.08.2026). Заведена по факту —
+/// не из 1С, а из Excel, которые вручную выгружают из личного кабинета
+/// банка/фонда. Один файл может содержать несколько траншей выборки под
+/// один общий лимит (лист «график ...»): каждый импорт лимит/остаток
+/// перезаписывает — это снимок на дату файла, не накопление.
+model CreditLine {
+  id              String   @id @default(uuid()) @db.Uuid
+  /// Название для человека: «ДАМУ 6% А77 — 100 млн»
+  name            String   @db.VarChar(200)
+  /// Номер общего договора — «AG2/2023/U/S/005736»
+  contractNumber  String   @unique @map("contract_number") @db.VarChar(60)
+  limitAmount     Decimal  @map("limit_amount") @db.Decimal(16, 2)
+  usedAmount      Decimal  @map("used_amount") @db.Decimal(16, 2)
+  availableAmount Decimal  @map("available_amount") @db.Decimal(16, 2)
+  interestRatePct Decimal  @default(6) @map("interest_rate_pct") @db.Decimal(5, 2)
+  asOfDate        DateTime @map("as_of_date") @db.Date
+  sourceFile      String   @map("source_file") @db.VarChar(200)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  tranches CreditTranche[]
+  payments CreditPayment[]
+
+  @@map("credit_lines")
+}
+
+/// Один транш выборки внутри кредитной линии — «взяли N тенге на дату,
+/// вернуть к дате». graphAmount = ОД + %, посчитанный банком на весь срок.
+model CreditTranche {
+  id             String   @id @default(uuid()) @db.Uuid
+  creditLineId   String   @map("credit_line_id") @db.Uuid
+  contractNumber String   @map("contract_number") @db.VarChar(60)
+  amount         Decimal  @db.Decimal(16, 2)
+  startDate      DateTime @map("start_date") @db.Date
+  endDate        DateTime @map("end_date") @db.Date
+
+  creditLine CreditLine             @relation(fields: [creditLineId], references: [id], onDelete: Cascade)
+  schedule   CreditScheduleEntry[]
+
+  @@unique([creditLineId, contractNumber])
+  @@map("credit_tranches")
+}
+
+/// Плановая дата платежа по траншу — банк уже расписал ОД/% на каждую
+/// дату вперёд, это план, а не факт (факт — CreditPayment).
+model CreditScheduleEntry {
+  id               String   @id @default(uuid()) @db.Uuid
+  trancheId        String   @map("tranche_id") @db.Uuid
+  dueDate          DateTime @map("due_date") @db.Date
+  totalAmount      Decimal  @map("total_amount") @db.Decimal(16, 2)
+  principalAmount  Decimal  @map("principal_amount") @db.Decimal(16, 2)
+  interestAmount   Decimal  @map("interest_amount") @db.Decimal(16, 2)
+
+  tranche CreditTranche @relation(fields: [trancheId], references: [id], onDelete: Cascade)
+
+  @@unique([trancheId, dueDate])
+  @@map("credit_schedule_entries")
+}
+
+/// Факт погашения — из листа «Лист1» файла: дата, сумма, разбивка на
+/// % и ОД, статус банка («оплачено»).
+model CreditPayment {
+  id              String   @id @default(uuid()) @db.Uuid
+  creditLineId    String   @map("credit_line_id") @db.Uuid
+  paymentDate     DateTime @map("payment_date") @db.Date
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(16, 2)
+  principalAmount Decimal  @map("principal_amount") @db.Decimal(16, 2)
+  interestAmount  Decimal  @map("interest_amount") @db.Decimal(16, 2)
+  status          String   @db.VarChar(30)
+
+  creditLine CreditLine @relation(fields: [creditLineId], references: [id], onDelete: Cascade)
+
+  @@unique([creditLineId, paymentDate])
+  @@map("credit_payments")
+}
+
+/// Обрезки — деловой отход металла (запрос бизнеса 31.08.2026).
+/// «Круг ф12, длина этой заготовки и количество в штуках» — та же
+/// номенклатура склада сырья, но каждая длина — своя строка, потому что
+/// обрезки разных длин с разным количеством. Ведёт кладовщик руками:
+/// что забрали, что появилось. Отдельная вкладка, не смешивается с
+/// остатком сырья.
+model Offcut {
+  id         String   @id @default(uuid()) @db.Uuid
+  materialId String   @map("material_id") @db.Uuid
+  /// Длина заготовки, мм — главная характеристика обрезка
+  lengthMm   Decimal  @map("length_mm") @db.Decimal(10, 1)
+  /// Ширина, мм — для листа/полосы; у круга и трубы пусто
+  widthMm    Decimal? @map("width_mm") @db.Decimal(10, 1)
+  qty        Decimal  @db.Decimal(10, 0)
+  note       String?  @db.VarChar(200)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  material Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([materialId])
+  @@map("offcuts")
+}
+
+/// Факт «на этот заказ ушли такие-то обрезки» (01.09.2026). Снимок, а не
+/// FK на Offcut: строка обрезка исчезает при обнулении, а история должна
+/// пережить её. Себестоимость и объём списания НЕ трогает — числятся ли
+/// обрезки в остатке 1С или уже списаны, бизнес ещё не ответил; пока
+/// пишем факт и отдаём его в пакет 1С информационным блоком.
+model OffcutUsage {
+  id           String   @id @default(uuid()) @db.Uuid
+  orderId      String   @map("order_id") @db.Uuid
+  materialId   String   @map("material_id") @db.Uuid
+  materialCode String   @map("material_code") @db.VarChar(20)
+  materialName String   @map("material_name") @db.Text
+  lengthMm     Decimal  @map("length_mm") @db.Decimal(10, 1)
+  widthMm      Decimal? @map("width_mm") @db.Decimal(10, 1)
+  qty          Decimal  @db.Decimal(10, 0)
+  usedAt       DateTime @default(now()) @map("used_at")
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@map("offcut_usages")
 }
 
 model FinishedGoodsMovement {

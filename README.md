@@ -2,21 +2,23 @@
 
 Веб-сервис вместо Google-таблицы на 44 листа: заказы, спецификации с трудочасами и себестоимостью, план производства, склад, финансы. Права — на уровне групп полей. Идёт переход на приём данных из 1С.
 
-**Стек:** NestJS + Prisma + PostgreSQL · React + Vite + Mantine · TypeScript.
+**Стек:** Go (gin + pgx) + PostgreSQL · схема и миграции — Prisma · React + Vite + Mantine · TypeScript.
+
+> С 02.09.2026 бэкенд — `backend-go/` (полный перенос с NestJS, сверенный запрос-в-запрос). Каталог `backend/` остался за схемой БД, сидами и скриптами импорта.
 
 ---
 
 ## Быстрый старт
 
-Нужны Docker Desktop и Node 20+.
+Нужны Docker Desktop, Node 20+ и Go 1.25 (`go` в PATH).
 
 ```bash
-npm run install:all              # зависимости корня, backend, frontend
+npm run install:all              # зависимости корня, backend (prisma), frontend
 cp backend/.env.example backend/.env
-npm run dev                      # Postgres в Docker + backend :3000 + frontend :5173
+npm run dev                      # Postgres в Docker + Go-бэкенд :3100 + frontend :5173
 ```
 
-Вход — любой email и роль из списка (демо-режим). Swagger: `http://localhost:3000/api/v1/docs`.
+Бэкенд читает тот же `backend/.env` (`backend-go/scripts/dev.sh`). Вход — по реальным логинам (`AUTH_DEMO_MODE=false`); пароли выдаёт `npm --prefix backend run rotate-passwords`.
 
 > **Node 25:** если сборка фронтенда падает на «Cannot find native binding», доустановите бинарники:
 > `npm i -D @rolldown/binding-darwin-arm64 lightningcss-darwin-arm64 @tailwindcss/oxide-darwin-arm64`
@@ -61,24 +63,24 @@ ONEC_PASSWORD="…"
 ONEC_TIMEZONE="Asia/Almaty"
 ```
 
-Проверка и запуск синхронизации:
+Проверка и запуск синхронизации (локально бэкенд на :3100, в Docker-образе — на :3000):
 
 ```bash
 # связь есть?
 curl -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:3000/api/v1/integrations/1c/ping"
+  "http://localhost:3100/api/v1/integrations/1c/ping"
 
 # один заказ (номер URL-кодируется, кириллица поддерживается)
 curl -X POST -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:3000/api/v1/integrations/1c/sync/order/%D0%9F-88192-21"
+  "http://localhost:3100/api/v1/integrations/1c/sync/order/%D0%9F-88192-21"
 
 # пакетом: активные заказы, начиная с самых давно не синхронизированных
 curl -X POST -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"limit":50}' "http://localhost:3000/api/v1/integrations/1c/sync/orders"
+  -d '{"limit":50}' "http://localhost:3100/api/v1/integrations/1c/sync/orders"
 
 # закуп под заказ: GET D → GET C → payment_documents
 curl -X POST -H "Authorization: Bearer $TOKEN" \
-  "http://localhost:3000/api/v1/integrations/1c/sync/procurement/%D0%9F-88192-21"
+  "http://localhost:3100/api/v1/integrations/1c/sync/procurement/%D0%9F-88192-21"
 ```
 
 Состояние обмена — экран **«Обмен с 1С»** в меню (роль `admin` или `director`).
@@ -89,7 +91,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" \
 
 ```bash
 cd backend && npm run mock:1c                      # http://localhost:8081
-ONEC_BASE_URL=http://localhost:8081 npm run start:dev
+ONEC_BASE_URL=http://localhost:8081 npm run dev     # из корня; .env не перекрывает уже заданные переменные
 ```
 
 ---
@@ -106,9 +108,9 @@ ONEC_BASE_URL=http://localhost:8081 npm run start:dev
 
 Сравнить проще всего так: выполнить в браузере ссылку из листа «Лист3» ТЗ и сопоставить с моком (`backend/tools/mock-1c-server.js`).
 
-**Где структура угадана:** в GET A массив строк номенклатуры не имеет имени поля в ТЗ. Код перебирает известные варианты (`items`, `item_alldata`, `item_data`, `lines`, `nomenclature`) и дополнительно ищет любой массив, у элементов которого есть `item_code`. Если не нашёл — заказ **не** помечается синхронизированным, а в отчёт попадает `linesNotParsed` со списком ключей ответа: по нему сразу видно, как 1С на самом деле назвала массив. Добавить имя — в `ITEM_ARRAY_KEYS` (`onec-sync.service.ts`).
+**Где структура угадана:** в GET A массив строк номенклатуры не имеет имени поля в ТЗ. Код перебирает известные варианты (`items`, `item_alldata`, `item_data`, `lines`, `nomenclature`) и дополнительно ищет любой массив, у элементов которого есть `item_code`. Если не нашёл — заказ **не** помечается синхронизированным, а в отчёт попадает `linesNotParsed` со списком ключей ответа: по нему сразу видно, как 1С на самом деле назвала массив. Добавить имя — в `itemArrayKeys` (`backend-go/internal/onec/sync.go`).
 
-Сырые ответы 1С запоминаются (последний по каждому пути) — посмотреть можно через `OneCClientService.getLastRaw()`.
+Сырые ответы 1С запоминаются (последний по каждому пути) — `Client.LastRaw()` в `backend-go/internal/onec/client.go`.
 
 ### Шаг 2. Синхронизировать заказы
 
@@ -171,12 +173,18 @@ POST /integrations/1c/sync/orders  {"limit": 50}
 ## Структура
 
 ```
+backend-go/
+  cmd/server/      main.go — все маршруты /api/v1, CORS, раздача фронтенда
+  internal/
+    modules/       обработчики по доменам (orders, warehouse, finance, integration …)
+    costing/ ordercosting/ warehouse/   себестоимость, FIFO-партии, резервы, подряд
+    onec/ integration/ bitrix/ events/  клиент 1С, outbox/inbox, Б24, SSE
+  scripts/dev.sh   локальный запуск с backend/.env
+  Dockerfile       образ: фронтенд + бэкенд в одном контейнере
 backend/
-  prisma/          схема, сиды, импортёры Excel (migrate:*)
-  src/
-    common/        RBAC на уровне полей, проекция ответов, фолбэки
-    modules/       контроллеры по доменам + integration/ (обмен с 1С)
-    services/      себестоимость, каскад пересчёта, state machine, клиент 1С
+  prisma/          схема, миграции, сиды, импортёры 1С/Excel (lib/ — общие хелперы)
+  backups/         дампы Postgres перед крупными импортами
+  docker-compose.yml   postgres (всегда) + api (профиль prod)
   tools/           мок HTTP-сервисов 1С
 frontend/src/
   pages/           Заказы, Спецификации, План, Цех, Склад, Финансы, Обмен с 1С
@@ -184,12 +192,60 @@ frontend/src/
   hooks/ api/      react-query поверх axios
 ```
 
-Тесты: `cd backend && npm test` (80 тестов, включая e2e полного цикла заказа).
+Тесты: `cd backend-go && go test ./...`. Сверка с прежним NestJS-бэкендом делалась запрос-в-запрос на живой базе; исходники Nest — в git-истории (stash «NestJS backend before removal»).
 
 ---
 
+## Деплой: фронтенд на Vercel, бэкенд с базой на VPS
+
+```
+браузер ──https──▶ Vercel (статика, CDN)
+   └────https──▶ https://api.<домен> ──▶ Caddy ──▶ Go :3000 ──▶ Postgres
+                                        (VPS, всё внутри сети Docker)
+```
+
+База наружу не смотрит вообще, Go — только через Caddy. Нужен домен для API:
+страница по https не может обращаться к `http://<ip>`, браузер это заблокирует.
+
+**1. VPS.** A-запись `api.<домен>` → адрес сервера, открыты порты 80 и 443.
+
+```bash
+git pull
+npm run install:all                         # один раз: зависимости для скриптов Prisma
+cp backend/.env.example backend/.env        # см. таблицу ниже — заполнить обязательные
+npm run db:up                               # postgres
+npm --prefix backend run prisma:push        # схема БД (ведётся через db push, не миграциями)
+npm --prefix backend run apply-views        # SQL-вью
+npm run prod:up                             # сборка образа + api + caddy
+curl https://api.<домен>/api/v1/health      # {"status":"ok","db":"ok"}
+```
+
+| Переменная в `backend/.env` | Зачем |
+| --- | --- |
+| `JWT_SECRET` | Обязательна: без неё контейнер не стартует (`REQUIRE_SECRETS=1`). Смена разлогинивает всех |
+| `INTEGRATION_1C_SECRET` | Обязательна: подпись вебхуков 1С |
+| `API_DOMAIN`, `LETSENCRYPT_EMAIL` | Домен API и почта для Let's Encrypt — Caddy выпустит сертификат сам |
+| `CORS_ORIGINS` | Домен фронта на Vercel, через запятую. Пусто — разрешены все источники |
+| `ONEC_BASE_URL`, `ONEC_LOGIN`, `ONEC_PASSWORD` | Адрес и учётка 1С |
+
+**2. Vercel.** В настройках проекта — переменная окружения `VITE_API_URL` =
+`https://api.<домен>`, затем передеплой. Сборка описана в `vercel.json`
+(корень репозитория, вывод `frontend/dist`).
+
+Обновление: `git pull`, при изменениях `schema.prisma` — `prisma:push` и
+`apply-views`, затем `npm run prod:up`. Фронтенд обновляется отдельно пушем
+в Vercel. Часовой пояс контейнера — `TZ=Asia/Almaty` (границы месяцев в
+дашбордах считаются в локальном времени). Если менялись зависимости
+фронтенда, обновите `frontend/package-lock.json`
+(`npm --prefix frontend install --package-lock-only`).
+
+**Тот же образ умеет работать и без Vercel:** он раздаёт собранный фронтенд
+сам (`STATIC_DIR`), поэтому `https://api.<домен>/` открывает полный интерфейс —
+запасной вход, если Vercel недоступен.
+
 ## Проверить перед продом
 
-- `JWT_SECRET`, `INTEGRATION_1C_SECRET`, пароль Postgres — сейчас dev-дефолты в коде и `docker-compose.yml`, задать через окружение.
-- Демо-вход пускает по любому email — заменить на реальную аутентификацию.
+- `JWT_SECRET`, `INTEGRATION_1C_SECRET`, пароль Postgres — сейчас dev-дефолты в коде и `docker-compose.yml`, задать через окружение (`backend/.env` читается контейнером `api`).
+- `ONEC_BASE_URL` в `.env.example` указывает на мок (`localhost:8081`) — на сервере поставить адрес 1С.
+- Пароль Postgres (`erp_password`) — дефолтный; менять его на уже созданном томе нужно через `ALTER USER`, переменная в compose на существующую базу не влияет.
 - SQL-вью применяются сидом (`views.seeder.ts`), а не миграцией: `prisma migrate deploy` их не создаст.

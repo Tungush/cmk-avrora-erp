@@ -7,6 +7,7 @@ import {
 } from '@mantine/core';
 import {
   IconSearch, IconAlertTriangle, IconCheck, IconTruck, IconArrowBackUp, IconDots, IconRuler2,
+  IconChevronRight,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -492,7 +493,283 @@ function MaterialAvailability({ orderId, orderNumber }: { orderId: string; order
 }
 
 /**
- * Цех: список изделий, которые надо изготовить (26.08.2026).
+ * Обрезки под заказ (01.09.2026, запрос бизнеса): спецификация говорит,
+ * что спишется, а на складе обрезков может лежать тот же материал кусками.
+ * Подсказка показывает совпадение по материалу — раскрой не советуем,
+ * решает человек, глядя на длины. Себестоимость и списание не трогает:
+ * числятся ли обрезки в остатке 1С, бизнес ещё не ответил — пишем факт.
+ */
+function OffcutHint({ orderId, orderNumber }: { orderId: string; orderNumber: string }) {
+  const qc = useQueryClient();
+  const [taken, setTaken] = useState<Record<string, number | string>>({});
+
+  const { data } = useQuery({
+    queryKey: ['offcuts-for-order', orderId],
+    queryFn: () => api.get(`/warehouse/offcuts/for-order/${orderId}`).then((r) => r.data),
+    staleTime: 60_000,
+  });
+
+  const save = useMutation({
+    mutationFn: () => api.post(`/warehouse/offcuts/for-order/${orderId}`, {
+      usages: Object.entries(taken)
+        .filter(([, q]) => Number(q) > 0)
+        .map(([offcutId, q]) => ({ offcutId, qty: Number(q) })),
+    }).then((r) => r.data),
+    onSuccess: (res: any) => {
+      qc.invalidateQueries({ queryKey: ['offcuts-for-order', orderId] });
+      qc.invalidateQueries({ queryKey: ['offcuts'] });
+      setTaken({});
+      notifications.show({
+        title: 'Обрезки записаны на заказ',
+        message: `${orderNumber}: ${res.recorded} строк. Склад обрезков уменьшен, факт уйдёт в 1С вместе с изготовлением`,
+        color: 'success',
+        icon: <IconCheck size={16} />,
+      });
+    },
+    onError: (e: any) => notifications.show({
+      title: 'Не записано',
+      message: e?.response?.data?.error?.message ?? 'Ошибка',
+      color: 'danger',
+    }),
+  });
+
+  const materials: Array<{
+    materialId: string; materialCode: string; name: string; needQty: number; unit: string;
+    offcuts: Array<{ id: string; lengthMm: number; widthMm: number | null; qty: number; note: string | null }>;
+  }> = data?.materials ?? [];
+  const usedBefore: Array<{ materialCode: string; lengthMm: number; qty: number }> = data?.usedBefore ?? [];
+  const anyTaken = Object.values(taken).some((q) => Number(q) > 0);
+
+  if (materials.length === 0 && usedBefore.length === 0) return null;
+
+  return (
+    <Card withBorder radius="md" padding="sm"
+      style={{ borderColor: 'var(--mantine-color-yellow-4)' }}>
+      <Stack gap="sm">
+        {materials.length > 0 && (
+          <>
+            <Group gap={6} wrap="nowrap">
+              <IconRuler2 size={15} style={{ color: 'var(--mantine-color-yellow-7)' }} />
+              <Text size="sm" fw={700}>Есть обрезки материалов этого заказа</Text>
+            </Group>
+            {materials.map((m) => (
+              <Stack key={m.materialId} gap={4}>
+                <Text size="xs" c="dimmed">
+                  <Text span ff="monospace" fw={600}>{m.materialCode}</Text> {m.name} —
+                  по спецификации нужно {m.needQty.toLocaleString('ru-RU')} {m.unit}
+                </Text>
+                {m.offcuts.map((c) => (
+                  <Group key={c.id} gap="sm" wrap="nowrap" justify="space-between">
+                    <Text size="sm">
+                      {c.lengthMm.toLocaleString('ru-RU')} мм
+                      {c.widthMm ? ` × ${c.widthMm.toLocaleString('ru-RU')} мм` : ''} —
+                      на складе <Text span fw={700} ff="monospace">{c.qty}</Text> шт
+                      {c.note ? <Text span c="dimmed"> · {c.note}</Text> : null}
+                    </Text>
+                    <NumberInput
+                      size="xs" w={110} min={0} max={c.qty}
+                      placeholder="взяли, шт"
+                      value={taken[c.id] ?? ''}
+                      onChange={(v) => setTaken((t) => ({ ...t, [c.id]: v as number }))}
+                    />
+                  </Group>
+                ))}
+              </Stack>
+            ))}
+            {anyTaken && (
+              <Button size="sm" variant="light" color="yellow"
+                loading={save.isPending} onClick={() => save.mutate()}>
+                Записать обрезки на заказ
+              </Button>
+            )}
+          </>
+        )}
+        {usedBefore.length > 0 && (
+          <Text size="xs" c="dimmed">
+            Уже записано на заказ:{' '}
+            {usedBefore.map((u) => `${u.materialCode} ${u.lengthMm.toLocaleString('ru-RU')} мм × ${u.qty}`).join(', ')}
+          </Text>
+        )}
+      </Stack>
+    </Card>
+  );
+}
+
+/**
+ * Изделия одного заказа — что изготовить и чем это уже подтверждено
+ * (01.09.2026). Раньше все 240 активных заказов разворачивались на экране
+ * сразу со всеми позициями — теперь список заказов компактный, а это
+ * содержимое открывается по клику на конкретный заказ.
+ */
+function OrderProductsDrawer({
+  order, canEdit, mark, onOpenSheet, opened, onClose,
+}: {
+  order: ShopFloorOrder | null;
+  canEdit: boolean;
+  mark: ReturnType<typeof useMutation<any, any, { orderId: string; productId: string; done: boolean }>>;
+  onOpenSheet: (v: { order: ShopFloorOrder; product: ProductRow }) => void;
+  opened: boolean;
+  onClose: () => void;
+}) {
+  if (!order) return null;
+  return (
+    <Drawer
+      opened={opened}
+      onClose={onClose}
+      position="right"
+      size="lg"
+      padding="md"
+      title={
+        <Group gap="sm" wrap="nowrap">
+          <OrderRef id={order.id} number={order.orderNumber} size="lg" focus="stages" />
+          <Text size="sm" c="dimmed" lineClamp={1}>{order.customerName ?? '—'}</Text>
+        </Group>
+      }
+    >
+      <Stack gap="md" pb="md">
+        <Group gap="sm" wrap="nowrap">
+          <Text size="sm" c="dimmed">Плановая дата вывоза</Text>
+          <Text size="sm" ff="monospace">{formatDate(order.plannedShipmentDate)}</Text>
+          {order.overdueDays > 0 && (
+            <Badge color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={10} />}>
+              {order.overdueDays} дн просрочки
+            </Badge>
+          )}
+        </Group>
+
+        <Group gap="sm" wrap="nowrap">
+          <Progress
+            value={order.totalProducts > 0 ? (order.doneCount / order.totalProducts) * 100 : 0}
+            size="sm" radius="xl" style={{ flex: 1 }}
+            color={order.doneCount === order.totalProducts ? 'teal' : 'brand'}
+          />
+          <Text size="xs" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+            {order.doneCount}/{order.totalProducts} изделий
+          </Text>
+        </Group>
+        {order.resaleCount > 0 && (
+          <Text size="xs" c="dimmed">
+            + {order.resaleCount} сырьё в заказе, изготавливать не надо
+          </Text>
+        )}
+
+        <MaterialAvailability orderId={order.id} orderNumber={order.orderNumber} />
+
+        <OffcutHint orderId={order.id} orderNumber={order.orderNumber} />
+
+        <Stack gap={6}>
+          {order.products.map((p) => {
+            const busy = mark.isPending && mark.variables?.productId === p.id;
+            const isDone = p.status === 'DONE';
+            // Нет состава или норм — отметить нельзя (правило 26.08.2026).
+            // Показываем это ЗАРАНЕЕ: ловить отказ, когда работа уже
+            // сделана, — худший момент, чтобы узнать о пустой карточке
+            const noSpec = p.missingBom || p.missingNorms;
+            const specMissing = p.missingBom && p.missingNorms ? 'состава и норм'
+              : p.missingBom ? 'состава' : 'норм труда';
+            return (
+              <Group
+                key={p.id}
+                justify="space-between"
+                wrap="nowrap"
+                gap="sm"
+                px="sm"
+                py={8}
+                style={{
+                  borderRadius: 'var(--mantine-radius-md)',
+                  background: isDone
+                    ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.10))'
+                    : 'var(--mantine-color-default-hover)',
+                }}
+              >
+                <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+                  <Group gap={6} wrap="nowrap">
+                    <Text size="sm" ff="monospace" fw={700} c="brand.7">{p.articleCode}</Text>
+                    {/* Две одинаковые строки в заказе — иначе не понять, какую отметил */}
+                    {p.isDuplicateCode && (
+                      <Badge size="xs" variant="default" radius="xl">поз. {p.lineNo}</Badge>
+                    )}
+                    {p.siteCode && (
+                      <Badge color="blue" variant="light" radius="xl" size="xs">
+                        {p.siteCode}
+                      </Badge>
+                    )}
+                    {p.contractors.length > 0 && (
+                      <Badge color="orange" variant="light" radius="xl" size="xs"
+                        leftSection={<IconTruck size={10} />}>
+                        подряд
+                      </Badge>
+                    )}
+                    {!isDone && noSpec && (
+                      <Badge color="danger" variant="light" radius="xl" size="xs"
+                        leftSection={<IconAlertTriangle size={10} />}>
+                        нет {specMissing}
+                      </Badge>
+                    )}
+                  </Group>
+                  <Text size="sm" lineClamp={1}>{p.articleName}</Text>
+                  <Text size="xs" c="dimmed">
+                    {p.qty.toLocaleString('ru-RU')} {p.unit}
+                    {p.normHours > 0 && ` · норма ${p.normHours} ч`}
+                    {p.actualHours != null && ` · факт ${p.actualHours} ч`}
+                  </Text>
+                </Stack>
+
+                {canEdit && (isDone ? (
+                  <Button
+                    size="compact-sm"
+                    variant="default"
+                    color="gray"
+                    leftSection={<IconArrowBackUp size={14} />}
+                    loading={busy}
+                    onClick={() => mark.mutate({ orderId: order.id, productId: p.id, done: false })}
+                  >
+                    Снять
+                  </Button>
+                ) : noSpec ? (
+                  // Тупика быть не должно: отсюда прямой путь к спецификации
+                  <Button
+                    size="sm"
+                    variant="light"
+                    color="danger"
+                    component={Link}
+                    to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
+                    leftSection={<IconRuler2 size={16} />}
+                  >
+                    Завести спецификацию
+                  </Button>
+                ) : (
+                  <Group gap={6} wrap="nowrap">
+                    <Button
+                      size="sm"
+                      leftSection={<IconCheck size={16} />}
+                      loading={busy}
+                      onClick={() => mark.mutate({ orderId: order.id, productId: p.id, done: true })}
+                    >
+                      Изготовлено
+                    </Button>
+                    <ActionIcon
+                      variant="default"
+                      size="lg"
+                      aria-label="Часы и подряд"
+                      onClick={() => onOpenSheet({ order, product: p })}
+                    >
+                      <IconDots size={16} />
+                    </ActionIcon>
+                  </Group>
+                ))}
+              </Group>
+            );
+          })}
+        </Stack>
+      </Stack>
+    </Drawer>
+  );
+}
+
+/**
+ * Цех: список заказов, по клику — что изготовить и чем подтверждено
+ * (26.08.2026, компактный список 01.09.2026).
  *
  * Видов работ здесь больше нет — мастер не выбирает «свои работы» и не
  * закрывает операции, он показывает, что конкретное изделие сделано.
@@ -509,6 +786,9 @@ export function ShopFloor() {
   // из очереди навсегда и исправить отметку неоткуда
   const [showDone, setShowDone] = useState(false);
   const [sheet, setSheet] = useState<{ order: ShopFloorOrder; product: ProductRow } | null>(null);
+  // Заказ открывается по id, не хранится копией: пока открыт дровер,
+  // отметки внутри него обновляют те же самые данные списка
+  const [openOrderId, setOpenOrderId] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['shop-floor', search],
@@ -561,12 +841,12 @@ export function ShopFloor() {
     );
   }
 
-  const orders = data.orders
-    .map((o) => ({
-      ...o,
-      products: showDone ? o.products : o.products.filter((p) => p.status !== 'DONE'),
-    }))
-    .filter((o) => o.products.length > 0);
+  // Заказ, где всё уже изготовлено, смотреть незачем — прячем его из
+  // списка по умолчанию, а не отдельные позиции внутри (те теперь видны
+  // только по клику, вместе с уже сделанными, чтобы снять ошибочную
+  // отметку было откуда)
+  const orders = data.orders.filter((o) => showDone || o.doneCount < o.totalProducts);
+  const openOrder = data.orders.find((o) => o.id === openOrderId) ?? null;
 
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
@@ -655,113 +935,36 @@ export function ShopFloor() {
 
           <Box mb="xs"><MaterialAvailability orderId={o.id} orderNumber={o.orderNumber} /></Box>
 
-          <Stack gap={6}>
-            {o.products.map((p) => {
-              const busy = mark.isPending && mark.variables?.productId === p.id;
-              const isDone = p.status === 'DONE';
-              // Нет состава или норм — отметить нельзя (правило 26.08.2026).
-              // Показываем это ЗАРАНЕЕ: ловить отказ, когда работа уже
-              // сделана, — худший момент, чтобы узнать о пустой карточке
-              const noSpec = p.missingBom || p.missingNorms;
-              const specMissing = p.missingBom && p.missingNorms ? 'состава и норм'
-                : p.missingBom ? 'состава' : 'норм труда';
-              return (
-                <Group
-                  key={p.id}
-                  justify="space-between"
-                  wrap="nowrap"
-                  gap="sm"
-                  px="sm"
-                  py={8}
-                  style={{
-                    borderRadius: 'var(--mantine-radius-md)',
-                    background: isDone
-                      ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.10))'
-                      : 'var(--mantine-color-default-hover)',
-                  }}
-                >
-                  <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
-                    <Group gap={6} wrap="nowrap">
-                      <Text size="sm" ff="monospace" fw={700} c="brand.7">{p.articleCode}</Text>
-                      {/* Две одинаковые строки в заказе — иначе не понять, какую отметил */}
-                      {p.isDuplicateCode && (
-                        <Badge size="xs" variant="default" radius="xl">поз. {p.lineNo}</Badge>
-                      )}
-                      {p.siteCode && (
-                        <Badge color="blue" variant="light" radius="xl" size="xs">
-                          {p.siteCode}
-                        </Badge>
-                      )}
-                      {p.contractors.length > 0 && (
-                        <Badge color="orange" variant="light" radius="xl" size="xs"
-                          leftSection={<IconTruck size={10} />}>
-                          подряд
-                        </Badge>
-                      )}
-                      {!isDone && noSpec && (
-                        <Badge color="danger" variant="light" radius="xl" size="xs"
-                          leftSection={<IconAlertTriangle size={10} />}>
-                          нет {specMissing}
-                        </Badge>
-                      )}
-                    </Group>
-                    <Text size="sm" lineClamp={1}>{p.articleName}</Text>
-                    <Text size="xs" c="dimmed">
-                      {p.qty.toLocaleString('ru-RU')} {p.unit}
-                      {p.normHours > 0 && ` · норма ${p.normHours} ч`}
-                      {p.actualHours != null && ` · факт ${p.actualHours} ч`}
-                    </Text>
-                  </Stack>
-
-                  {canEdit && (isDone ? (
-                    <Button
-                      size="compact-sm"
-                      variant="default"
-                      color="gray"
-                      leftSection={<IconArrowBackUp size={14} />}
-                      loading={busy}
-                      onClick={() => mark.mutate({ orderId: o.id, productId: p.id, done: false })}
-                    >
-                      Снять
-                    </Button>
-                  ) : noSpec ? (
-                    // Тупика быть не должно: отсюда прямой путь к спецификации
-                    <Button
-                      size="sm"
-                      variant="light"
-                      color="danger"
-                      component={Link}
-                      to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
-                      leftSection={<IconRuler2 size={16} />}
-                    >
-                      Завести спецификацию
-                    </Button>
-                  ) : (
-                    <Group gap={6} wrap="nowrap">
-                      <Button
-                        size="sm"
-                        leftSection={<IconCheck size={16} />}
-                        loading={busy}
-                        onClick={() => mark.mutate({ orderId: o.id, productId: p.id, done: true })}
-                      >
-                        Изготовлено
-                      </Button>
-                      <ActionIcon
-                        variant="default"
-                        size="lg"
-                        aria-label="Часы и подряд"
-                        onClick={() => setSheet({ order: o, product: p })}
-                      >
-                        <IconDots size={16} />
-                      </ActionIcon>
-                    </Group>
-                  ))}
-                </Group>
-              );
-            })}
-          </Stack>
+          <Group
+            justify="space-between"
+            wrap="nowrap"
+            gap="sm"
+            px="sm"
+            py={8}
+            role="button"
+            tabIndex={0}
+            onClick={() => setOpenOrderId(o.id)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setOpenOrderId(o.id); }}
+            style={{ borderRadius: 'var(--mantine-radius-md)', background: 'var(--mantine-color-default-hover)', cursor: 'pointer' }}
+          >
+            <Text size="sm" c="dimmed">
+              {o.doneCount === o.totalProducts
+                ? 'Все изделия изготовлены'
+                : `Показать, что изготовить (${o.totalProducts - o.doneCount})`}
+            </Text>
+            <IconChevronRight size={16} style={{ flexShrink: 0, opacity: 0.6 }} />
+          </Group>
         </Card>
       ))}</Stagger>}
+
+      <OrderProductsDrawer
+        order={openOrder}
+        canEdit={canEdit}
+        mark={mark}
+        onOpenSheet={setSheet}
+        opened={openOrderId !== null}
+        onClose={() => setOpenOrderId(null)}
+      />
 
       <DetailsSheet
         order={sheet?.order ?? null}

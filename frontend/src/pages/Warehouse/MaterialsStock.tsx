@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Card, Stack, Group, Text, Table, Badge, TextInput, Select, Skeleton, Box,
-  SimpleGrid, Drawer, Divider, Button, Modal, NumberInput,
+  SimpleGrid, Drawer, Divider, Button, Modal, NumberInput, Pagination,
 } from '@mantine/core';
 import { IconSearch, IconHistory, IconArrowBarToDown, IconCheck } from '@tabler/icons-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -199,6 +199,8 @@ function MovementHistory({ materialId, material }: { materialId: string; materia
 export function MaterialsStock({ only }: { only?: string[] } = {}) {
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const pageSize = 100;
   const [selected, setSelected] = useState<any>(null);
   const [issueFor, setIssueFor] = useState<any>(null);
   const hasRole = useAuthStore((s) => s.hasRole);
@@ -211,10 +213,12 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
   const { data, isLoading } = useMaterials({
     search,
     ...(category ? { category } : only ? { categories: only.join(',') } : {}),
-    pageSize: 100,
+    page,
+    pageSize,
   });
   const materials: any[] = (data as any)?.data ?? [];
   const total = (data as any)?.meta?.total ?? materials.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const stockValue = materials.reduce(
     (s, m) => s + Number(m.stockQty) * Number(m.purchasePrice),
@@ -229,7 +233,7 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
             placeholder="Код или наименование..."
             leftSection={<IconSearch size={15} />}
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             w={260}
             size="sm"
           />
@@ -237,7 +241,7 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
             placeholder="Все категории"
             data={visibleCategories}
             value={category}
-            onChange={setCategory}
+            onChange={(v) => { setCategory(v); setPage(1); }}
             clearable
             w={190}
             size="sm"
@@ -339,6 +343,12 @@ export function MaterialsStock({ only }: { only?: string[] } = {}) {
           </Box>
         )}
       </Card>
+
+      {totalPages > 1 && (
+        <Group justify="center">
+          <Pagination value={page} onChange={setPage} total={totalPages} size="sm" radius="md" />
+        </Group>
+      )}
 
       <Drawer
         opened={selected !== null}

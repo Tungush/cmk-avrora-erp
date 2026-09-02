@@ -32,8 +32,8 @@
 import * as fs from 'fs';
 import * as crypto from 'crypto';
 import { PrismaClient } from '@prisma/client';
-import { normalizeName } from '../src/common/nomenclature';
-import { isPriceAnomaly, anomalyFactor } from '../src/common/material-batches';
+import { normalizeName } from './lib/nomenclature';
+import { isPriceAnomaly, anomalyFactor } from './lib/material-batches';
 import { wipeOperationalData } from './go-live';
 
 const ANOMALY_THRESHOLD = 5;

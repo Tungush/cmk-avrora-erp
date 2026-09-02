@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   Card, Stack, Text, Table, Skeleton, Box, Group, Button, TextInput,
-  Badge, Modal, Textarea, Pagination,
+  Badge, Modal, Textarea, Pagination, SegmentedControl,
 } from '@mantine/core';
 import { IconSearch, IconCoin, IconCheck } from '@tabler/icons-react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
@@ -29,10 +29,14 @@ export function Prices() {
 
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [scope, setScope] = useState<'priced' | 'all'>('priced');
   const [reviewFor, setReviewFor] = useState<any | null>(null);
   const [reason, setReason] = useState('');
 
-  const { data, isLoading } = useArticles({ search, page, pageSize: 30 });
+  const { data, isLoading } = useArticles({
+    search, page, pageSize: 30,
+    ...(scope === 'priced' ? { onlyPriced: true } : {}),
+  });
 
   const requestReview = useMutation({
     mutationFn: (articleId: string) =>
@@ -75,6 +79,17 @@ export function Prices() {
           Цена меняется только через пересмотр — утверждает директор
         </Text>
       </Stack>
+
+      <SegmentedControl
+        value={scope}
+        onChange={(v) => { setScope(v as 'priced' | 'all'); setPage(1); }}
+        size="sm"
+        w="fit-content"
+        data={[
+          { value: 'priced', label: 'Прайс-лист' },
+          { value: 'all', label: 'Весь каталог' },
+        ]}
+      />
 
       {/* Директор видит очередь заявок прямо здесь, не бегая на дашборд */}
       {isDirector && <PriceReviewsPanel />}

@@ -5,7 +5,6 @@ import {
   Paper,
   TextInput,
   PasswordInput,
-  PinInput,
   Button,
   Title,
   Text,
@@ -14,7 +13,6 @@ import {
   Box,
   Flex,
   SimpleGrid,
-  SegmentedControl,
 } from '@mantine/core';
 import { IconArrowRight, IconCheck } from '@tabler/icons-react';
 import { useAuthStore } from '../store/auth';
@@ -22,33 +20,28 @@ import { LogoLockup } from '../components/Brand';
 import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
 
-// Общий вход «для остальных» (24.08.2026, решение пользователя): один PIN
-// на восемь операционных ролей вместо личных паролей — люди меняются,
-// поимённый учёт не нужен. Личный email+пароль остаётся только у
-// директора и администратора (setup-shared-login.ts / rotate-passwords.ts).
-const SHARED_LOGIN_EMAIL = 'smena@avh.kz';
-
+// Общий PIN на восемь операционных ролей убран (30.08.2026, решение
+// пользователя): у каждого человека личный email+пароль, заводит и
+// меняет роли Settings → Пользователи (users.controller.ts).
 export function Login() {
-  const [mode, setMode] = useState<'shared' | 'personal'>('shared');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
 
   const setAuth = useAuthStore((state) => state.setAuth);
   const navigate = useNavigate();
 
-  // Роль больше не выбирают на глаз — её решает то, каким входом вошли.
   // Ошибка входа — это ошибка, а не повод пускать под тестовыми данными:
   // тот же принцип честности, что и в runWithFallback (fallback.ts).
-  const doLogin = useCallback(async (loginEmail: string, loginPassword: string) => {
+  const handleLogin = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await authApi.login(loginEmail, loginPassword);
+      const { data } = await authApi.login(email, password);
       setAuth(data.accessToken, data.user, data.permissions);
       notifications.show({
         title: 'Добро пожаловать',
-        message: `Вход выполнен: ${loginEmail}`,
+        message: `Вход выполнен: ${email}`,
         color: 'success',
         icon: <IconCheck size={18} />,
       });
@@ -62,16 +55,7 @@ export function Login() {
     } finally {
       setLoading(false);
     }
-  }, [setAuth, navigate]);
-
-  const handlePersonalLogin = useCallback((e: React.FormEvent) => {
-    e.preventDefault();
-    doLogin(email, password);
-  }, [email, password, doLogin]);
-
-  const handlePinComplete = useCallback((value: string) => {
-    doLogin(SHARED_LOGIN_EMAIL, value);
-  }, [doLogin]);
+  }, [email, password, setAuth, navigate]);
 
   // Настоящие числа завода, а не витринные «1200+» и «24/7»:
   // конкретика — единственная статистика, которой верят
@@ -136,86 +120,49 @@ export function Login() {
                     Вход в систему
                   </Title>
                   <Text c="dimmed" size="sm">
-                    {mode === 'shared' ? 'Общий PIN цеха, склада и офиса' : 'Личный вход директора и администратора'}
+                    Личный email и пароль
                   </Text>
                 </Stack>
 
-                <SegmentedControl
-                  fullWidth
-                  size="md"
-                  value={mode}
-                  onChange={(v) => setMode(v as 'shared' | 'personal')}
-                  data={[
-                    { value: 'shared', label: 'Цех и офис' },
-                    { value: 'personal', label: 'Личный вход' },
-                  ]}
-                />
-
-                {mode === 'shared' ? (
-                  <Stack gap="md" align="center">
-                    <PinInput
-                      length={6}
-                      type="number"
-                      size="xl"
-                      value={pin}
-                      onChange={setPin}
-                      onComplete={handlePinComplete}
-                      disabled={loading}
+                <form onSubmit={handleLogin}>
+                  <Stack gap="md">
+                    <TextInput
+                      label="Email"
+                      placeholder="name@avh.kz"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      size="md"
+                      required
+                      withAsterisk
+                      autoComplete="username"
                       autoFocus
                     />
+                    <PasswordInput
+                      label="Пароль"
+                      placeholder="Пароль вашего логина"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      size="md"
+                      required
+                      withAsterisk
+                      autoComplete="current-password"
+                    />
                     <Button
+                      type="submit"
                       size="md"
                       h={48}
-                      w="100%"
                       loading={loading}
-                      disabled={pin.length !== 6}
-                      onClick={() => handlePinComplete(pin)}
                       rightSection={<IconArrowRight size={18} />}
                       loaderProps={{ type: 'dots' }}
+                      mt="md"
                     >
                       Войти
                     </Button>
                   </Stack>
-                ) : (
-                  <form onSubmit={handlePersonalLogin}>
-                    <Stack gap="md">
-                      <TextInput
-                        label="Email"
-                        placeholder="director@avh.kz"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        size="md"
-                        required
-                        withAsterisk
-                        autoComplete="username"
-                      />
-                      <PasswordInput
-                        label="Пароль"
-                        placeholder="Пароль вашего логина"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        size="md"
-                        required
-                        withAsterisk
-                        autoComplete="current-password"
-                      />
-                      <Button
-                        type="submit"
-                        size="md"
-                        h={48}
-                        loading={loading}
-                        rightSection={<IconArrowRight size={18} />}
-                        loaderProps={{ type: 'dots' }}
-                        mt="md"
-                      >
-                        Войти
-                      </Button>
-                    </Stack>
-                  </form>
-                )}
+                </form>
 
                 <Text ta="center" c="dimmed" size="xs" mt="md">
-                  {mode === 'shared' ? 'PIN один на всех, кроме директора и администратора' : 'Логин и пароль выдаёт администратор'}
+                  Логин и пароль выдаёт администратор или директор
                 </Text>
               </Stack>
             </Paper>

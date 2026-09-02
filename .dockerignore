@@ -1,0 +1,15 @@
+.git
+.claude
+.vercel
+node_modules
+**/node_modules
+**/dist
+backend
+docs
+*.xlsx
+*.md
+*.log
+.DS_Store
+backend-go/*.sql
+backend-go/bin
+**/.DS_Store

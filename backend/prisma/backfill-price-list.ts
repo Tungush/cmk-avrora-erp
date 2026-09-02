@@ -12,7 +12,7 @@
  */
 import * as fs from 'fs';
 import { PrismaClient } from '@prisma/client';
-import { normalizeName } from '../src/common/nomenclature';
+import { normalizeName } from './lib/nomenclature';
 
 const argv = process.argv.slice(2);
 function arg(flag: string): string | null {

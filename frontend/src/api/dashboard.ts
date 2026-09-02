@@ -9,6 +9,8 @@ export interface DirectorDashboard {
     totalCost: number;
     totalMargin: number;
     actualPct: number | null;
+    ordersTotal: number;
+    ordersShown: number;
     orders: Array<{
       id: string; orderNumber: string; status: string;
       plannedShipmentDate: string | null; overdueDays: number;
