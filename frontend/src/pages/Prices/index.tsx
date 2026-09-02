@@ -14,6 +14,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { MastLoader } from '../../components/Mast';
 
 /**
  * Прайс (28.08.2026). Данные о ценах жили в модели с самого начала, но
@@ -182,7 +183,7 @@ export function Prices() {
                   {rows.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={5}>
-                        <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
+                        <MastLoader height={132} sections={5} title="Цен по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}

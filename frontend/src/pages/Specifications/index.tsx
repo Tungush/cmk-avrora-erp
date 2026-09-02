@@ -376,6 +376,44 @@ function StageTable({
   );
 }
 
+/**
+ * Полоса итогов под нормами: себестоимость, цена и трудоёмкость одной
+ * строкой (02.09.2026). Полный разбор формулы занимал 280 px и на
+ * ноутбуке возвращал прокрутку — он переехал в свою вкладку, а здесь
+ * осталось то, ради чего инженер и правит норму.
+ */
+function CostStrip({ articleId }: { articleId: string }) {
+  const { data, isLoading } = useCosting(articleId);
+  const can = useAuthStore((s) => s.can);
+  if (!can('read', 'routing.cost')) return null;
+  if (isLoading || !data) return <Skeleton height={52} radius="lg" />;
+
+  const { result, explain } = data;
+  const items = [
+    { label: 'Материалы', value: `${num(result.materialCost)} ₸` },
+    { label: 'Трудозатраты', value: `${num(result.laborCost)} ₸` },
+    { label: 'Себестоимость', value: `${num(result.totalCost)} ₸`, strong: true },
+    { label: 'Трудоёмкость', value: `${num(explain.totalManHours, 3)} ч` },
+  ];
+
+  return (
+    <Card withBorder radius="lg" padding="xs">
+      <div className="cost-strip">
+        {items.map((it) => (
+          <div className="cost-strip__item" key={it.label} data-strong={it.strong ? 'true' : undefined}>
+            <Text size="xs" c="dimmed" tt="uppercase" fw={700} style={{ letterSpacing: '0.06em' }}>
+              {it.label}
+            </Text>
+            <Text fw={800} ff="var(--ff-num)" style={{ fontSize: it.strong ? 19 : 16, whiteSpace: 'nowrap' }}>
+              {it.value}
+            </Text>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 /** Строки-итоги: их показываем крупно и отдельно от слагаемых */
 const TOTAL_LINES = new Set(['Себестоимость', 'Расчётная цена']);
 
@@ -840,8 +878,9 @@ export function Specifications() {
 
           <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? 'routing')} radius="md" keepMounted={false}>
             <Tabs.List>
-              <Tabs.Tab value="routing">Трудозатраты и цена</Tabs.Tab>
+              <Tabs.Tab value="routing">Трудозатраты</Tabs.Tab>
               <Tabs.Tab value="bom">Материалы (состав)</Tabs.Tab>
+              <Tabs.Tab value="cost">Разбор цены</Tabs.Tab>
               <Tabs.Tab value="usage">Где применяется</Tabs.Tab>
             </Tabs.List>
           </Tabs>
@@ -850,24 +889,25 @@ export function Specifications() {
             <FadeSwap swapKey={`${activeId ?? 'none'}-${activeTab}`}>
               {!activeId ? null
                 : activeTab === 'bom' ? <BomPanel articleId={activeId} />
-                  : activeTab === 'usage' ? <UsagePanel articleId={activeId} />
-                    : (
-                      /* Нормы и то, во что они выливаются, — на одном экране:
-                         инженер правит часы и тут же видит цену, а не ищет
-                         её во второй вкладке */
-                      <Stack gap="md">
-                        {routingLoading || !routing
-                          ? <Skeleton height={220} radius="lg" />
-                          : (
-                            <StageTable
-                              stages={routing.stages}
-                              articleId={activeId}
-                              workCenters={workCenters ?? []}
-                            />
-                          )}
-                        <CostingPanel articleId={activeId} />
-                      </Stack>
-                    )}
+                  : activeTab === 'cost' ? <CostingPanel articleId={activeId} />
+                    : activeTab === 'usage' ? <UsagePanel articleId={activeId} />
+                      : (
+                        /* Нормы и итог цены — на одном экране: инженер правит
+                           часы и сразу видит, во что это вылилось. Полный
+                           разбор формулы — во вкладке «Разбор цены» */
+                        <Stack gap="sm">
+                          {routingLoading || !routing
+                            ? <Skeleton height={220} radius="lg" />
+                            : (
+                              <StageTable
+                                stages={routing.stages}
+                                articleId={activeId}
+                                workCenters={workCenters ?? []}
+                              />
+                            )}
+                          <CostStrip articleId={activeId} />
+                        </Stack>
+                      )}
             </FadeSwap>
           </div>
         </div>

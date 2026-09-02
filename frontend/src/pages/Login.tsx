@@ -90,9 +90,6 @@ export function Login() {
       <div className="login-scene__glow login-scene__glow--b" style={{ transform: 'translate3d(var(--par-x, 0px), var(--par-y, 0px), 0)' }} />
       <div className="login-scene__glow login-scene__glow--c" />
       <div className="login-scene__grid" />
-      {/* Мачта под базовую станцию: то, что завод и делает. Секции встают
-          снизу вверх, как при монтаже, потом загорается авиационный огонь */}
-      <div className="login-mast"><Mast height={620} sections={7} stroke={1.2} /></div>
 
       <Box
         mih="100vh"
@@ -100,11 +97,18 @@ export function Login() {
         py={{ base: 40, md: 56 }}
         style={{ position: 'relative', zIndex: 1, display: 'grid', placeItems: 'center' }}
       >
-        <div style={{ width: '100%', maxWidth: 1120 }}>
-          <Group justify="space-between" align="flex-start" wrap="wrap" gap={56}>
+        <div style={{ width: '100%', maxWidth: 1340 }}>
+          <Group justify="space-between" align="center" wrap="wrap" gap={48}>
 
-            {/* Левая колонна: обещание системы */}
-            <Box style={{ flex: '1 1 420px', minWidth: 0, maxWidth: 560 }} visibleFrom="md">
+            {/* Мачта под базовую станцию: то, что завод и делает. Секции
+                встают снизу вверх, как при монтаже, потом поднимаются
+                антенны и загорается авиационный огонь */}
+            <Box className="login-mast" visibleFrom="lg">
+              <Mast height={560} sections={8} stroke={1.9} />
+            </Box>
+
+            {/* Средняя колонна: обещание системы */}
+            <Box style={{ flex: '1 1 380px', minWidth: 0, maxWidth: 520 }} visibleFrom="md">
               <motion.div {...rise(0)}>
                 <Group gap={14} wrap="nowrap" mb={48}>
                   <LogoMark size={44} color="#F5A623" />

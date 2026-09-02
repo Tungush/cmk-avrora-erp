@@ -11,6 +11,7 @@ import { exportCsv } from '../../utils/exportCsv';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { MastLoader } from '../../components/Mast';
 
 /**
  * Реестр договоров-оснований (31.08.2026). Эндпоинт существовал с самого
@@ -127,7 +128,7 @@ export function PaymentDocuments() {
                   {rows.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={7}>
-                        <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
+                        <MastLoader height={132} sections={5} title="Документов по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}

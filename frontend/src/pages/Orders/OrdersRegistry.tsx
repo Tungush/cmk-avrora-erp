@@ -21,6 +21,7 @@ import { IconClockExclamation, IconInbox, IconTruckDelivery, IconLayoutGrid } fr
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap, Stagger } from '../../components/motion';
+import { MastLoader } from '../../components/Mast';
 
 const ORDER_TYPE_LABELS: Record<string, string> = { FZ: 'ФЗ', VZ: 'ВЗ' };
 
@@ -372,7 +373,7 @@ export function OrdersRegistry() {
                 })}
               </Stagger>
               {orders.length === 0 && (
-                <Text size="sm" c="dimmed" ta="center" py="lg">Заказы не найдены</Text>
+                <MastLoader height={132} sections={5} title="Заказов по такому запросу нет" />
               )}
             </Stack>
           ) : (
@@ -412,7 +413,7 @@ export function OrdersRegistry() {
                   {orders.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={columns.length}>
-                        <Text size="sm" c="dimmed" ta="center" py="lg">Заказы не найдены</Text>
+                        <MastLoader height={132} sections={5} title="Заказов по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}

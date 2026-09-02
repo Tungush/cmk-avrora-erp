@@ -6,7 +6,7 @@ import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import { Mast, MastLoader } from '../../components/Mast';
 import { PulseRow } from '../../components/SectionHeader';
-import { FitScreen, usePageKeys } from '../../components/FitScreen';
+import { FitScreen, useFitGrid, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { formatDate } from '../../utils/formatters';
@@ -48,8 +48,9 @@ const siteTitle = (code: string) => code.replace(/^KZ-/, '').replace(/_/g, ' · 
 
 type Slice = 'all' | 'overdue' | 'ready';
 
-/** Карточек на страницу: три ряда по четыре — экран не тянется */
-const PER_PAGE = 12;
+/** Размер карточки, по нему и считается, сколько их влезло */
+const CARD_MIN_W = 250;
+const CARD_H = 150;
 
 export function Sites() {
   const [search, setSearch] = useState('');
@@ -76,8 +77,10 @@ export function Sites() {
   }, [rows, search]);
 
   const visible = groups[slice];
-  const paged = usePagedList(visible, PER_PAGE, `${search}|${slice}`);
-  usePageKeys(paged.page, Math.max(1, Math.ceil(paged.total / PER_PAGE)), paged.setPage);
+  // Карточек ровно столько, сколько поместилось: ни одна не свисает за край
+  const fit = useFitGrid(CARD_MIN_W, CARD_H, 12, 2, 40);
+  const paged = usePagedList(visible, fit.count, `${search}|${slice}|${fit.count}`);
+  usePageKeys(paged.page, Math.max(1, Math.ceil(paged.total / Math.max(1, fit.count))), paged.setPage);
 
   const totalAmount = rows.reduce((s, r) => s + Number(r.amount || 0), 0);
 
@@ -132,7 +135,7 @@ export function Sites() {
     <PaginationBar
       page={paged.page}
       total={paged.total}
-      pageSize={PER_PAGE}
+      pageSize={Math.max(1, fit.count)}
       onPageChange={paged.setPage}
       noun="объектов"
     />
@@ -140,23 +143,22 @@ export function Sites() {
 
   return (
     <FitScreen header={header} footer={footer}>
+      <div className="site-grid" ref={fit.ref}>
       {isLoading && !data ? (
-        <div className="site-grid">
-          {[...Array(8)].map((_, i) => <Skeleton key={i} height={158} radius="lg" />)}
-        </div>
+        [...Array(Math.max(4, fit.count))].map((_, i) => <Skeleton key={i} height={CARD_H} radius="lg" />)
       ) : paged.total === 0 ? (
-        <MastLoader
-          title={search ? 'Такой площадки нет' : 'Объекты пока не заполнены'}
-          hint={search ? undefined
-            : 'Площадка приходит из 1С полем «проект/объект». Пока оно пустое, заказ виден только в реестре.'}
-        />
+        <div className="site-grid__empty">
+          <MastLoader
+            height={200}
+            title={search ? 'Такой площадки нет' : 'Объекты пока не заполнены'}
+            hint={search ? undefined
+              : 'Площадка приходит из 1С полем «проект/объект». Пока оно пустое, заказ виден только в реестре.'}
+          />
+        </div>
       ) : (
-        <FadeSwap swapKey={`${paged.page}|${slice}`}>
-          <div className="site-grid">
-            {paged.slice.map((s) => <SiteCard key={s.site} row={s} />)}
-          </div>
-        </FadeSwap>
+        paged.slice.map((s) => <SiteCard key={s.site} row={s} />)
       )}
+      </div>
     </FitScreen>
   );
 }
@@ -174,7 +176,7 @@ function SiteCard({ row }: { row: SiteRow }) {
       data-state={done ? 'done' : overdue ? 'overdue' : undefined}
     >
       <div className="site-card__mast">
-        <Mast height={100} sections={6} progress={progress} stroke={1.3} />
+        <Mast height={124} sections={6} progress={progress} stroke={1.9} />
       </div>
 
       <div className="site-card__body">

@@ -14,6 +14,7 @@ import { formatDate } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { MastLoader } from '../../components/Mast';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -375,7 +376,7 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
                   {materials.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={canIssue ? 8 : 7}>
-                        <Text size="sm" c="dimmed" ta="center" py="lg">Ничего не найдено</Text>
+                        <MastLoader height={132} sections={5} title="Материалов по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}

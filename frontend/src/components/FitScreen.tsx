@@ -102,3 +102,32 @@ export function usePageKeys(page: number, totalPages: number, setPage: (p: numbe
     return () => window.removeEventListener('keydown', onKey);
   }, [go]);
 }
+
+/**
+ * То же для плиточной сетки: считает, сколько карточек влезло, — по ширине
+ * контейнера (сколько колонок) и по высоте (сколько рядов). Без этого
+ * «страница ровно в экран» ломается на карточках: строки-то мы считать
+ * научились, а плитки продолжали вылезать за нижний край.
+ */
+export function useFitGrid(minCardWidth: number, cardHeight: number, gap = 12, min = 2, max = 60) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [count, setCount] = useState(min);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const cols = Math.max(1, Math.floor((el.clientWidth + gap) / (minCardWidth + gap)));
+      const rows = Math.max(1, Math.floor((el.clientHeight + gap) / (cardHeight + gap)));
+      const next = Math.max(min, Math.min(max, cols * rows));
+      setCount((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener('resize', measure);
+    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+  }, [minCardWidth, cardHeight, gap, min, max]);
+
+  return { ref, count };
+}
