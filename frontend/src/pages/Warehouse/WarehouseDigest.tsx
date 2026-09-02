@@ -59,7 +59,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         title="Ниже норматива"
         tone={deficits.length > 0 ? 'danger' : 'ok'}
         icon={<IconGauge size={19} />}
-        value={num(deficits.length)}
+        value={deficits.length}
         caption={deficits.length > 0
           ? `изделий не хватает на складе ГП · ${formatMoney(deficitValue)} ₸`
           : 'все нормативы выполнены'}
@@ -79,7 +79,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         title="Цена в карантине"
         tone={anomalyRows.length > 0 ? 'warn' : 'ok'}
         icon={<IconGavel size={19} />}
-        value={num(anomalyRows.length)}
+        value={anomalyRows.length}
         caption={anomalyRows.length > 0
           ? 'партий с подозрительной ценой — себестоимость по ним под вопросом'
           : 'подозрительных цен нет'}
@@ -98,7 +98,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         title="Резервы сгорают"
         tone={expiringRows.length > 0 ? 'warn' : 'ok'}
         icon={<IconClockExclamation size={19} />}
-        value={num(expiringRows.length)}
+        value={expiringRows.length}
         caption={expiringRows.length > 0
           ? `резервов истекают в 3 дня · ${formatMoney(expiringValue)} ₸ вернётся в общий остаток`
           : 'ничего не истекает'}
@@ -118,7 +118,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         title="Обрезки в дело"
         tone="brand"
         icon={<IconScissors size={19} />}
-        value={num(offcutRows.length)}
+        value={offcutRows.length}
         caption="деловой отход: длины, которые можно не резать заново"
         loading={offcuts.isLoading}
         items={offcutRows.slice(0, 4).map((r) => ({
@@ -136,7 +136,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
           title="Перехваты резерва"
           tone="danger"
           icon={<IconGavel size={19} />}
-          value={num(overrideRows.length)}
+          value={overrideRows.length}
           caption="ждут решения директора: чей заказ получит партию"
           items={overrideRows.slice(0, 4).map((r: any) => ({
             id: r.id,

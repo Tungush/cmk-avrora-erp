@@ -1,7 +1,7 @@
 import React from 'react';
 import { Skeleton, Text } from '@mantine/core';
 import { IconArrowRight } from '@tabler/icons-react';
-import { FadeRise } from './motion';
+import { FadeRise, AnimatedNumber } from './motion';
 
 /**
  * Сводка решений — то, чем экран начинается вместо списка (02.09.2026,
@@ -34,8 +34,14 @@ export interface DigestItem {
 
 export interface DigestCardProps {
   title: string;
-  /** Крупное число под заголовком */
+  /**
+   * Крупное число под заголовком. Если передать число, а не строку, оно
+   * доедет до значения пружиной — счётчик читается как «живой», и глаз
+   * сам цепляется за карточку, где цифра изменилась.
+   */
   value: React.ReactNode;
+  /** Формат для числового value: разделители, ₸, проценты */
+  format?: (n: number) => string;
   /** Подпись под числом: «₸ по 34 заказам» */
   caption?: string;
   tone?: DigestTone;
@@ -52,11 +58,14 @@ export function DigestGrid({ children }: { children: React.ReactNode }) {
 }
 
 export function DigestCard({
-  title, value, caption, tone = 'neutral', icon, items, emptyText, action, loading,
+  title, value, caption, tone = 'neutral', icon, items, emptyText, action, loading, format,
 }: DigestCardProps) {
   if (loading) return <Skeleton height={230} radius="lg" />;
 
   const list = items ?? [];
+  const shown = typeof value === 'number'
+    ? <AnimatedNumber value={value} format={format} />
+    : value;
 
   return (
     <section className="digest-card glass-lit" data-tone={tone}>
@@ -67,7 +76,7 @@ export function DigestCard({
             style={{ letterSpacing: '0.07em', lineHeight: 1.3 }}>
             {title}
           </Text>
-          <div className="digest-card__value">{value}</div>
+          <div className="digest-card__value">{shown}</div>
           {caption && <Text size="xs" c="dimmed" lineClamp={1}>{caption}</Text>}
         </div>
       </header>

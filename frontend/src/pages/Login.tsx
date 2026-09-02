@@ -104,7 +104,7 @@ export function Login() {
                 встают снизу вверх, как при монтаже, потом поднимаются
                 антенны и загорается авиационный огонь */}
             <Box className="login-mast" visibleFrom="lg">
-              <Mast height={560} sections={8} stroke={1.9} />
+              <Mast height={560} sections={8} stroke={1.9} signal />
             </Box>
 
             {/* Средняя колонна: обещание системы */}

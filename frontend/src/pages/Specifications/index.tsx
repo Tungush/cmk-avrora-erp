@@ -28,6 +28,7 @@ import { FadeSwap, Collapse } from '../../components/motion';
 import type { CostingPreviewResponse, RoutingStageCode, RoutingStageRow } from '../../api/routing';
 import type { Article } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { TextReveal } from '../../components/motion';
 
 const STAGE_ICONS: Record<RoutingStageCode, React.ComponentType<{ size?: number }>> = {
   CUTTING: IconScissors,
@@ -816,7 +817,7 @@ export function Specifications() {
     <Group justify="space-between" align="center" wrap="nowrap" gap="md">
       <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
         <Text fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-          Изделия
+          <TextReveal text="Изделия" />
         </Text>
         <Text size="sm" c="dimmed" lineClamp={1}>
           нормы труда и себестоимость по каждому артикулу

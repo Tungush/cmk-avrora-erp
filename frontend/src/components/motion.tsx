@@ -158,3 +158,32 @@ export function FadeSwap({
 }
 
 export { motion, AnimatePresence };
+
+/**
+ * Заголовок, который появляется словами (02.09.2026).
+ *
+ * Слова поднимаются с лёгким наклоном и разной задержкой — взгляд читает
+ * заголовок в том же порядке, в каком он собирается. Анимация одна,
+ * при первом появлении: на каждом переходе она бы раздражала.
+ */
+export function TextReveal({
+  text, className, style, step = 0.055,
+}: {
+  text: string;
+  className?: string;
+  style?: React.CSSProperties;
+  step?: number;
+}) {
+  const reduced = useMotionOff();
+  if (reduced) return <span className={className} style={style}>{text}</span>;
+  return (
+    <span className={className} style={style}>
+      {text.split(' ').map((word, i) => (
+        <React.Fragment key={`${word}-${i}`}>
+          <span className="reveal-word" style={{ animationDelay: `${i * step}s` }}>{word}</span>
+          {i < text.split(' ').length - 1 ? ' ' : null}
+        </React.Fragment>
+      ))}
+    </span>
+  );
+}

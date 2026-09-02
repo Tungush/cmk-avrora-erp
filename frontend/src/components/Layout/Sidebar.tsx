@@ -83,6 +83,9 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                 key={item.to}
                 component={RouterNavLink}
                 to={item.to}
+                // Нативный переход между разделами: браузер сам морфит
+                // старый кадр в новый (View Transitions API)
+                viewTransition
                 onClick={onNavigate}
                 className="nav-item"
                 aria-label={item.label}

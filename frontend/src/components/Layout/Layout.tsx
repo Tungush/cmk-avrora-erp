@@ -10,6 +10,7 @@ import { ReceiptCardProvider } from '../ReceiptCard/ReceiptCardProvider';
 import { motion } from 'framer-motion';
 import { SPRING, useMotionOff } from '../motion';
 import { AuroraCanvas } from '../Aurora';
+import { LoadBar } from './LoadBar';
 
 export const NAV_WIDTH = 260;
 export const NAV_RAIL_WIDTH = 76;
@@ -76,6 +77,10 @@ export function Layout() {
         {/* На телефоне выезжающее меню всегда полное — иконки без подписей там не нужны */}
         <Sidebar onNavigate={close} collapsed={collapsed && !mobileOpened} />
       </AppShell.Navbar>
+
+      {/* Полоса загрузки и зерно живут поверх всего приложения */}
+      <LoadBar />
+      <div className="grain" aria-hidden />
 
       <AppShell.Main>
         {/* min-width:0 — иначе широкие таблицы растягивают main и ломают сетку */}

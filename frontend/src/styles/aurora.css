@@ -1,53 +1,67 @@
 /* ===============================================================
-   ЦМК АВРОРА — визуальная система по референсу владельца (02.09.2026)
-   Behance «ERP UI – POS & Restaurant Operations System» (TastyIgniter)
-   ---------------------------------------------------------------
-   Значения взяты с их же страницы «Typography and Colour»:
-     #FD6941 коралловый · #36D161 зелёный · #F2AC11 янтарный
-     #070A08 чернила    · #888E89 серый   · #F08D45 оранжевый
-     Urbanist: Heading 32/120, Subheading 18/120, Body 14/160
+   ЦМК АВРОРА — визуальная система
+   Палитра: WGSN × Coloro, ключевые цвета S/S 27 (задана владельцем
+   02.09.2026) поверх структуры референса Behance «ERP UI».
 
-   Две вынужденные замены (согласовано с владельцем):
-   1. Шрифт. В Urbanist только latin и latin-ext — кириллицы нет вовсе,
-      русский текст свалился бы на системный. Onest: та же геометрия,
-      кириллица родная.
-   2. Меню слева, а не сверху: в референсе 6 вкладок, у завода 10 разделов.
+   Luminous Blue — цвет года 2027, Energy Orange, Pop Pink,
+   Meadowland Green, Clay. WGSN публикует их кодами Coloro, а не hex:
+   значения ниже — выверенные экранные соответствия, не «взяты с
+   потолка», но и не официальные (официальных цифровых просто нет).
 
-   Язык поверхностей: светло-серый холст, БЕЛЫЕ карточки с крупным
-   скруглением и мягкой тенью, иконка в круге, тёмная пилюля действия,
-   зелёная градиентная подложка на сводках. Данные читаются первыми.
+   Правило 60–30–10, как просил владелец:
+     60 % — молочно-глиняный холст и белые поверхности;
+     30 % — Luminous Blue: меню, шапки, ключевые карточки;
+     10 % — Energy Orange на действиях (CTA), Pop Pink точечно.
+
+   Шрифт Onest: у Urbanist из референса нет кириллицы вовсе.
+   Меню слева, а не сверху: в референсе 6 вкладок, у завода 11 разделов.
    =============================================================== */
 
 :root {
-  /* Палитра референса — ровно те hex, что указаны в макете */
-  --ref-coral: #FD6941;
-  --ref-coral-ink: #E24E27;
-  --ref-green: #36D161;
-  --ref-green-ink: #1FA847;
-  --ref-amber: #F2AC11;
-  --ref-amber-ink: #C88A05;
-  --ref-ink: #070A08;
-  --ref-muted: #888E89;
-  --ref-orange: #F08D45;
+  /* --- Ключевые цвета S/S 27 --- */
+  --c-blue: #2B62E8;        /* Luminous Blue — цвет года 2027 */
+  --c-blue-ink: #1B44B0;    /* его тёмный вариант для текста по светлому */
+  --c-blue-deep: #0F1F4D;   /* глубокая подложка меню */
+  --c-orange: #F4642A;      /* Energy Orange — действие */
+  --c-orange-ink: #D14A15;
+  --c-pink: #E85E9B;        /* Pop Pink — точечно, «требует человека» */
+  --c-green: #6E9E5C;       /* Meadowland Green — «всё в порядке» */
+  --c-green-ink: #4F7C40;
+  --c-clay: #B58C79;        /* Clay — тёплый нейтральный */
 
-  /* Поверхности: холст светло-серый, карточка белая */
-  --ref-canvas: #EFEFEE;
+  /* --- Роли (имена сохранены с прошлой системы, чтобы не ломать разметку) --- */
+  --ref-coral: var(--c-orange);
+  --ref-coral-ink: var(--c-orange-ink);
+  --ref-green: var(--c-green);
+  --ref-green-ink: var(--c-green-ink);
+  --ref-amber: #E8A33C;
+  --ref-amber-ink: #B97A18;
+  --ref-blue: var(--c-blue);
+  --ref-blue-ink: var(--c-blue-ink);
+  --ref-pink: var(--c-pink);
+  --ref-clay: var(--c-clay);
+  --ref-ink: #0E1420;       /* чернила с синим уклоном — под цвет года */
+  --ref-muted: #7B8494;
+  --ref-orange: var(--c-orange);
+
+  /* Поверхности: 60 % холста — молочный с глиняным подтоном */
+  --ref-canvas: #F5F3F0;
   --ref-surface: #FFFFFF;
-  --ref-surface-sub: #F7F8F7;
-  --ref-line: #E8E9E7;
+  --ref-surface-sub: #FAF8F6;
+  --ref-line: #E7E2DC;
 
-  /* Подложки-заливки под сводками — зелёный wash из макета */
-  --wash-green: linear-gradient(160deg, rgba(54, 209, 97, 0.13) 0%, rgba(54, 209, 97, 0.02) 46%, rgba(255,255,255,0) 78%);
+  /* Подложка-заливка под сводками — синий wash цвета года */
+  --wash-green: linear-gradient(160deg, rgba(43, 98, 232, 0.10) 0%, rgba(43, 98, 232, 0.02) 46%, rgba(255,255,255,0) 78%);
 
   /* Скругления референса: карточка 24, плитка 20, поле 14 */
   --ref-r-card: 24px;
   --ref-r-tile: 20px;
   --ref-r-chip: 14px;
 
-  /* Тени: очень мягкие, карточка едва отделена от холста */
-  --ref-sh: 0 1px 2px rgba(7, 10, 8, 0.03), 0 8px 24px -12px rgba(7, 10, 8, 0.10);
-  --ref-sh-hover: 0 2px 6px rgba(7, 10, 8, 0.05), 0 18px 40px -16px rgba(7, 10, 8, 0.18);
-  --ref-sh-pill: 0 6px 16px -6px rgba(7, 10, 8, 0.34);
+  /* Тени: мягкие, с синим подтоном — иначе серый по тёплому холсту грязнит */
+  --ref-sh: 0 1px 2px rgba(14, 20, 32, 0.03), 0 8px 24px -12px rgba(14, 20, 32, 0.12);
+  --ref-sh-hover: 0 2px 6px rgba(14, 20, 32, 0.06), 0 18px 40px -16px rgba(14, 20, 32, 0.20);
+  --ref-sh-pill: 0 6px 16px -6px rgba(212, 74, 21, 0.42);
 
   /* Позиция курсора — пишет один обработчик, React не перерисовывается */
   --mx: 50%;
@@ -69,7 +83,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   width: 38vmax; height: 38vmax;
   margin-left: -19vmax; margin-top: -19vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(54, 209, 97, 0.13), transparent 62%);
+  background: radial-gradient(circle, rgba(43, 98, 232, 0.14), transparent 62%);
   filter: blur(60px);
   transform: translate3d(var(--cursor-x, 50vw), var(--cursor-y, 40vh), 0);
   will-change: transform;
@@ -84,10 +98,15 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   backdrop-filter: saturate(160%) blur(18px);
   border-bottom: 1px solid var(--ref-line) !important;
 }
+/* 30 % палитры — навигация в цвете года: глубокий синий, активный пункт
+   светится Luminous Blue. Меню видно всегда, поэтому именно оно задаёт
+   тон всей системе */
 .mantine-AppShell-navbar {
-  background: var(--ref-surface) !important;
-  border-right: 1px solid var(--ref-line) !important;
+  background: linear-gradient(180deg, #142752 0%, var(--c-blue-deep) 58%, #0B1735 100%) !important;
+  border-right: none !important;
+  color: rgba(255, 255, 255, 0.72);
 }
+.mantine-AppShell-navbar .mantine-Text-root { color: inherit; }
 
 /* ---------------------------------------------------------------
    2. Карточка референса: белая, крупный радиус, мягкая тень
@@ -117,7 +136,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   position: absolute; inset: 0;
   border-radius: inherit;
   background: radial-gradient(420px circle at var(--mx) var(--my),
-    rgba(54, 209, 97, 0.10), transparent 62%);
+    rgba(43, 98, 232, 0.10), transparent 62%);
   opacity: 0;
   transition: opacity .35s var(--ease-out);
   pointer-events: none;
@@ -142,7 +161,7 @@ a:hover > .mantine-Card-root,
   background: var(--ref-surface) !important;
   border: 1px solid var(--ref-line) !important;
   border-radius: var(--ref-r-tile) !important;
-  box-shadow: 0 20px 44px -20px rgba(7, 10, 8, 0.28) !important;
+  box-shadow: 0 20px 44px -20px rgba(14, 20, 32, 0.28) !important;
 }
 
 /* ---------------------------------------------------------------
@@ -181,20 +200,20 @@ a:hover > .mantine-Card-root,
 /* Кнопка действия — тёмная пилюля «Handle» */
 .mantine-Button-root[data-variant='filled'] {
   background-image: none;
-  background-color: var(--ref-ink);
+  /* Цвет берёт Mantine (primary = Energy Orange), здесь только форма:
+     плоская заливка вместо градиента и мягкая тень под действием */
   color: #fff;
   border: none;
   box-shadow: var(--ref-sh-pill);
 }
 .mantine-Button-root[data-variant='filled']:hover:not(:disabled) {
-  background-color: #1B211D;
-  box-shadow: 0 10px 22px -8px rgba(7, 10, 8, 0.45);
+  box-shadow: 0 10px 22px -8px rgba(212, 74, 21, 0.55);
   transform: translateY(-1px);
   filter: none;
 }
 
-.mantine-Progress-section { background-image: none; background-color: var(--ref-green); }
-.mantine-Progress-root { background: rgba(7, 10, 8, 0.06); }
+.mantine-Progress-section { background-image: none; background-color: var(--c-blue); }
+.mantine-Progress-root { background: rgba(14, 20, 32, 0.07); }
 
 /* Значок «живое»: белая пилюля с зелёной точкой */
 .live-pill {
@@ -207,8 +226,8 @@ a:hover > .mantine-Card-root,
 }
 .live-pill::before {
   content: ''; width: 7px; height: 7px; border-radius: 50%;
-  background: var(--ref-green);
-  box-shadow: 0 0 0 3px rgba(54, 209, 97, 0.22);
+  background: var(--c-green);
+  box-shadow: 0 0 0 3px rgba(110, 158, 92, 0.26);
 }
 
 /* Круглые кнопки-иконки в шапке — ряд кружков из макета */
@@ -224,10 +243,21 @@ a:hover > .mantine-Card-root,
    4. Меню: активный пункт — тёмная пилюля, как активная вкладка
    --------------------------------------------------------------- */
 
+/* Активная пилюля меню — Luminous Blue: на тёмно-синей подложке она
+   светится, а не тонет, как прежний почти-чёрный --pill-dark */
+.mantine-AppShell-navbar { --pill-dark: var(--c-blue); }
+
+/* Меню на глубоком синем: пункты светлые, активная пилюля — Luminous Blue */
 .nav-item { transition: background-color .15s var(--ease-out); border-radius: 999px; }
-.nav-item:hover { background: var(--ref-surface-sub); }
+.nav-item:hover { background: rgba(255, 255, 255, 0.07); }
+.nav-item .mantine-Text-root { color: rgba(255, 255, 255, 0.78); }
+.nav-item svg { color: rgba(255, 255, 255, 0.6) !important; }
 .nav-item[aria-current='page'] .mantine-Text-root { color: #fff !important; }
 .nav-item[aria-current='page'] svg { color: #fff !important; }
+.mantine-AppShell-navbar .mantine-Divider-root { border-color: rgba(255, 255, 255, 0.12) !important; }
+.mantine-AppShell-navbar .mantine-Text-root[data-dimmed], 
+.mantine-AppShell-navbar .mantine-Text-root { color: rgba(255, 255, 255, 0.55); }
+.mantine-AppShell-navbar .nav-item .mantine-Text-root { color: rgba(255, 255, 255, 0.78); }
 
 /* ---------------------------------------------------------------
    5. Вкладки, сегменты, пагинация — пилюли референса
@@ -275,8 +305,8 @@ a:hover > .mantine-Card-root,
 .mantine-Select-input:focus, .mantine-Textarea-input:focus,
 .mantine-PasswordInput-input:focus-within {
   background: var(--ref-surface);
-  border-color: rgba(253, 105, 65, 0.6);
-  box-shadow: 0 0 0 3px rgba(253, 105, 65, 0.14);
+  border-color: rgba(43, 98, 232, 0.55);
+  box-shadow: 0 0 0 3px rgba(43, 98, 232, 0.16);
 }
 
 /* ---------------------------------------------------------------
@@ -370,30 +400,30 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
   color: var(--ref-ink);
 }
-.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(253, 105, 65, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
-.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(54, 209, 97, 0.14);  border-color: transparent; color: var(--ref-green-ink); }
-.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(242, 172, 17, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
-.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(253, 105, 65, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(244, 100, 42, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(110, 158, 92, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(232, 163, 60, 0.18); border-color: transparent; color: var(--ref-amber-ink); }
+.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(244, 100, 42, 0.12); border-color: transparent; color: var(--ref-coral-ink); }
 
 /* ---------------------------------------------------------------
    8. Экран входа: тёмная сцена, стеклянная панель, свет за курсором
    --------------------------------------------------------------- */
 
-.login-scene { position: relative; min-height: 100vh; overflow: hidden; background: #0A0C0A; }
+.login-scene { position: relative; min-height: 100vh; overflow: hidden; background: #060A16; }
 .login-scene__glow { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; will-change: transform; }
 .login-scene__glow--a {
   width: 70vmax; height: 70vmax; top: -30vmax; right: -22vmax;
-  background: radial-gradient(circle, rgba(54, 209, 97, 0.42), transparent 62%);
+  background: radial-gradient(circle, rgba(43, 98, 232, 0.42), transparent 62%);
   animation: aurora-drift-a 24s ease-in-out infinite;
 }
 .login-scene__glow--b {
   width: 62vmax; height: 62vmax; bottom: -30vmax; left: -20vmax;
-  background: radial-gradient(circle, rgba(253, 105, 65, 0.44), transparent 60%);
+  background: radial-gradient(circle, rgba(244, 100, 42, 0.46), transparent 60%);
   animation: aurora-drift-b 30s ease-in-out infinite;
 }
 .login-scene__glow--c {
   width: 44vmax; height: 44vmax; top: 20%; left: 30%;
-  background: radial-gradient(circle, rgba(242, 172, 17, 0.24), transparent 66%);
+  background: radial-gradient(circle, rgba(232, 163, 60, 0.26), transparent 66%);
   animation: aurora-drift-c 36s ease-in-out infinite;
 }
 @keyframes aurora-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-6vw,5vh,0) scale(1.12); } }
@@ -413,7 +443,7 @@ a:hover > .mantine-Card-root,
 
 .login-card {
   position: relative;
-  background: rgba(18, 22, 19, 0.58);
+  background: rgba(12, 18, 34, 0.56);
   -webkit-backdrop-filter: saturate(160%) blur(28px);
   backdrop-filter: saturate(160%) blur(28px);
   border: 1px solid rgba(255,255,255,0.14);
@@ -422,7 +452,7 @@ a:hover > .mantine-Card-root,
 }
 .login-card::after {
   content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1px;
-  background: radial-gradient(340px circle at var(--mx) var(--my), rgba(54, 209, 97, 0.75), transparent 60%);
+  background: radial-gradient(340px circle at var(--mx) var(--my), rgba(43, 98, 232, 0.75), transparent 60%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -440,12 +470,13 @@ a:hover > .mantine-Card-root,
 .login-card .mantine-TextInput-input:focus,
 .login-card .mantine-PasswordInput-input:focus-within {
   background: rgba(255,255,255,0.12);
-  border-color: rgba(54, 209, 97, 0.7);
-  box-shadow: 0 0 0 3px rgba(54, 209, 97, 0.18);
+  border-color: rgba(43, 98, 232, 0.7);
+  box-shadow: 0 0 0 3px rgba(43, 98, 232, 0.20);
 }
 .login-card .mantine-InputWrapper-label { color: rgba(255,255,255,0.72); }
-.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--ref-green); color: #06210F; }
-.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: #2BBB53; }
+/* Единственное действие на экране входа — Energy Orange, как и везде */
+.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--c-orange); color: #fff; }
+.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: var(--c-orange-ink); }
 
 .login-title {
   background: linear-gradient(120deg, #FFFFFF 0%, #C9F7D6 52%, var(--ref-green) 100%);
@@ -503,7 +534,7 @@ a:hover > .mantine-Card-root,
   border-bottom: 1px solid var(--ref-line);
   transition: background-color .15s var(--ease-out);
 }
-.worklist__row[data-done='true'] { background: rgba(54, 209, 97, 0.06); }
+.worklist__row[data-done='true'] { background: rgba(110, 158, 92, 0.07); }
 .worklist__row[data-done='true'] .worklist__name { color: var(--ref-muted); }
 .worklist__head {
   display: grid;
@@ -535,17 +566,17 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
 }
 .worklist__chip[data-tone='danger'] {
-  background: rgba(253, 105, 65, 0.10);
+  background: rgba(244, 100, 42, 0.10);
   color: var(--ref-coral-ink);
-  border-color: rgba(253, 105, 65, 0.24);
+  border-color: rgba(244, 100, 42, 0.26);
 }
 .worklist__chip[data-tone='warn'] {
-  background: rgba(242, 172, 17, 0.12);
+  background: rgba(232, 163, 60, 0.14);
   color: var(--ref-amber-ink);
-  border-color: rgba(242, 172, 17, 0.26);
+  border-color: rgba(232, 163, 60, 0.28);
 }
 .worklist__chip[data-tone='info'] {
-  background: rgba(7, 10, 8, 0.05);
+  background: rgba(14, 20, 32, 0.06);
   color: var(--ref-ink);
 }
 .worklist__row:hover { background: var(--ref-surface-sub); }
@@ -764,8 +795,8 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(253, 105, 65, 0.35); }
-.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(54,209,97,.08), rgba(255,255,255,0) 60%), var(--ref-surface); }
+.site-card[data-state='overdue'] { border-color: rgba(244, 100, 42, 0.38); }
+.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(110,158,92,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
@@ -820,9 +851,9 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(253, 105, 65, 0.35); }
+.site-card[data-state='overdue'] { border-color: rgba(244, 100, 42, 0.38); }
 .site-card[data-state='done'] {
-  background: linear-gradient(160deg, rgba(54, 209, 97, .09), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
+  background: linear-gradient(160deg, rgba(110, 158, 92, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -922,9 +953,9 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out);
 }
 .digest-card:hover { box-shadow: var(--ref-sh-hover); }
-.digest-card[data-tone='danger'] { background: linear-gradient(165deg, rgba(253,105,65,.07), rgba(255,255,255,0) 58%), var(--ref-surface); }
-.digest-card[data-tone='warn']   { background: linear-gradient(165deg, rgba(242,172,17,.09), rgba(255,255,255,0) 58%), var(--ref-surface); }
-.digest-card[data-tone='ok']     { background: linear-gradient(165deg, rgba(54,209,97,.09), rgba(255,255,255,0) 58%), var(--ref-surface); }
+.digest-card[data-tone='danger'] { background: linear-gradient(165deg, rgba(244,100,42,.07), rgba(255,255,255,0) 58%), var(--ref-surface); }
+.digest-card[data-tone='warn']   { background: linear-gradient(165deg, rgba(232,163,60,.10), rgba(255,255,255,0) 58%), var(--ref-surface); }
+.digest-card[data-tone='ok']     { background: linear-gradient(165deg, rgba(110,158,92,.10), rgba(255,255,255,0) 58%), var(--ref-surface); }
 .digest-card[data-tone='brand']  { background: var(--ref-ink); color: #fff; border-color: transparent; }
 .digest-card[data-tone='brand'] .kpi-icon { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.16); color: #fff; }
 .digest-card[data-tone='brand'] .mantine-Text-root { color: rgba(255,255,255,.62) !important; }
@@ -980,7 +1011,7 @@ a:hover > .mantine-Card-root,
   grid-column: 1 / -1;
   height: 4px;
   border-radius: 999px;
-  background: rgba(7, 10, 8, 0.07);
+  background: rgba(14, 20, 32, 0.08);
   margin-top: 5px;
   overflow: hidden;
 }
@@ -1037,4 +1068,145 @@ a:hover > .mantine-Card-root,
   background: var(--ref-ink);
   color: #fff;
   box-shadow: var(--ref-sh-pill);
+}
+
+/* ---------------------------------------------------------------
+   11. Движение: переходы разделов, зерно, физика нажатия
+   --------------------------------------------------------------- */
+
+/* Нативные переходы между разделами (View Transitions API).
+   Браузер сам снимает старый кадр и морфит его в новый — это дешевле
+   и плавнее, чем перерисовывать дерево в JS, и работает даже на тяжёлых
+   таблицах. Раздел уезжает вниз с растворением, новый поднимается. */
+::view-transition-old(root) {
+  animation: vt-out .18s cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(root) {
+  animation: vt-in .34s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes vt-out { to { opacity: 0; transform: translateY(-6px) scale(0.995); } }
+@keyframes vt-in { from { opacity: 0; transform: translateY(10px) scale(0.995); } }
+
+/* Шапка и меню при переходе не дёргаются: они общие для всех разделов */
+.mantine-AppShell-header, .mantine-AppShell-navbar { view-transition-name: app-chrome; }
+::view-transition-group(app-chrome) { animation-duration: 0s; }
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none; }
+}
+
+/* Зерно поверх всего: убирает «пластиковость» плоских заливок.
+   Один SVG-шум в data-URI, 4 КБ, без единого запроса. */
+.grain {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  /* 0.32 — на пределе заметности: фактура есть, текст не мутнеет */
+  opacity: 0.32;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E");
+}
+
+/* Полоса загрузки: пока идут запросы, сверху ползёт тонкая линия цвета
+   действия. Человек видит, что система жива, и не жмёт кнопку дважды */
+.load-bar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  z-index: 10000;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, var(--c-orange), var(--c-blue), transparent);
+  background-size: 40% 100%;
+  background-repeat: no-repeat;
+  animation: load-sweep 1.1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  opacity: 0;
+  transition: opacity .2s var(--ease-out);
+}
+.load-bar[data-on='true'] { opacity: 1; }
+@keyframes load-sweep {
+  0%   { background-position: -40% 0; }
+  100% { background-position: 140% 0; }
+}
+
+/* Физика нажатия: элемент проседает под пальцем и отпружинивает.
+   Разница в 3 % незаметна глазом, но рука её чувствует. */
+.mantine-Button-root:active:not(:disabled),
+.pulse-tile[data-clickable]:active,
+.digest-card__action:active,
+.view-switch button:active,
+.site-card:active,
+.digest-item:not(:disabled):active {
+  transform: scale(0.975);
+  transition-duration: .06s;
+}
+.digest-item, .site-card, .digest-card__action, .view-switch button {
+  transition: transform .22s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background-color .18s var(--ease-out),
+              box-shadow .25s var(--ease-out),
+              color .15s var(--ease-out);
+}
+
+/* Скелет: не серая заливка, а бегущий блик в цветах системы */
+.mantine-Skeleton-root::after {
+  background: linear-gradient(90deg,
+    var(--ref-surface-sub) 0%,
+    rgba(43, 98, 232, 0.07) 45%,
+    var(--ref-surface-sub) 90%) !important;
+  background-size: 200% 100% !important;
+  animation: skeleton-sweep 1.4s ease-in-out infinite !important;
+}
+@keyframes skeleton-sweep {
+  0%   { background-position: 160% 0; }
+  100% { background-position: -60% 0; }
+}
+
+/* Заголовок раздела появляется словами, а не целиком */
+.reveal-word {
+  display: inline-block;
+  animation: word-rise .55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes word-rise {
+  from { opacity: 0; transform: translateY(0.5em) rotate(1.5deg); }
+  to   { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reveal-word { animation: none; }
+  .load-bar { animation: none; }
+}
+
+/* Мачта: по решётке раз в несколько секунд проходит блик — как отсвет
+   солнца по оцинковке. Только на крупных мачтах, где он читается. */
+.mast-sweep { animation: mast-sweep 6.5s ease-in-out infinite; }
+@keyframes mast-sweep {
+  0%, 62%, 100% { opacity: 0; transform: translateY(40%); }
+  72%           { opacity: 0.55; }
+  86%           { opacity: 0; transform: translateY(-60%); }
+}
+
+/* Волны сигнала от антенн: расходятся и гаснут, три штуки со сдвигом */
+.mast-signal {
+  transform-box: fill-box;
+  transform-origin: center;
+  opacity: 0;
+  animation: mast-signal 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+@keyframes mast-signal {
+  0%   { opacity: 0;    transform: scale(0.25); }
+  12%  { opacity: 0.55; }
+  70%  { opacity: 0;    transform: scale(2.6); }
+  100% { opacity: 0;    transform: scale(2.6); }
+}
+@media (prefers-reduced-motion: reduce) { .mast-signal { animation: none; opacity: 0; } }
+
+/* Сетка на входе светится под курсором — сцена откликается на движение */
+.login-scene__grid {
+  mask-image:
+    radial-gradient(340px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.25) 55%, transparent 100%),
+    radial-gradient(ellipse 80% 60% at 50% 40%, #000 25%, transparent 78%) !important;
+  -webkit-mask-image:
+    radial-gradient(340px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.25) 55%, transparent 100%),
+    radial-gradient(ellipse 80% 60% at 50% 40%, #000 25%, transparent 78%) !important;
+  -webkit-mask-composite: source-over;
+  mask-composite: add;
 }

@@ -310,7 +310,8 @@ function PriceDigest({
         title="В прайсе"
         tone="brand"
         icon={<IconCoin size={19} />}
-        value={n(priced)}
+        value={priced}
+        format={(v) => Math.round(v).toLocaleString('ru-RU')}
         caption={`изделий с утверждённой ценой из ${n(total)} · ${pricedPct} % каталога`}
         loading={loading}
         emptyText="Цена не утверждена ни у одного изделия"
@@ -321,7 +322,8 @@ function PriceDigest({
         title="Не с чем сравнить"
         tone={comparable === 0 ? 'warn' : 'ok'}
         icon={<IconScale size={19} />}
-        value={n(comparable)}
+        value={comparable}
+        format={(v) => Math.round(v).toLocaleString('ru-RU')}
         caption={comparable === 0
           ? 'ни у одного изделия нет одновременно цены и расчёта — проверить наценку невозможно'
           : 'изделий, где есть и цена, и расчёт себестоимости'}
@@ -339,7 +341,8 @@ function PriceDigest({
         title="Ниже себестоимости"
         tone={(data?.belowCost ?? 0) > 0 ? 'danger' : 'ok'}
         icon={<IconAlertTriangle size={19} />}
-        value={n(data?.belowCost ?? 0)}
+        value={data?.belowCost ?? 0}
+        format={(v) => Math.round(v).toLocaleString('ru-RU')}
         caption={(data?.belowCost ?? 0) > 0
           ? 'изделий продаются дешевле, чем стоят заводу'
           : 'убыточных цен не найдено'}
@@ -351,7 +354,8 @@ function PriceDigest({
         title="Нечего считать"
         tone={noCost > 0 ? 'warn' : 'ok'}
         icon={<IconRuler2 size={19} />}
-        value={n(noCost)}
+        value={noCost}
+        format={(v) => Math.round(v).toLocaleString('ru-RU')}
         caption="изделий без спецификации и норм — себестоимость по ним нулевая, цену обосновать нечем"
         loading={loading}
         emptyText="У всех изделий есть расчёт"

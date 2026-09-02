@@ -104,7 +104,8 @@ export function Receivables() {
             title="Должны нам"
             tone="danger"
             icon={<IconCoin size={19} />}
-            value={formatCurrency(totals.debt)}
+            value={totals.debt}
+            format={formatCurrency}
             caption={`оплачено ${formatCurrency(totals.paid)} из ${formatCurrency(totals.contracted)} · ${paidPct} %`}
             items={top('debt')}
             emptyText="Долгов нет — всё оплачено"
@@ -115,7 +116,8 @@ export function Receivables() {
             title="Законтрактовано"
             tone="brand"
             icon={<IconWallet size={19} />}
-            value={formatCurrency(totals.contracted)}
+            value={totals.contracted}
+            format={formatCurrency}
             caption={`${totals.orders} активных заказов у ${totals.customers} заказчиков`}
             items={top('contracted')}
             emptyText="Активных заказов нет"
@@ -125,7 +127,8 @@ export function Receivables() {
             title="Оплата неизвестна"
             tone="warn"
             icon={<IconHelpCircle size={19} />}
-            value={formatCurrency(totals.unknownAmount)}
+            value={totals.unknownAmount}
+            format={formatCurrency}
             caption={`${totals.unknownOrders} заказов, по которым 1С не прислала оплату`}
             items={top('unknownAmount')}
             emptyText="По всем заказам оплата известна"

@@ -10,6 +10,7 @@ import { FitScreen, useFitGrid, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { formatDate } from '../../utils/formatters';
+import { TextReveal } from '../../components/motion';
 
 /**
  * Объекты — базовые станции (02.09.2026, просьба владельца: «объекты как
@@ -89,7 +90,7 @@ export function Sites() {
       <Group justify="space-between" align="center" wrap="nowrap" gap="md" mb="sm">
         <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
           <Text fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-            Объекты
+            <TextReveal text="Объекты" />
           </Text>
           <Text size="sm" c="dimmed" lineClamp={1}>
             базовые станции: что для площадки уже изготовлено

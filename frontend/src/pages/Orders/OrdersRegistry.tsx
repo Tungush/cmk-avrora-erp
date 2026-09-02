@@ -258,7 +258,8 @@ export function OrdersRegistry() {
             title="Просрочено"
             tone="danger"
             icon={<IconClockExclamation size={19} />}
-            value={fmt(counts.overdue)}
+            value={counts.overdue ?? 0}
+            format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="заказов, у которых плановая дата вывоза уже прошла"
             loading={counts.loading}
             items={counts.overdueRows.map((o: any) => ({
@@ -276,7 +277,8 @@ export function OrdersRegistry() {
             title="Новые из 1С"
             tone="brand"
             icon={<IconInbox size={19} />}
-            value={fmt(counts.fresh)}
+            value={counts.fresh ?? 0}
+            format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="ждут приёма в производство — пока не приняты, цех их не видит"
             loading={counts.loading}
             items={counts.freshRows.map((o: any) => ({
@@ -294,7 +296,8 @@ export function OrdersRegistry() {
             title="К отгрузке"
             tone="ok"
             icon={<IconTruckDelivery size={19} />}
-            value={fmt(counts.ready)}
+            value={counts.ready ?? 0}
+            format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="изготовлены полностью — можно вывозить"
             loading={counts.loading}
             items={counts.readyRows.map((o: any) => ({
@@ -310,7 +313,8 @@ export function OrdersRegistry() {
           <DigestCard
             title="Всего в реестре"
             icon={<IconLayoutGrid size={19} />}
-            value={fmt(meta ? total : null)}
+            value={total}
+            format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="активных заказов после приёма из 1С"
             emptyText=""
             action={{ label: 'Открыть реестр', onClick: () => openList('all') }}

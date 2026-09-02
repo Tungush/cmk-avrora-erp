@@ -48,7 +48,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         title="Не разнесено по заказам"
         tone={unallocated.requests > 0 ? 'danger' : 'ok'}
         icon={<IconClipboardList size={19} />}
-        value={num(unallocated.requests)}
+        value={Number(unallocated.requests) || 0}
         caption={unallocated.requests > 0
           ? `заявок на ${formatMoney(unallocated.amount)} ₸ висят партией — себестоимость заказов занижена`
           : 'все заявки разнесены по заказам'}
@@ -69,7 +69,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         title="Без подрядчика"
         tone={noContractor.length > 0 ? 'warn' : 'ok'}
         icon={<IconUserQuestion size={19} />}
-        value={num(noContractor.length)}
+        value={noContractor.length}
         caption={noContractor.length > 0
           ? 'заявок заведено, но исполнитель не выбран — в Битрикс их не отправить'
           : 'у всех заявок есть исполнитель'}
@@ -88,7 +88,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         title="Ждут приёмки"
         tone={pendingAccept.length > 0 ? 'warn' : 'ok'}
         icon={<IconChecks size={19} />}
-        value={num(pendingAccept.length)}
+        value={pendingAccept.length}
         caption={pendingAccept.length > 0
           ? `строк на ${formatMoney(pendingAmount)} ₸ — пока не приняты, платить не за что`
           : 'вся работа принята'}
@@ -107,7 +107,8 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         title="Отдано на сторону"
         tone="brand"
         icon={<IconCoin size={19} />}
-        value={`${formatMoney(byContractor.reduce((s, c) => s + Number(c.amount ?? 0), 0))} ₸`}
+        value={byContractor.reduce((sum, c) => sum + Number(c.amount ?? 0), 0)}
+        format={(v) => `${formatMoney(v)} ₸`}
         caption={`по ${num(byContractor.length)} подрядчикам`}
         loading={work.isLoading}
         items={[...byContractor]

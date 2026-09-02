@@ -34,6 +34,8 @@ export interface MastProps {
   className?: string;
   /** Мигающий огонь на верхушке */
   beacon?: boolean;
+  /** Волны сигнала от антенн — мачта «работает», а не просто стоит */
+  signal?: boolean;
   /** Принудительно включить/выключить мелкую проработку */
   detailed?: boolean;
 }
@@ -53,7 +55,7 @@ const backAt = (y: number) => halfAt(y) * 0.44;
 
 export function Mast({
   height = 220, sections = 6, progress, animate = true, stroke = 2,
-  className, beacon = true, detailed,
+  className, beacon = true, detailed, signal = false,
 }: MastProps) {
   const reduced = useMotionOff();
   const fine = detailed ?? height >= 150;
@@ -216,6 +218,35 @@ export function Mast({
             </g>
           )}
         </g>
+      ))}
+
+      {/* Блик по решётке: раз в несколько секунд по мачте проходит отсвет,
+          как солнце по оцинковке. Только на крупных — на 100 px его не видно */}
+      {fine && complete && !reduced && (
+        <g className="mast-sweep" style={{ mixBlendMode: 'screen' }}>
+          <rect x={CX - W_BOTTOM / 2 - 10} y={0} width={W_BOTTOM + 20} height={H}
+            fill="url(#mast-sweep-grad)" />
+        </g>
+      )}
+      <defs>
+        <linearGradient id="mast-sweep-grad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="currentColor" stopOpacity="0" />
+          <stop offset="50%" stopColor="currentColor" stopOpacity="0.9" />
+          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {/* Сигнал: от антенн расходятся волны — базовая станция работает.
+          Это и есть смысл мачты, поэтому знак системы должен «передавать»,
+          а не просто стоять (02.09.2026) */}
+      {signal && complete && !reduced && [0, 1, 2].map((k) => (
+        <circle
+          key={k}
+          className="mast-signal"
+          cx={CX} cy={-22} r={26}
+          fill="none" stroke="currentColor" strokeWidth={stroke * 0.8}
+          style={{ animationDelay: `${k * 1.4}s` }}
+        />
       ))}
 
       {/* Авиационный огонь: загорается, когда мачта собрана */}
