@@ -60,7 +60,7 @@ export function ShopFloor() {
   const [slice, setSlice] = useState<Slice>('todo');
   const [sheet, setSheet] = useState<{ order: ShopFloorOrder; product: ProductRow } | null>(null);
 
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['shop-floor', search],
     queryFn: () => api.get<ShopFloorResponse>('/production-plan/shop-floor', {
       params: search ? { search } : undefined,
@@ -247,7 +247,10 @@ export function ShopFloor() {
                   <div key={i} className="worklist__row"><Skeleton height={18} radius="sm" /></div>
                 ))
               ) : paged.total === 0 ? (
-                <MastLoader title={emptyText} />
+                /* Отказ ОБЯЗАН отличаться от пустого списка: раньше при
+                   упавшем запросе мастеру показывалось «Всё изготовлено»,
+                   и он уходил, решив, что работа кончилась (04.09.2026) */
+                <MastLoader title={emptyText} error={error} onRetry={() => refetch()} />
               ) : (
                 <FadeSwap swapKey={`${paged.page}|${slice}|${fit.rows}`}>
                   {paged.slice.map((p) => (

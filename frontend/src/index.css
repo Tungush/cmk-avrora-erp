@@ -615,9 +615,15 @@ textarea.input-field {
   position: sticky;
   top: 64px;
   z-index: 5;
-  background: color-mix(in srgb, var(--app-bg) 88%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  /* НЕПРОЗРАЧНО (04.09.2026). Панель прилипает к верху, и под ней
+     проходят строки таблицы. При 88 % они просвечивали: на «Договорах-
+     основаниях» строка Т7АА-000868 оказывалась НАД поиском, а следующая
+     торчала из-под него половиной. Размытие фона тут не спасало —
+     backdrop-filter размывает, но не скрывает.
+
+     Липкое и полупрозрачное несовместимы: либо элемент пропускает
+     содержимое под собой, либо перекрывает его. Здесь нужно второе. */
+  background: var(--app-bg);
   margin: 0 -8px;
   padding: 8px 8px;
   border-radius: var(--r-md);

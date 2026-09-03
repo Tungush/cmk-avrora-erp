@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Group, Text, TextInput, Skeleton, Tooltip } from '@mantine/core';
 import { IconSearch, IconAntenna, IconClockExclamation, IconCircleCheck, IconCurrencyTenge } from '@tabler/icons-react';
 import api from '../../api/client';
-import { Mast, MastLoader } from '../../components/Mast';
+import { MastLoader } from '../../components/Mast';
+import { MetalStack } from '../../components/MetalStack';
 import { PulseRow } from '../../components/SectionHeader';
 import { FitScreen, useFitGrid, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
@@ -13,7 +14,7 @@ import { TextReveal } from '../../components/motion';
 import { Ref, useEntity } from '../../components/EntityRef';
 
 /**
- * Объекты — базовые станции (02.09.2026, просьба владельца: «объекты как
+ * Проекты — площадки заказчика (было «Объекты», переименовано 04.09.2026) (02.09.2026, просьба владельца: «объекты как
  * мачты для базовых станций»).
  *
  * Телеком считает не заказами, а площадками: на одну БС идут разные заказы
@@ -90,7 +91,7 @@ export function Sites() {
       <Group justify="space-between" align="center" wrap="nowrap" gap="md" mb="sm">
         <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
           <Text component="h1" fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-            <TextReveal text="Объекты" />
+            <TextReveal text="Проекты" />
           </Text>
           <Text size="sm" c="dimmed" lineClamp={1}>
             базовые станции: что для площадки уже изготовлено
@@ -151,7 +152,7 @@ export function Sites() {
         <div className="site-grid__empty">
           <MastLoader
             height={200}
-            title={search ? 'Такой площадки нет' : 'Объекты пока не заполнены'}
+            title={search ? 'Такой площадки нет' : 'Проекты пока не заполнены'}
             hint={search ? undefined
               : 'Площадка приходит из 1С полем «проект/объект». Пока оно пустое, заказ виден только в реестре.'}
           />
@@ -196,7 +197,7 @@ function SiteCard({ row }: { row: SiteRow }) {
       data-state={done ? 'done' : overdue ? 'overdue' : undefined}
     >
       <div className="site-card__mast">
-        <Mast height={124} sections={6} progress={progress} stroke={1.9} />
+        <MetalStack height={124} layers={6} progress={progress} stroke={1.9} />
       </div>
 
       <div className="site-card__body">

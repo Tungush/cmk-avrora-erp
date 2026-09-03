@@ -59,7 +59,7 @@ const KIND_TITLE: Record<EntityKind, string> = {
   article: 'Изделие',
   material: 'Материал',
   customer: 'Заказчик',
-  site: 'Объект',
+  site: 'Проект',
   supplier: 'Поставщик',
   contractor: 'Подрядчик',
 };

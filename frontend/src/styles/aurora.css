@@ -1056,11 +1056,11 @@ a:hover > .mantine-Card-root,
   grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
   gap: 12px;
   align-content: start;
-  /* 04.09.2026: карточка занимает свою высоту, а не высоту самой длинной
-     в ряду. До этого сетка растягивала всех до одной высоты, и рядом с
-     ответом на 388 px показатель стоял полупустым — ровно то ощущение
-     пустоты, на которое жаловался владелец. */
-  align-items: start;
+  /* Ответы в ряду выравниваются по высоте: разная высота у соседних
+     карточек одного вида читается лестницей, а кнопки уезжают на разные
+     уровни. Показатели из этого выравнивания выходят отдельно — см.
+     ниже: им незачем тянуться до высоты ответа (04.09.2026). */
+  align-items: stretch;
 }
 .digest-card {
   display: flex;
@@ -1748,6 +1748,9 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .digest-card[data-variant='metric'] {
   padding: 14px 16px;
   min-height: 0;
+  /* Показатель не тянется до высоты ответа: он короткий по существу, и
+     растянутый до 388 px стоял бы полупустым */
+  align-self: start;
 }
 .digest-card[data-variant='metric'] .digest-card__head { margin-bottom: 0; align-items: center; }
 .digest-card[data-variant='metric'] .digest-card__value { font-size: 28px; line-height: 1.05; margin-top: 2px; }
@@ -1792,4 +1795,14 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .section-head__actions { flex: 0 0 auto; }
 @media (max-width: 900px) {
   .section-head__sub { display: none; }
+}
+
+/* Сложенный металл — знак проекта (04.09.2026) */
+.metal-stack__sheet {
+  fill: none;
+  stroke: var(--s-line-strong);
+}
+.metal-stack__sheet.is-done {
+  fill: color-mix(in srgb, var(--s-action) 16%, transparent);
+  stroke: var(--s-action);
 }

@@ -635,7 +635,7 @@ export function OrderDetail({
       <Section title="Основное">
         <Row label="Заказчик" value={o.customer?.name ?? o.customerName} />
         {o.finalCustomer && <Row label="Конечный заказчик" value={o.finalCustomer} />}
-        {o.projectSite && <Row label="Объект" value={o.projectSite} />}
+        {o.projectSite && <Row label="Проект" value={o.projectSite} />}
         {o.customerOrderNum && <Row label="№ заказа с конечным" value={o.customerOrderNum} mono />}
         <Row label="Тип заказа" value={ORDER_TYPE_LABELS[order.orderType] ?? order.orderType} />
         <Row label="Регион" value={order.region || null} />

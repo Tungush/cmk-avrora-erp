@@ -1,3 +1,6 @@
+import { Button } from '@mantine/core';
+import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
+import { apiErrorMessage, apiErrorTitle } from '../api/errors';
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useMotionOff } from './motion';
@@ -265,14 +268,46 @@ export function Mast({
  * Пустое состояние и ожидание: вместо крутящегося кружка — мачта, которая
  * собирается. Ждать приходится одинаково, а смотреть — приятнее.
  */
+/**
+ * Пустое состояние списка — и ОТДЕЛЬНО состояние отказа (04.09.2026).
+ *
+ * До этого отказ был неотличим от «всё хорошо». При падении запроса
+ * isLoading становится false, data — undefined, total — ноль, и мастеру
+ * в цеху показывалось «Всё изготовлено». Он решал, что работа кончилась,
+ * и уходил. Пустой список и упавший запрос — разные вещи, и человек
+ * обязан их различать: в первом случае делать нечего, во втором нужно
+ * повторить или позвать администратора.
+ *
+ * Мачта в состоянии отказа не рисуется: знак завода — про порядок, а не
+ * про поломку.
+ */
 export function MastLoader({
-  title, hint, height = 168, sections = 6,
+  title, hint, height = 168, sections = 6, error, onRetry,
 }: {
   title: string;
   hint?: string;
   height?: number;
   sections?: number;
+  /** Запрос упал: показываем отказ вместо пустого состояния */
+  error?: unknown;
+  /** Повторить запрос — кнопка появляется, только если есть чем повторять */
+  onRetry?: () => void;
 }) {
+  if (error) {
+    return (
+      <div className="mast-empty" role="alert">
+        <IconAlertTriangle size={32} aria-hidden className="mast-empty__icon" />
+        <div className="mast-empty__title">{apiErrorTitle(error)}</div>
+        <div className="mast-empty__hint">{apiErrorMessage(error)}</div>
+        {onRetry && (
+          <Button variant="default" size="sm" mt="sm"
+            leftSection={<IconRefresh size={16} aria-hidden />} onClick={onRetry}>
+            Повторить
+          </Button>
+        )}
+      </div>
+    );
+  }
   return (
     <div className="mast-empty">
       <Mast height={height} sections={sections} />

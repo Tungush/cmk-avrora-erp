@@ -4,6 +4,7 @@ import { Stack, Text, Group, Avatar, Divider, Box, UnstyledButton, Tooltip } fro
 import { motion } from 'framer-motion';
 import { useMotionOff } from '../motion';
 import {
+  IconStack2,
   IconClipboardList,
   IconSettings,
   IconShoppingCart,
@@ -12,7 +13,6 @@ import {
   IconRuler2,
   IconTruckDelivery,
   IconHammer, IconTruck, IconCoin,
-  IconAntenna,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { LogoLockup, LogoMark } from '../Brand';
@@ -36,7 +36,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
     { to: '/orders', icon: IconShoppingCart, label: 'Заказы', module: 'orders' },
     // Объекты (базовые станции): телеком спрашивает про площадку, а не про
     // номер заказа — срез по project_site из 1С (02.09.2026)
-    { to: '/sites', icon: IconAntenna, label: 'Объекты', module: 'orders' },
+    { to: '/sites', icon: IconStack2, label: 'Проекты', module: 'orders' },
     { to: '/production/kanban', icon: IconHammer, label: 'Цех', module: 'production' },
     // Подряд стал самостоятельным потоком (26.08.2026): заявка партией →
     // пачкой в Б24 → разнесение по заказам. До сих пор попасть сюда можно

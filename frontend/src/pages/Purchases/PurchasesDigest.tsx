@@ -52,6 +52,52 @@ export function PurchasesDigest({
           суммами перечислены в соседней карточке «Висит больше 30 дней».
           Дважды один список — это и есть шум, на который жаловался
           владелец. Здесь остаётся только сумма долга. */}
+      {/* Порядок: сначала ОТВЕТЫ, потом показатели (04.09.2026).
+          Чередование ответ-показатель-ответ-показатель давало гребёнку
+          из высоких и низких карточек. И по правилу «экран начинается
+          с ответа» первым идёт то, что требует решения, а не итог. */}
+      <DigestCard
+        title="Висит больше 30 дней"
+        tone="warn"
+        icon={<IconClockExclamation aria-hidden size={20} />}
+        value={kpi?.overdue30.amount ?? 0}
+        format={(v) => formatCompactMoney(v)}
+        caption={kpi
+          ? `${kpi.overdue30.docs} документов, из них 90+ дней: ${kpi.overdue30.over90}`
+          : undefined}
+        loading={isLoading}
+        items={unpaid.filter((d) => d.ageDays > 30).slice(0, 4).map((d) => ({
+          id: `old-${d.id}`,
+          label: d.supplier,
+          value: `${d.ageDays} дн`,
+          sub: formatMoney(d.unpaidAmount, d.currency),
+          share: Math.min(1, d.ageDays / 180),
+          onClick: () => openEntity({ kind: 'supplier', id: d.supplierId ?? d.supplier, label: d.supplier }),
+        }))}
+        emptyText="Старых долгов нет"
+      />
+
+      <DigestCard
+        title="Товар не пришёл"
+        tone={kpi && kpi.noReceipt.docs > 0 ? 'warn' : 'ok'}
+        icon={<IconPackageOff aria-hidden size={20} />}
+        value={kpi?.noReceipt.docs ?? 0}
+        format={(v) => Math.round(v).toLocaleString('ru-RU')}
+        caption={kpi
+          ? `из ${kpi.noReceipt.totalDocs} документов · ${kpi.noReceipt.paidDocs} уже оплачены на ${formatMoney(kpi.noReceipt.paidAmount)}`
+          : undefined}
+        loading={isLoading}
+        items={noReceipt.slice(0, 4).map((s) => ({
+          id: `nr-${s.id}`,
+          label: s.name,
+          value: `${s.noReceipt} док.`,
+          sub: `оплачено ${formatMoney(s.paid)} из ${formatMoney(s.total)}`,
+          onClick: () => openEntity({ kind: 'supplier', id: s.id ?? s.name, label: s.name }),
+        }))}
+        emptyText="Всё пришло на склад"
+        action={{ label: 'Очередь закупок', onClick: () => onGoTab('queue') }}
+      />
+
       <DigestCard
         title="Должны поставщикам"
         variant="metric"
@@ -74,29 +120,6 @@ export function PurchasesDigest({
       />
 
       <DigestCard
-        title="Висит больше 30 дней"
-        tone="warn"
-        icon={<IconClockExclamation aria-hidden size={20} />}
-        value={kpi?.overdue30.amount ?? 0}
-        format={(v) => formatCompactMoney(v)}
-        caption={kpi
-          ? `${kpi.overdue30.docs} документов, из них 90+ дней: ${kpi.overdue30.over90}`
-          : undefined}
-        loading={isLoading}
-        items={unpaid.filter((d) => d.ageDays > 30).slice(0, 4).map((d) => ({
-          id: `old-${d.id}`,
-          label: d.supplier,
-          value: `${d.ageDays} дн`,
-          sub: formatMoney(d.unpaidAmount, d.currency),
-          share: Math.min(1, d.ageDays / 180),
-          onClick: () => openEntity({ kind: 'supplier', id: d.supplierId ?? d.supplier, label: d.supplier }),
-        }))}
-        emptyText="Старых долгов нет"
-      />
-
-      {/* Отчёт: сколько потратили. Решения не требует, разрезы — по кнопке
-          в соседней вкладке, поэтому показатель, а не ответ */}
-      <DigestCard
         title="Закуп за 30 дней"
         variant="metric"
         tone="neutral"
@@ -118,27 +141,6 @@ export function PurchasesDigest({
         }))}
         emptyText="Закупок за месяц не было"
         action={{ label: 'Разрезы и графики', onClick: () => onGoTab('dashboard') }}
-      />
-
-      <DigestCard
-        title="Товар не пришёл"
-        tone={kpi && kpi.noReceipt.docs > 0 ? 'warn' : 'ok'}
-        icon={<IconPackageOff aria-hidden size={20} />}
-        value={kpi?.noReceipt.docs ?? 0}
-        format={(v) => Math.round(v).toLocaleString('ru-RU')}
-        caption={kpi
-          ? `из ${kpi.noReceipt.totalDocs} документов · ${kpi.noReceipt.paidDocs} уже оплачены на ${formatMoney(kpi.noReceipt.paidAmount)}`
-          : undefined}
-        loading={isLoading}
-        items={noReceipt.slice(0, 4).map((s) => ({
-          id: `nr-${s.id}`,
-          label: s.name,
-          value: `${s.noReceipt} док.`,
-          sub: `оплачено ${formatMoney(s.paid)} из ${formatMoney(s.total)}`,
-          onClick: () => openEntity({ kind: 'supplier', id: s.id ?? s.name, label: s.name }),
-        }))}
-        emptyText="Всё пришло на склад"
-        action={{ label: 'Очередь закупок', onClick: () => onGoTab('queue') }}
       />
     </DigestGrid>
   );

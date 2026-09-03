@@ -95,9 +95,16 @@ export const designAdapter: AxiosAdapter = async (config: InternalAxiosRequestCo
   //
   // Код задаётся через &failStatus (по умолчанию 500); GET не трогаем,
   // иначе разделы просто не наполнятся.
-  const fail = new URLSearchParams(window.location.search).get('fail');
-  if (fail && method !== 'GET' && (fail === '*' || path.includes(fail))) {
-    const status = Number(new URLSearchParams(window.location.search).get('failStatus')) || 500;
+  const q = new URLSearchParams(window.location.search);
+  const fail = q.get('fail');
+  // failGet — отдельным флагом: если бы отказы по умолчанию касались и
+  // чтения, раздел вообще не наполнился бы и смотреть было бы нечего.
+  // Но состояние ошибки СПИСКА без этого не увидеть, а именно оно
+  // раньше было неотличимо от «всё хорошо» (04.09.2026).
+  const failGet = q.get('failGet');
+  const target = method === 'GET' ? failGet : fail;
+  if (target && (target === '*' || path.includes(target))) {
+    const status = Number(q.get('failStatus')) || 500;
     const err = new Error(`[design] запрошен отказ ${status} на ${method} ${path}`) as Error & {
       response?: AxiosResponse; config?: InternalAxiosRequestConfig; isAxiosError?: boolean;
     };
