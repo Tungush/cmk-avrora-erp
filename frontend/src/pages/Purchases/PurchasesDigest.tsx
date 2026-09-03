@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { IconCoin, IconClockExclamation, IconTruckDelivery, IconPackageOff } from '@tabler/icons-react';
 import { purchasesApi } from '../../api/purchases';
 import { DigestCard, DigestGrid } from '../../components/Digest';
+import { useEntity } from '../../components/EntityRef';
 import { formatMoney, formatCompactMoney, formatDate } from '../../utils/formatters';
 
 /**
@@ -50,9 +51,9 @@ export function PurchasesDigest({
         loading={isLoading}
         items={unpaid.slice(0, 4).map((d) => ({
           id: d.id,
-          label: `${d.supplier} · ${d.doNumber}`,
-          value: `${formatMoney(d.unpaidAmount)} ${d.currency === 'KZT' ? '₸' : d.currency}`,
-          sub: `${d.ageDays} дн с ${formatDate(d.doDate)}`,
+          label: d.supplier,
+          value: formatMoney(d.unpaidAmount, d.currency),
+          sub: `${d.doNumber} · ${d.ageDays} дн с ${formatDate(d.doDate)}`,
           share: d.unpaidAmount / maxUnpaid,
           onClick: () => onOpenRegistry({ unpaid: 'true' }),
         }))}
@@ -72,9 +73,9 @@ export function PurchasesDigest({
         loading={isLoading}
         items={unpaid.filter((d) => d.ageDays > 30).slice(0, 4).map((d) => ({
           id: `old-${d.id}`,
-          label: `${d.supplier} · ${d.doNumber}`,
+          label: d.supplier,
           value: `${d.ageDays} дн`,
-          sub: `${formatMoney(d.unpaidAmount)} ${d.currency === 'KZT' ? '₸' : d.currency}`,
+          sub: formatMoney(d.unpaidAmount, d.currency),
           share: Math.min(1, d.ageDays / 180),
         }))}
         emptyText="Старых долгов нет"
@@ -94,7 +95,7 @@ export function PurchasesDigest({
         items={[...suppliers].sort((a, b) => b.total - a.total).slice(0, 4).map((s) => ({
           id: s.id,
           label: s.name,
-          value: `${formatMoney(s.total)} ₸`,
+          value: formatMoney(s.total),
           sub: `${s.docs} документов · последний ${formatDate(s.lastDate)}`,
           share: s.total / maxSupplier,
           onClick: () => onOpenRegistry({ supplierId: s.id }),
@@ -110,14 +111,14 @@ export function PurchasesDigest({
         value={kpi?.noReceipt.docs ?? 0}
         format={(v) => Math.round(v).toLocaleString('ru-RU')}
         caption={kpi
-          ? `из ${kpi.noReceipt.totalDocs} документов · ${kpi.noReceipt.paidDocs} уже оплачены на ${formatMoney(kpi.noReceipt.paidAmount)} ₸`
+          ? `из ${kpi.noReceipt.totalDocs} документов · ${kpi.noReceipt.paidDocs} уже оплачены на ${formatMoney(kpi.noReceipt.paidAmount)}`
           : undefined}
         loading={isLoading}
         items={noReceipt.slice(0, 4).map((s) => ({
           id: `nr-${s.id}`,
           label: s.name,
           value: `${s.noReceipt} док.`,
-          sub: `оплачено ${formatMoney(s.paid)} ₸ из ${formatMoney(s.total)} ₸`,
+          sub: `оплачено ${formatMoney(s.paid)} из ${formatMoney(s.total)}`,
           onClick: () => onOpenRegistry({ supplierId: s.id }),
         }))}
         emptyText="Всё пришло на склад"

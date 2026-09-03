@@ -12,6 +12,7 @@ import { SPRING, useMotionOff } from '../motion';
 import { AuroraCanvas } from '../Aurora';
 import { LoadBar } from './LoadBar';
 import { SectionErrorBoundary } from '../ErrorBoundary';
+import { EntityProvider } from '../EntityRef';
 
 export const NAV_WIDTH = 260;
 export const NAV_RAIL_WIDTH = 76;
@@ -61,6 +62,9 @@ export function Layout() {
     // и тоже открывает карточку заказа
     <OrderCardProvider>
     <ReceiptCardProvider>
+    {/* Провайдер сущностей — НАД оболочкой: карточку материала или
+        заказчика открывают из любого раздела и из шторки заказа тоже */}
+    <EntityProvider>
     <AuroraCanvas />
     <AppShell
       header={{ height: 64 }}
@@ -102,6 +106,7 @@ export function Layout() {
         </Box>
       </AppShell.Main>
     </AppShell>
+    </EntityProvider>
     </ReceiptCardProvider>
     </OrderCardProvider>
   );

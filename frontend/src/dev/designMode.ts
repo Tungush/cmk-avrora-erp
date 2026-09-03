@@ -70,9 +70,17 @@ export const designAdapter: AxiosAdapter = async (config: InternalAxiosRequestCo
   // быть видны дизайнеру так же, как пользователю
   await new Promise((r) => setTimeout(r, 120 + (path.length % 5) * 40));
 
-  const data = route
-    ? route.handler({ path, params, body })
-    : { data: [], meta: { total: 0, page: 1, pageSize: Number(params.get('pageSize') ?? 25) } };
+  // Заглушка для маршрута без фикстуры должна подходить обеим формам
+  // ответа: одни экраны ждут голый массив (`items.slice`), другие —
+  // конверт `{data, meta}`. Массив с дополнительными полями устраивает
+  // и тех и других, и раздел показывает пустое состояние вместо падения
+  // (03.09.2026).
+  const empty = Object.assign([] as unknown[], {
+    data: [] as unknown[],
+    meta: { total: 0, page: 1, pageSize: Number(params.get('pageSize') ?? 25) },
+    totals: {},
+  });
+  const data = route ? route.handler({ path, params, body }) : empty;
   if (!route && import.meta.env.DEV) {
     // Видно в консоли, каких фикстур не хватает — это и есть список работ
     console.info(`[design] нет фикстуры: ${method} ${path}`);

@@ -1,76 +1,89 @@
 /* ===============================================================
    ЦМК АВРОРА — визуальная система
-   Референс владельца: Behance «Callivio — CRM SaaS UX/UI Design»
-   (Rondesign, 2025). Значения взяты с их же страницы «Typography & Color»:
 
-     #82ADD4 голубой   · #DDFD2C кислотный жёлтый
-     #F0F0ED серый фон · #FFFFFF белый · #000000 чёрный
-     Urbanist: Heading 30 / Subheading 20 / Body 15
+   Палитра задана владельцем 03.09.2026 (референс Exteta), ровно эти hex:
 
-   Язык поверхностей: тёплый светло-серый холст, белые карточки без
-   обводок с крупным скруглением, крупные ЛЁГКИЕ числа с мелкой единицей
-   рядом, тонкие волосяные разделители. Голубой — большая плоская панель,
-   жёлтый — маркер: маленькие пилюли и подсветка одного столбца в графике.
-   Действие — чёрная пилюля.
+     #EAE7DC кремовый холст   · #D8C3A5 бежевая панель
+     #8E8D8A тёплый серый     · #E98074 коралл  · #E85A4F терракота
 
-   Две вынужденные замены:
-   1. Шрифт. В Urbanist только latin и latin-ext — кириллицы нет вовсе
-      (проверено по пакету), русский текст свалился бы на системный.
-      Onest: та же геометрия и открытые формы, кириллица родная.
-   2. Цвета состояний. У референса их нет — это маркетинговая палитра
-      из пяти цветов. «Просрочено» и «готово» пришлось завести самим,
-      приглушив их под общий тон.
+   Схема тёплая и низкоконтрастная — на неё можно смотреть весь день.
+   Кремовый холст, белые карточки, бежевая плоская панель вместо цветной
+   заливки, коралл и терракота — только там, где нужно внимание.
+
+   Что пришлось добавить, потому что референс этого не даёт:
+   1. Чернила. В палитре нет тёмного цвета для текста. Взят тёплый уголь
+      #33312C — он из той же тёплой семьи и даёт 10:1 на кремовом.
+   2. Читаемые варианты цветов. #8E8D8A как текст даёт всего 2,6:1 на
+      кремовом — им рисуются только линии и иконки, а вторичный текст
+      идёт цветом #66625A (4,7:1). Терракота текстом — #B8402F (5,6:1).
+   3. «Готово». Зелёного в палитре нет вовсе; взята тёплая олива #7D8A5C,
+      чтобы состояние не выпадало из семьи.
+
+   Шрифт Onest: у Urbanist из прежнего референса нет кириллицы.
    =============================================================== */
 
 :root {
-  /* --- Палитра референса, ровно те hex --- */
-  --c-blue: #82ADD4;        /* большая плоская панель, спокойный акцент */
-  --c-blue-ink: #4E7FA8;    /* тот же голубой, читаемый как текст */
-  --c-blue-deep: #2E5E88;
-  --c-yellow: #DDFD2C;      /* маркер: пилюли, подсветка, тонкие полосы */
-  --c-yellow-ink: #6E8500;  /* жёлтый нечитаем текстом — вот его тёмный брат */
-  --c-black: #000000;
-  --c-gray: #F0F0ED;
+  /* --- Палитра владельца, ровно те hex --- */
+  --c-cream: #EAE7DC;       /* холст */
+  --c-beige: #D8C3A5;       /* большая плоская панель */
+  --c-warm-gray: #8E8D8A;   /* линии, иконки, тихие подписи */
+  --c-coral: #E98074;       /* мягкое внимание: заливки, полосы */
+  --c-terra: #E85A4F;       /* сильное внимание: просрочка, акцент */
+  --c-terra-ink: #B8402F;   /* терракота, читаемая текстом (5,6:1) */
 
-  /* --- Состояния (заведены нами, референс их не даёт) --- */
-  --c-ok: #5F8C5A;
-  --c-ok-ink: #46703F;
-  --c-danger: #D6452F;
-  --c-danger-ink: #B33A26;
+  /* --- Добавлено нами: чернила и «готово» --- */
+  --c-black: #33312C;       /* тёплый уголь вместо чёрного */
+  --c-ok: #7D8A5C;
+  --c-ok-ink: #5E6B41;
+  --c-danger: var(--c-terra);
+  --c-danger-ink: var(--c-terra-ink);
 
   /* --- Роли (имена сохранены с прошлой системы, чтобы не ломать разметку) --- */
-  --ref-coral: var(--c-blue-ink);      /* текстовый акцент: коды, ссылки */
-  --ref-coral-ink: var(--c-blue-ink);
+  /* «Голубой» больше не голубой: это роль большой плоской панели, её
+     теперь держит беж. Имя оставлено, чтобы не переписывать всю разметку */
+  --c-blue: var(--c-beige);
+  --c-blue-ink: var(--c-terra-ink);
+  --c-blue-deep: #9C8A6E;
+  --c-blue-wash: #F3EDE2;
+  --c-amber: var(--c-coral);
+  --c-amber-ink: var(--c-terra-ink);
+  --c-amber-wash: #FBEEEA;
+  --c-yellow: var(--c-coral);
+  --c-yellow-ink: var(--c-terra-ink);
+  --c-gray: var(--c-cream);
+
+  --ref-coral: var(--c-terra-ink);     /* текстовый акцент: коды, ссылки */
+  --ref-coral-ink: var(--c-terra-ink);
   --ref-green: var(--c-ok);
   --ref-green-ink: var(--c-ok-ink);
-  --ref-amber: var(--c-yellow);
-  --ref-amber-ink: var(--c-yellow-ink);
-  --ref-blue: var(--c-blue);
-  --ref-blue-ink: var(--c-blue-ink);
-  --ref-pink: var(--c-danger);
-  --ref-clay: #C9C9C2;
-  --ref-ink: #000000;
-  --ref-muted: #8A8A85;
-  --ref-orange: var(--c-yellow);
+  --ref-amber: var(--c-coral);
+  --ref-amber-ink: var(--c-terra-ink);
+  --ref-blue: var(--c-beige);
+  --ref-blue-ink: var(--c-terra-ink);
+  --ref-pink: var(--c-terra);
+  --ref-clay: var(--c-beige);
+  --ref-ink: #33312C;
+  --ref-muted: #66625A;     /* вторичный текст, 4,7:1 на кремовом */
+  --ref-orange: var(--c-terra);
 
-  /* Поверхности: холст тёплый светло-серый, карточка белая, обводок нет */
-  --ref-canvas: #F0F0ED;
+  /* Поверхности: кремовый холст, белые карточки, тёплые линии */
+  --ref-canvas: #EAE7DC;
   --ref-surface: #FFFFFF;
-  --ref-surface-sub: #F7F7F4;
-  --ref-line: #E6E6E2;
+  --ref-surface-sub: #F5F2E9;
+  --ref-line: #DCD7C9;
 
-  /* Подложка под сводками — бледный голубой градиент референса */
-  --wash-green: linear-gradient(160deg, rgba(130, 173, 212, 0.16) 0%, rgba(130, 173, 212, 0.04) 46%, rgba(255,255,255,0) 78%);
+  /* Подложка под сводками — бежевый уход в прозрачность */
+  --wash-green: linear-gradient(160deg, rgba(216, 195, 165, 0.34) 0%, rgba(216, 195, 165, 0.10) 46%, rgba(255,255,255,0) 78%);
 
-  /* Скругления референса: карточка 20, плитка 16, пилюля 12 */
+  /* Скругления: карточка 20, плитка 16, пилюля 12 */
   --ref-r-card: 20px;
   --ref-r-tile: 16px;
   --ref-r-chip: 12px;
 
-  /* Тени почти нет: карточки держатся на цвете, а не на объёме */
-  --ref-sh: 0 1px 2px rgba(0, 0, 0, 0.02), 0 10px 26px -18px rgba(0, 0, 0, 0.16);
-  --ref-sh-hover: 0 2px 6px rgba(0, 0, 0, 0.04), 0 20px 40px -22px rgba(0, 0, 0, 0.24);
-  --ref-sh-pill: 0 6px 16px -8px rgba(0, 0, 0, 0.45);
+  /* Тени тёплые и почти незаметные */
+  --ref-sh: 0 1px 2px rgba(51, 49, 44, 0.03), 0 10px 26px -18px rgba(51, 49, 44, 0.18);
+  --ref-sh-hover: 0 2px 6px rgba(51, 49, 44, 0.05), 0 20px 40px -22px rgba(51, 49, 44, 0.24);
+  --ref-sh-pill: 0 6px 16px -8px rgba(51, 49, 44, 0.34);
 
   /* Позиция курсора — пишет один обработчик, React не перерисовывается */
   --mx: 50%;
@@ -92,7 +105,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   width: 38vmax; height: 38vmax;
   margin-left: -19vmax; margin-top: -19vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(130, 173, 212, 0.20), transparent 62%);
+  background: radial-gradient(circle, rgba(216, 195, 165, 0.20), transparent 62%);
   filter: blur(60px);
   transform: translate3d(var(--cursor-x, 50vw), var(--cursor-y, 40vh), 0);
   will-change: transform;
@@ -142,7 +155,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   position: absolute; inset: 0;
   border-radius: inherit;
   background: radial-gradient(420px circle at var(--mx) var(--my),
-    rgba(130, 173, 212, 0.16), transparent 62%);
+    rgba(216, 195, 165, 0.16), transparent 62%);
   opacity: 0;
   transition: opacity .35s var(--ease-out);
   pointer-events: none;
@@ -234,7 +247,7 @@ a:hover > .mantine-Card-root,
 .live-pill::before {
   content: ''; width: 7px; height: 7px; border-radius: 50%;
   background: var(--c-green);
-  box-shadow: 0 0 0 3px rgba(95, 140, 90, 0.26);
+  box-shadow: 0 0 0 3px rgba(125, 138, 92, 0.26);
 }
 
 /* Круглые кнопки-иконки в шапке — ряд кружков из макета */
@@ -304,7 +317,7 @@ a:hover > .mantine-Card-root,
 .mantine-PasswordInput-input:focus-within {
   background: var(--ref-surface);
   border-color: rgba(78, 127, 168, 0.55);
-  box-shadow: 0 0 0 3px rgba(130, 173, 212, 0.22);
+  box-shadow: 0 0 0 3px rgba(216, 195, 165, 0.22);
 }
 
 /* ---------------------------------------------------------------
@@ -398,10 +411,10 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
   color: var(--ref-ink);
 }
-.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(221, 253, 44, 0.30); border-color: transparent; color: var(--ref-coral-ink); }
-.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(95, 140, 90, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
-.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(221, 253, 44, 0.4); border-color: transparent; color: var(--ref-amber-ink); }
-.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(221, 253, 44, 0.30); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(125, 138, 92, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(233, 128, 116, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
+.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
 
 /* ---------------------------------------------------------------
    8. Экран входа: тёмная сцена, стеклянная панель, свет за курсором
@@ -445,7 +458,7 @@ a:hover > .mantine-Card-root,
   position: absolute;
   inset: auto -10% -25% -20%;
   height: 62%;
-  background: radial-gradient(ellipse at 28% 100%, rgba(221, 253, 44, 0.5), transparent 62%);
+  background: radial-gradient(ellipse at 28% 100%, rgba(233, 128, 116, 0.38), transparent 62%);
   pointer-events: none;
 }
 .login-hero__text { position: relative; z-index: 2; max-width: 500px; }
@@ -472,12 +485,12 @@ a:hover > .mantine-Card-root,
 .login-scene__glow { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; will-change: transform; }
 .login-scene__glow--a {
   width: 54vmax; height: 54vmax; top: -22vmax; right: -18vmax;
-  background: radial-gradient(circle, rgba(130, 173, 212, 0.30), transparent 62%);
+  background: radial-gradient(circle, rgba(216, 195, 165, 0.30), transparent 62%);
   animation: aurora-drift-a 24s ease-in-out infinite;
 }
 .login-scene__glow--b {
   width: 40vmax; height: 40vmax; bottom: -18vmax; right: 12vw;
-  background: radial-gradient(circle, rgba(221, 253, 44, 0.28), transparent 60%);
+  background: radial-gradient(circle, rgba(233, 128, 116, 0.24), transparent 60%);
   animation: aurora-drift-b 30s ease-in-out infinite;
 }
 .login-scene__glow--c { display: none; }
@@ -515,7 +528,7 @@ a:hover > .mantine-Card-root,
   content: '';
   position: absolute; inset: 0;
   border-radius: inherit;
-  background: radial-gradient(460px circle at var(--mx) var(--my), rgba(130, 173, 212, 0.16), transparent 62%);
+  background: radial-gradient(460px circle at var(--mx) var(--my), rgba(216, 195, 165, 0.16), transparent 62%);
   opacity: 0;
   transition: opacity .35s var(--ease-out);
   pointer-events: none;
@@ -587,7 +600,7 @@ a:hover > .mantine-Card-root,
   border-bottom: 1px solid var(--ref-line);
   transition: background-color .15s var(--ease-out);
 }
-.worklist__row[data-done='true'] { background: rgba(95, 140, 90, 0.07); }
+.worklist__row[data-done='true'] { background: rgba(125, 138, 92, 0.07); }
 .worklist__row[data-done='true'] .worklist__name { color: var(--ref-muted); }
 .worklist__head {
   display: grid;
@@ -621,9 +634,9 @@ a:hover > .mantine-Card-root,
 /* Значки состояний: «просрочено» — приглушённый кирпичный, «внимание» —
    кислотный маркер референса с чёрным текстом */
 .worklist__chip[data-tone='danger'] {
-  background: rgba(214, 69, 47, 0.10);
+  background: rgba(232, 90, 79, 0.10);
   color: var(--c-danger-ink);
-  border-color: rgba(214, 69, 47, 0.22);
+  border-color: rgba(232, 90, 79, 0.22);
 }
 .worklist__chip[data-tone='warn'] {
   background: var(--c-yellow);
@@ -841,8 +854,8 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(221, 253, 44, 0.36); }
-.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(95,140,90,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
+.site-card[data-state='overdue'] { border-color: rgba(232, 90, 79, 0.34); }
+.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(125,138,92,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
@@ -897,9 +910,9 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(221, 253, 44, 0.36); }
+.site-card[data-state='overdue'] { border-color: rgba(232, 90, 79, 0.34); }
 .site-card[data-state='done'] {
-  background: linear-gradient(160deg, rgba(95, 140, 90, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
+  background: linear-gradient(160deg, rgba(125, 138, 92, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -942,8 +955,8 @@ a:hover > .mantine-Card-root,
   grid-template-columns: minmax(0, 1fr) 92px 44px 92px 104px;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
-  min-height: 42px;
+  padding: 7px 12px;
+  min-height: 46px;
   border-bottom: 1px solid var(--ref-line);
 }
 .bom-list[data-editable='true'] .bom-row { grid-template-columns: minmax(0, 1fr) 92px 44px 92px 104px 30px; }
@@ -958,7 +971,19 @@ a:hover > .mantine-Card-root,
   color: var(--ref-muted);
 }
 .bom-row--head span:not(:first-child) { text-align: right; }
-.bom-row__mat { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+/* Код и название — в столбик: название получает всю ширину колонки и
+   переносится на вторую строку вместо многоточия (03.09.2026) */
+.bom-row__mat { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.bom-row__name {
+  font-size: 13px;
+  line-height: 1.32;
+  color: var(--ref-ink);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
 .bom-row__num {
   font-family: var(--ff-num);
   font-size: 13px;
@@ -1040,14 +1065,26 @@ a:hover > .mantine-Card-root,
 }
 .digest-item:disabled { cursor: default; }
 .digest-item:not(:disabled):hover .digest-item__label { color: var(--ref-coral-ink); }
+/* Имя виновника переносится на вторую строку, а не обрывается многоточием:
+   «Металлобаза Астана, ТОО» и «Avrora Global trade, ТОО» в одну строку не
+   влезают, а по обрубку поставщика не узнать (03.09.2026) */
 .digest-item__label {
   font-size: 13px;
   font-weight: 600;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  line-height: 1.3;
+  transition: color .15s var(--ease-out);
+}
+.digest-item__value { align-self: start; }
+.digest-item__sub {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  min-width: 0;
-  transition: color .15s var(--ease-out);
 }
 .digest-item__value { font-family: var(--ff-num); font-size: 13px; font-weight: 700; white-space: nowrap; }
 .digest-item__sub { grid-column: 1 / -1; font-size: 11px; color: var(--ref-muted); }
@@ -1195,7 +1232,7 @@ a:hover > .mantine-Card-root,
 .mantine-Skeleton-root::after {
   background: linear-gradient(90deg,
     var(--ref-surface-sub) 0%,
-    rgba(130, 173, 212, 0.12) 45%,
+    rgba(216, 195, 165, 0.12) 45%,
     var(--ref-surface-sub) 90%) !important;
   background-size: 200% 100% !important;
   animation: skeleton-sweep 1.4s ease-in-out infinite !important;
@@ -1267,7 +1304,12 @@ a:hover > .mantine-Card-root,
   letter-spacing: -0.035em;
 }
 /* Страховка на случай длинной строки: число не вылезает из карточки */
-.digest-card__value { font-size: 28px; overflow: hidden; text-overflow: ellipsis; }
+.digest-card__value {
+  font-size: 28px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
 .page-title, .login-title { font-weight: 300 !important; letter-spacing: -0.03em; }
 h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 
@@ -1349,3 +1391,114 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 .section-crash__title { font-size: 20px; font-weight: 400; letter-spacing: -0.02em; }
 .section-crash__msg { font-family: var(--ff-num); font-size: 13px; color: var(--ref-muted); white-space: pre-wrap; }
+
+/* ---------------------------------------------------------------
+   13. Страховка от вылезающего текста (03.09.2026)
+   Владелец: «во многих местах цифры уходят за край, текст тоже».
+   Причина одна и та же: элемент внутри flex/grid по умолчанию не может
+   стать уже своего содержимого (min-width: auto), поэтому длинное имя
+   заказчика или сумма из девяти цифр распирают строку наружу.
+   --------------------------------------------------------------- */
+
+.mantine-Group-root > *,
+.mantine-Stack-root > *,
+.mantine-Card-root > *,
+.mantine-Table-td > *,
+.worklist__main > *,
+.digest-card__head > * { min-width: 0; }
+
+/* Ячейки таблиц: длинное название переносится, а не растягивает колонку */
+.mantine-Table-td, .mantine-Table-th { overflow-wrap: anywhere; }
+
+/* Числа и суммы не переносятся по разрядам, но и не выходят за край */
+[class*='__value'], [class*='__qty'], [class*='__sum'], .kpi-value {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------------------------------------------------------------
+   14. Сквозная связанность: ссылки на сущности и карточка-шторка
+   (03.09.2026, «всё в сервисе должно быть кликабельно»)
+   --------------------------------------------------------------- */
+
+.ent-ref {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color .14s var(--ease-out), border-color .14s var(--ease-out);
+}
+/* Код (артикул, материал, номер) — цветом акцента */
+.ent-ref--code { color: var(--c-blue-ink); }
+.ent-ref--code:hover { color: var(--c-blue-deep); }
+/* Имя — обычный текст с пунктиром: видно, что можно нажать, но не пестрит */
+.ent-ref--text {
+  color: inherit;
+  border-bottom: 1px dashed var(--ref-line);
+}
+.ent-ref--text:hover { color: var(--c-blue-ink); border-bottom-color: var(--c-blue); }
+.ent-ref:focus-visible {
+  outline: 2px solid var(--c-blue);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Числа в шапке карточки */
+.ent-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px 18px;
+  padding: 14px 16px;
+  border-radius: var(--ref-r-tile);
+  background: var(--ref-surface-sub);
+}
+.ent-stat__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ref-muted);
+  margin-bottom: 2px;
+}
+.ent-stat__value {
+  font-family: var(--ff-num);
+  font-size: 19px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Список связей: каждая строка ведёт к своей сущности */
+.ent-list { display: flex; flex-direction: column; }
+.ent-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 14px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-top: 1px solid var(--ref-line);
+}
+.ent-row:first-child { border-top: none; }
+.ent-row__sub {
+  font-size: 12px;
+  color: var(--ref-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ent-row__value {
+  font-family: var(--ff-num);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

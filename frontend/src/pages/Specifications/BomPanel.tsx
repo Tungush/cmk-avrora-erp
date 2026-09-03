@@ -10,6 +10,7 @@ import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { Ref } from '../../components/EntityRef';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -56,11 +57,22 @@ function BomRow({
 
   return (
     <div className="bom-row">
+      {/* Название материала переносится на две строки, а не обрывается:
+          «Кран мостовой однобалочный подвесной электрический г/п 3,2 тн» в
+          одну строку не влезает, и по обрубку материал не узнать
+          (03.09.2026, отклик владельца «материалы не полностью прочитать»).
+          Код ведёт в карточку материала — остаток, цена, движения */}
       <div className="bom-row__mat">
-        <span className="worklist__code">{item.material?.materialCode ?? '—'}</span>
-        <span className="worklist__name" title={item.material?.name ?? ''}>
-          {item.material?.name ?? '—'}
-        </span>
+        <Ref
+          kind="material"
+          id={item.materialId ?? item.material?.id}
+          label={item.material?.name}
+          tone="code"
+          size="sm"
+        >
+          {item.material?.materialCode ?? '—'}
+        </Ref>
+        <span className="bom-row__name">{item.material?.name ?? '—'}</span>
       </div>
 
       {canEdit ? (
