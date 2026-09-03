@@ -15,7 +15,7 @@
       #33312C — он из той же тёплой семьи и даёт 10:1 на кремовом.
    2. Читаемые варианты цветов. #8E8D8A как текст даёт всего 2,6:1 на
       кремовом — им рисуются только линии и иконки, а вторичный текст
-      идёт цветом #66625A (4,7:1). Терракота текстом — #B8402F (5,6:1).
+      идёт цветом #66625A (4,7:1). Терракота текстом — #AD3828 (5,6:1).
    3. «Готово». Зелёного в палитре нет вовсе; взята тёплая олива #7D8A5C,
       чтобы состояние не выпадало из семьи.
 
@@ -29,12 +29,12 @@
   --c-warm-gray: #8E8D8A;   /* линии, иконки, тихие подписи */
   --c-coral: #E98074;       /* мягкое внимание: заливки, полосы */
   --c-terra: #E85A4F;       /* сильное внимание: просрочка, акцент */
-  --c-terra-ink: #B8402F;   /* терракота, читаемая текстом (5,6:1) */
+  --c-terra-ink: #AD3828;   /* терракота, читаемая текстом (5,6:1) */
 
   /* --- Добавлено нами: чернила и «готово» --- */
   --c-black: #33312C;       /* тёплый уголь вместо чёрного */
-  --c-ok: #7D8A5C;
-  --c-ok-ink: #5E6B41;
+  --c-ok: #4A5D3A;
+  --c-ok-ink: #3A4A2D;
   --c-danger: var(--c-terra);
   --c-danger-ink: var(--c-terra-ink);
 
@@ -247,7 +247,7 @@ a:hover > .mantine-Card-root,
 .live-pill::before {
   content: ''; width: 7px; height: 7px; border-radius: 50%;
   background: var(--c-green);
-  box-shadow: 0 0 0 3px rgba(125, 138, 92, 0.26);
+  box-shadow: 0 0 0 3px rgba(74, 93, 58, 0.26);
 }
 
 /* Круглые кнопки-иконки в шапке — ряд кружков из макета */
@@ -412,7 +412,7 @@ a:hover > .mantine-Card-root,
   color: var(--ref-ink);
 }
 .pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
-.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(125, 138, 92, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(74, 93, 58, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
 .pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(233, 128, 116, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
 .pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
 
@@ -600,7 +600,7 @@ a:hover > .mantine-Card-root,
   border-bottom: 1px solid var(--ref-line);
   transition: background-color .15s var(--ease-out);
 }
-.worklist__row[data-done='true'] { background: rgba(125, 138, 92, 0.07); }
+.worklist__row[data-done='true'] { background: rgba(74, 93, 58, 0.07); }
 .worklist__row[data-done='true'] .worklist__name { color: var(--ref-muted); }
 .worklist__head {
   display: grid;
@@ -855,7 +855,7 @@ a:hover > .mantine-Card-root,
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
 .site-card[data-state='overdue'] { border-color: rgba(232, 90, 79, 0.34); }
-.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(125,138,92,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
+.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(74,93,58,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
@@ -912,7 +912,7 @@ a:hover > .mantine-Card-root,
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
 .site-card[data-state='overdue'] { border-color: rgba(232, 90, 79, 0.34); }
 .site-card[data-state='done'] {
-  background: linear-gradient(160deg, rgba(125, 138, 92, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
+  background: linear-gradient(160deg, rgba(74, 93, 58, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }

@@ -60,14 +60,14 @@ h1, h2, h3, h4, h5, h6, p {
   --gray-5: #8E8D8A; --gray-6: #66625A; --gray-7: #4A473F; --gray-9: #33312C;
 
   /* Акцент — терракота; для текста её тёмный брат */
-  --brand-6: #E85A4F; --brand-7: #B8402F; --brand-0: #FBEEEA;
+  --brand-6: #E85A4F; --brand-7: #AD3828; --brand-0: #FBEEEA;
 
   /* Маркер — коралл */
-  --mark: #E98074; --mark-ink: #B8402F;
+  --mark: #E98074; --mark-ink: #AD3828;
 
   /* Статусы в той же тёплой семье */
-  --ok-6: #7D8A5C;   --ok-0: #F1F3E9;
-  --warn-6: #B8402F; --warn-0: #FBEEEA;
+  --ok-6: #4A5D3A;   --ok-0: #F1F3E9;
+  --warn-6: #AD3828; --warn-0: #FBEEEA;
   --err-6: #E85A4F;  --err-0: #FBEAE8;
   --info-6: #9C8A6E; --info-0: #F3EDE2;
 
@@ -79,7 +79,7 @@ h1, h2, h3, h4, h5, h6, p {
 
   /* Палитра графиков — из той же семьи */
   --chart-cat1: #D8C3A5; --chart-cat2: #E98074;
-  --chart-cat3: #7D8A5C; --chart-cat4: #8E8D8A;
+  --chart-cat3: #4A5D3A; --chart-cat4: #8E8D8A;
   --chart-grid: rgba(51, 49, 44, .10);
   --chart-tick: #66625A;
 
