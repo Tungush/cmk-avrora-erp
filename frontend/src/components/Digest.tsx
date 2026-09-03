@@ -45,6 +45,22 @@ export interface DigestCardProps {
   /** Подпись под числом: «₸ по 34 заказам» */
   caption?: string;
   tone?: DigestTone;
+  /**
+   * Что это за карточка (04.09.2026).
+   *
+   * `answer` — ОТВЕТ раздела: крупное число, виновники списком, кнопка
+   * действия. Тяжёлая по высоте, поэтому уместна только там, где человек
+   * пришёл принимать решение.
+   *
+   * `metric` — ПОКАЗАТЕЛЬ: подпись, число, пояснение. Без списка, без
+   * полос и без кнопки. Нужен там, где число просто сообщается.
+   *
+   * Разведение появилось потому, что одна тяжёлая карточка применялась
+   * везде: четыре штуки в ряд занимали пол-экрана, и раздел «Закупки»
+   * превращался в стену из тридцати двух чисел, а в реестрах на данные
+   * не оставалось строк. Владелец сказал прямо: «много шума из-за цифр».
+   */
+  variant?: 'answer' | 'metric';
   icon?: React.ReactNode;
   items?: DigestItem[];
   /** Что показать, когда список пуст, — это тоже ответ */
@@ -58,9 +74,10 @@ export function DigestGrid({ children }: { children: React.ReactNode }) {
 }
 
 export function DigestCard({
-  title, value, caption, tone = 'neutral', icon, items, emptyText, action, loading, format,
+  title, value, caption, tone = 'neutral', variant = 'answer',
+  icon, items, emptyText, action, loading, format,
 }: DigestCardProps) {
-  if (loading) return <Skeleton height={230} radius="lg" />;
+  if (loading) return <Skeleton height={variant === 'metric' ? 96 : 230} radius="lg" />;
 
   const list = items ?? [];
   const shown = typeof value === 'number'
@@ -85,7 +102,7 @@ export function DigestCard({
   const effectiveTone: DigestTone = tone === 'brand' && !hasWork ? 'neutral' : tone;
 
   return (
-    <section className="digest-card glass-lit" data-tone={effectiveTone}>
+    <section className="digest-card glass-lit" data-tone={effectiveTone} data-variant={variant}>
       <header className="digest-card__head">
         {icon && <span className="kpi-icon">{icon}</span>}
         <div style={{ minWidth: 0 }}>
@@ -98,6 +115,8 @@ export function DigestCard({
         </div>
       </header>
 
+      {/* Показатель — это только число: ни списка, ни полос, ни кнопки */}
+      {variant === 'answer' && (
       <div className="digest-card__body">
         {list.length === 0 ? (
           <Text size="sm" c="dimmed" ta="center" py="sm">{emptyText ?? 'Ничего не требует внимания'}</Text>
@@ -120,8 +139,9 @@ export function DigestCard({
           </button>
         ))}
       </div>
+      )}
 
-      {action && (
+      {variant === 'answer' && action && (
         <button type="button" className="digest-card__action" onClick={action.onClick}>
           {action.label}
           <IconArrowRight size={16} aria-hidden />

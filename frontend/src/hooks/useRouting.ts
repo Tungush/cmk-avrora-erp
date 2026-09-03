@@ -81,6 +81,15 @@ export function useCosting(articleId: string | null) {
   });
 }
 
+/**
+ * НЕ ИСПОЛЬЗУЕТСЯ с 04.09.2026: поле «Участок» убрано с экрана норм по
+ * решению владельца, ставка участка игнорируется и в расчёте
+ * (backend-go/internal/costing/pure.go, RateForStage).
+ *
+ * Хук и справочник оставлены намеренно: данные в базе на месте, и если
+ * решение отменят, вернуть участки — это снять игнор в Go и вернуть
+ * Select на экран норм. Удалять рабочий код ради чистоты не стоит.
+ */
 export function useWorkCenters() {
   return useQuery({
     queryKey: ['work-centers'],

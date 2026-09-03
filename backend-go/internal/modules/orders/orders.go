@@ -290,7 +290,13 @@ func (h *OrdersHandler) FindAll(c *gin.Context) {
 	if search := strings.TrimSpace(c.Query("search")); search != "" {
 		args = append(args, "%"+search+"%")
 		n := strconv.Itoa(len(args))
+		// project_site добавлен 03.09.2026: раздел «Объекты» группирует
+		// заказы именно по нему (это поле приходит из 1С), а поиск его не
+		// знал — карточка площадки показывала «заказов не найдено» при
+		// десяти живых заказах. order_lines.site_code оставлен: его
+		// заполняют руками, когда в одном заказе несколько БС.
 		where += ` AND (o.order_number ILIKE $` + n + ` OR cu.name ILIKE $` + n +
+			` OR o.project_site ILIKE $` + n +
 			` OR EXISTS (SELECT 1 FROM order_lines ol2 WHERE ol2.order_id = o.id AND ol2.site_code ILIKE $` + n + `))`
 	}
 

@@ -13,7 +13,7 @@ import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
 import { useArticles } from '../../hooks/useCatalog';
 import {
-  useRouting, useCosting, useWorkCenters, useSaveNorm, useSaveActual, usePromoteActual,
+  useRouting, useCosting, useSaveNorm, useSaveActual, usePromoteActual,
   usePreviewNorm, useUsage, useNormHistory, useCostingHistory, useRequestPriceReview,
 } from '../../hooks/useRouting';
 import { useAuthStore } from '../../store/auth';
@@ -192,11 +192,10 @@ function CalcField({ label, value, strong }: { label: string; value: string; str
  * инженер и часто — на главном пути должно быть то, что делают каждый день.
  */
 function StageRow({
-  row, articleId, workCenters,
+  row, articleId,
 }: {
   row: RoutingStageRow;
   articleId: string;
-  workCenters: Array<{ id: string; code: string; name: string; stage: RoutingStageCode; hourlyRate: number }>;
 }) {
   const can = useAuthStore((s) => s.can);
   const canNorm = can('write', 'routing.norm');
@@ -204,7 +203,6 @@ function StageRow({
 
   const [workers, setWorkers] = useState<number | string>(row.workers || '');
   const [hours, setHours] = useState<number | string>(row.hoursPerUnit || '');
-  const [workCenterId, setWorkCenterId] = useState<string | null>(row.workCenter?.id ?? null);
   const [actualWorkers, setActualWorkers] = useState<number | string>(row.actualWorkers ?? '');
   const [actualHours, setActualHours] = useState<number | string>(row.actualHours ?? '');
   const [factOpen, setFactOpen] = useState(false);
@@ -215,21 +213,22 @@ function StageRow({
   const previewNorm = usePreviewNorm(articleId);
   const [preview, setPreview] = useState<CostingPreviewResponse | null>(null);
 
-  const stageCenters = workCenters.filter((wc) => wc.stage === row.stage);
-  const rate = stageCenters.find((wc) => wc.id === workCenterId)?.hourlyRate ?? row.hourlyRate;
+  /* Участок убран 04.09.2026 по решению владельца: «вообще не вижу
+     смысла в нём». Ставка теперь одна — та, что пришла с передела. */
+  const rate = row.hourlyRate;
   const w = Number(workers) || 0;
   const h = Number(hours) || 0;
   const manHours = Math.round(w * h * 1000) / 1000;
   const stageCost = Math.round(manHours * rate * 100) / 100;
 
-  const dirty = w !== row.workers || h !== row.hoursPerUnit || (workCenterId ?? null) !== (row.workCenter?.id ?? null);
+  const dirty = w !== row.workers || h !== row.hoursPerUnit;
   // Имя StageIcon, а не Icon: общий <Icon> из components/Icon.tsx
   // теперь занят системной обёрткой (03.09.2026)
   const StageIcon = STAGE_ICONS[row.stage];
 
   const applyNorm = async () => {
     try {
-      await saveNorm.mutateAsync({ stage: row.stage, workers: w, hoursPerUnit: h, workCenterId: workCenterId ?? undefined });
+      await saveNorm.mutateAsync({ stage: row.stage, workers: w, hoursPerUnit: h });
       setPreview(null);
       notifications.show({ title: 'Норма сохранена', message: `${row.label}: ${w} чел × ${h} ч`, color: 'success', icon: <IconCheck aria-hidden size={16} /> });
     } catch {
@@ -241,7 +240,7 @@ function StageRow({
   const handleSaveNorm = async () => {
     try {
       const p = await previewNorm.mutateAsync({
-        stage: row.stage, workers: w, hoursPerUnit: h, workCenterId: workCenterId ?? undefined,
+        stage: row.stage, workers: w, hoursPerUnit: h,
       });
       setPreview(p);
     } catch {
@@ -280,10 +279,6 @@ function StageRow({
         <NumberInput size="xs" label="Часов на ед." value={hours} onChange={setHours} min={0} step={0.01}
           decimalScale={3} disabled={!canNorm} hideControls placeholder="часов" />
       </Group>
-
-      <Select size="xs" label="Участок" placeholder="Общая ставка" clearable disabled={!canNorm}
-        data={stageCenters.map((wc) => ({ value: wc.id, label: `${wc.name} · ${num(wc.hourlyRate, 0)} ₸` }))}
-        value={workCenterId} onChange={setWorkCenterId} />
 
       {/* Живой пересчёт: цифры меняются, пока набирают норму */}
       <div className="stage-cell__calc">
@@ -365,16 +360,15 @@ function StageRow({
  * мониторе резка, сборка и покраска видны целиком и сразу.
  */
 function StageTable({
-  stages, articleId, workCenters,
+  stages, articleId,
 }: {
   stages: RoutingStageRow[];
   articleId: string;
-  workCenters: Array<{ id: string; code: string; name: string; stage: RoutingStageCode; hourlyRate: number }>;
 }) {
   return (
     <div className="stage-grid">
       {stages.map((row) => (
-        <StageRow key={`${articleId}-${row.stage}`} row={row} articleId={articleId} workCenters={workCenters} />
+        <StageRow key={`${articleId}-${row.stage}`} row={row} articleId={articleId} />
       ))}
     </div>
   );
@@ -812,7 +806,6 @@ export function Specifications() {
   );
 
   const { data: routing, isLoading: routingLoading, refetch } = useRouting(activeId);
-  const { data: workCenters } = useWorkCenters();
 
   const handleSearch = (value: string) => {
     setSearch(value);
@@ -887,7 +880,7 @@ export function Specifications() {
                 {activeArticle.name}
               </Text>
               {noBom && (
-                <span className="worklist__chip" data-tone="danger" style={{ flexShrink: 0 }}>нет состава</span>
+                <span className="worklist__chip" data-tone="danger">нет состава</span>
               )}
             </Group>
           ) : <Skeleton height={28} width={320} radius="sm" mb="xs" />}
@@ -918,7 +911,6 @@ export function Specifications() {
                               <StageTable
                                 stages={routing.stages}
                                 articleId={activeId}
-                                workCenters={workCenters ?? []}
                               />
                             )}
                           <CostStrip articleId={activeId} />

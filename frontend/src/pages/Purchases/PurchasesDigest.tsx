@@ -48,8 +48,13 @@ export function PurchasesDigest({
 
   return (
     <DigestGrid>
+      {/* Итог, а не ответ (04.09.2026): те же четыре поставщика с теми же
+          суммами перечислены в соседней карточке «Висит больше 30 дней».
+          Дважды один список — это и есть шум, на который жаловался
+          владелец. Здесь остаётся только сумма долга. */}
       <DigestCard
         title="Должны поставщикам"
+        variant="metric"
         tone="danger"
         icon={<IconCoin aria-hidden size={20} />}
         value={kpi?.owed.amount ?? 0}
@@ -89,9 +94,12 @@ export function PurchasesDigest({
         emptyText="Старых долгов нет"
       />
 
+      {/* Отчёт: сколько потратили. Решения не требует, разрезы — по кнопке
+          в соседней вкладке, поэтому показатель, а не ответ */}
       <DigestCard
         title="Закуп за 30 дней"
-        tone="brand"
+        variant="metric"
+        tone="neutral"
         icon={<IconTruckDelivery aria-hidden size={20} />}
         value={kpi?.spendMonth.amount ?? 0}
         format={(v) => formatCompactMoney(v)}

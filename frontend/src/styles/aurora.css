@@ -632,6 +632,13 @@ a:hover > .mantine-Card-root,
   background: var(--ref-surface-sub);
   color: var(--ref-muted);
   border: 1px solid var(--ref-line);
+  /* Значок НЕ сжимается (04.09.2026). Без этого во flex-строке он
+     сжимался, а его текст — nowrap — выезжал наружу и налезал поверх
+     номера заказа: «нет состава и норм» ложилось на «Т7АА-002412».
+     Заплатка flexShrink:0 стояла инлайном ровно в одном месте разметки,
+     в общем правиле её не было. Сжиматься в строке должно ИМЯ: у него
+     есть многоточие, у значка — нет. */
+  flex-shrink: 0;
 }
 /* Значки состояний: «просрочено» — приглушённый кирпичный, «внимание» —
    кислотный маркер референса с чёрным текстом */
@@ -658,6 +665,7 @@ a:hover > .mantine-Card-root,
   font-size: 14px;
   color: var(--s-text);
   white-space: nowrap;
+  flex-shrink: 0;
 }
 .worklist__name {
   font-size: 15px;
@@ -667,6 +675,8 @@ a:hover > .mantine-Card-root,
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  /* Единственный гибкий элемент строки: сжимается он, а не значки */
+  flex: 1 1 auto;
 }
 .worklist__meta {
   display: flex;
@@ -1025,6 +1035,11 @@ a:hover > .mantine-Card-root,
   grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
   gap: 12px;
   align-content: start;
+  /* 04.09.2026: карточка занимает свою высоту, а не высоту самой длинной
+     в ряду. До этого сетка растягивала всех до одной высоты, и рядом с
+     ответом на 388 px показатель стоял полупустым — ровно то ощущение
+     пустоты, на которое жаловался владелец. */
+  align-items: start;
 }
 .digest-card {
   display: flex;
@@ -1688,3 +1703,28 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .pulse-row[data-compact] .pulse-tile { width: auto; }
 .pulse-row[data-compact] .pulse-tile .mantine-Group-root { width: auto; flex: 0 0 auto; justify-content: flex-start; }
 .pulse-row[data-compact] .pulse-tile__value { white-space: nowrap; }
+
+/* ---------------------------------------------------------------
+   Показатель против ответа (04.09.2026)
+
+   Одна тяжёлая карточка применялась везде: крупное число, подпись,
+   четыре-пять строк списка, полоса доли и кнопка. Четыре штуки в ряд
+   занимали пол-экрана — «Закупки» превращались в стену из тридцати двух
+   чисел, у директора экран пустовал, в реестрах данным не оставалось
+   строк.
+
+   Теперь ответ остаётся тяжёлым (он и должен быть заметен), а
+   показатель сжат до подписи, числа и пояснения: 96 px вместо 230.
+   Ряд показателей выкладывается по содержимому, а не растягивается на
+   четыре равные колонки — четыре числа не обязаны быть одной ширины.
+   --------------------------------------------------------------- */
+.digest-card[data-variant='metric'] {
+  padding: 14px 16px;
+  min-height: 0;
+}
+.digest-card[data-variant='metric'] .digest-card__head { margin-bottom: 0; align-items: center; }
+.digest-card[data-variant='metric'] .digest-card__value { font-size: 28px; line-height: 1.05; margin-top: 2px; }
+.digest-card[data-variant='metric'] .kpi-icon { width: 34px; height: 34px; }
+.digest-card[data-variant='metric'] .kpi-icon svg { width: 18px; height: 18px; }
+/* Полоса-акцент слева у показателя не нужна: он ничего не требует */
+.digest-card[data-variant='metric']::after { display: none; }
