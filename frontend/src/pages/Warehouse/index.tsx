@@ -19,6 +19,12 @@ import { WarehouseDigest } from './WarehouseDigest';
 import { FadeSwap } from '../../components/motion';
 import { FitScreen } from '../../components/FitScreen';
 import { TextReveal } from '../../components/motion';
+import './Warehouse.css';
+
+/** Обёртка сводки тянется на всю высоту — по ней меряется сетка карточек */
+const FIT_PANE: React.CSSProperties = {
+  flex: 1, minHeight: 0, minWidth: 0, display: 'flex', flexDirection: 'column',
+};
 
 /** Склад сырья — то, из чего делают изделия */
 const RAW = ['METAL', 'HARDWARE', 'COMPONENTS'];
@@ -67,8 +73,11 @@ export function Warehouse() {
         </Tabs.List>
       </Tabs>
 
-      <div className="section-body">
-      <FadeSwap swapKey={tab} style={{ minWidth: 0 }}>
+      {/* Сводка обязана влезать целиком — у неё своя панель без прокрутки
+          (иначе пятая карточка «Перехваты резерва» уезжала под край,
+          03.09.2026). Реестрам прокрутка внутри панели по-прежнему нужна */}
+      <div className={tab === 'digest' ? 'wh-pane' : 'section-body'}>
+      <FadeSwap swapKey={tab} style={tab === 'digest' ? FIT_PANE : { minWidth: 0 }}>
         {tab === 'digest' && <WarehouseDigest onGoTab={setTab} />}
         {tab === 'stock' && <MaterialsStock only={RAW} pageKey="warehouse-stock" />}
         {tab === 'storeroom' && <MaterialsStock only={STOREROOM} pageKey="warehouse-storeroom" />}

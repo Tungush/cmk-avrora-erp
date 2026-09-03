@@ -1,0 +1,51 @@
+/*
+ * Инбокс заказов из 1С (03.09.2026).
+ *
+ * Раньше каждый заказ был карточкой в 106–200 px: девять карточек не
+ * влезали ни в один экран, страница прокручивалась на 814 px, и «принять
+ * в производство» у нижних заказов было не видно. Теперь заказ — строка
+ * постоянной высоты: сколько строк влезло, столько и показано.
+ */
+
+.inbox-list {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.inbox-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  /* Фиксированная высота — то, по чему считается размер страницы */
+  height: var(--inbox-row-h, 92px);
+  padding: 0 16px;
+  border-bottom: 1px solid var(--ref-line);
+  min-width: 0;
+}
+.inbox-row:last-child { border-bottom: 0; }
+
+.inbox-row__main { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.inbox-row__line { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.inbox-row__side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex: 0 0 auto; }
+
+/* Блокер приёма — короткая пилюля: полный текст в подсказке и в title,
+   иначе три абзаца на заказ съедали весь экран */
+.inbox-chip {
+  display: inline-block;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: var(--ref-surface-sub);
+  color: var(--ref-muted);
+  border: 1px solid var(--ref-line);
+}
+.inbox-chip[data-tone='danger'] { color: var(--s-attention); border-color: var(--s-attention); }

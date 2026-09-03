@@ -140,7 +140,10 @@ export function MyWork() {
   if (hasRole(['planner', 'sales_manager', 'admin'])) {
     return (
       <Stack gap="xl">
-        <OrdersInbox />
+        {/* Встроенный вид: рамку «экран = один экран» ставит не инбокс,
+            а хозяйский экран — иначе подряд и ссылки внизу обрезало бы
+            (03.09.2026) */}
+        <OrdersInbox embedded />
 
         <Stack gap="xs">
           <Group gap="sm">

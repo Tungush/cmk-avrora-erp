@@ -24,26 +24,50 @@ const HEAD_H = 42;
  * Возвращает ref на измеряемую область и количество строк.
  */
 export function useFitRows(rowHeight: number = ROW_H, min = 5, max = 60, chrome: number = HEAD_H) {
-  const ref = useRef<HTMLDivElement>(null);
   const [rows, setRows] = useState(min);
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
+
+  // Замер живёт в ref, чтобы callback-ref не пересоздавался при каждом
+  // изменении параметров и не отцеплял наблюдателя
+  const measureRef = useRef<() => void>(() => {});
+  measureRef.current = () => {
+    const el = nodeRef.current;
+    if (!el) return;
+    const n = Math.floor((el.clientHeight - chrome) / rowHeight);
+    setRows((prev) => {
+      const next = Math.max(min, Math.min(max, n));
+      return prev === next ? prev : next;
+    });
+  };
+
+  /**
+   * Ref-функция вместо useRef-объекта (03.09.2026). Прежняя версия ставила
+   * ResizeObserver один раз при монтировании ХУКА: если элемент появлялся
+   * позже — вкладка, условный рендер, ленивая панель — наблюдатель к нему
+   * не приезжал никогда, и список навсегда оставался на минимуме строк.
+   * Ловилось дважды: таблица маржи показывала 3 строки вместо 9, список
+   * прайса — столько же. Теперь наблюдатель цепляется в тот момент, когда
+   * узел реально появился в дереве.
+   */
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    nodeRef.current = node;
+    if (!node) { roRef.current = null; return; }
+    const ro = new ResizeObserver(() => measureRef.current());
+    ro.observe(node);
+    roRef.current = ro;
+    measureRef.current();
+  }, []);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => {
-      const h = el.clientHeight - chrome;
-      const n = Math.floor(h / rowHeight);
-      setRows((prev) => {
-        const next = Math.max(min, Math.min(max, n));
-        return prev === next ? prev : next;
-      });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+    measureRef.current();
+    const onResize = () => measureRef.current();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, [rowHeight, min, max, chrome]);
+
+  useEffect(() => () => { roRef.current?.disconnect(); }, []);
 
   return { ref, rows };
 }
@@ -117,24 +141,39 @@ export function usePageKeys(page: number, totalPages: number, setPage: (p: numbe
  * научились, а плитки продолжали вылезать за нижний край.
  */
 export function useFitGrid(minCardWidth: number, cardHeight: number, gap = 12, min = 2, max = 60) {
-  const ref = useRef<HTMLDivElement>(null);
   const [count, setCount] = useState(min);
+  const nodeRef = useRef<HTMLDivElement | null>(null);
+  const roRef = useRef<ResizeObserver | null>(null);
+
+  const measureRef = useRef<() => void>(() => {});
+  measureRef.current = () => {
+    const el = nodeRef.current;
+    if (!el) return;
+    const cols = Math.max(1, Math.floor((el.clientWidth + gap) / (minCardWidth + gap)));
+    const rows = Math.max(1, Math.floor((el.clientHeight + gap) / (cardHeight + gap)));
+    const next = Math.max(min, Math.min(max, cols * rows));
+    setCount((prev) => (prev === next ? prev : next));
+  };
+
+  /** Та же callback-ref, что и в useFitRows, и по той же причине */
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    nodeRef.current = node;
+    if (!node) { roRef.current = null; return; }
+    const ro = new ResizeObserver(() => measureRef.current());
+    ro.observe(node);
+    roRef.current = ro;
+    measureRef.current();
+  }, []);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const measure = () => {
-      const cols = Math.max(1, Math.floor((el.clientWidth + gap) / (minCardWidth + gap)));
-      const rows = Math.max(1, Math.floor((el.clientHeight + gap) / (cardHeight + gap)));
-      const next = Math.max(min, Math.min(max, cols * rows));
-      setCount((prev) => (prev === next ? prev : next));
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    window.addEventListener('resize', measure);
-    return () => { ro.disconnect(); window.removeEventListener('resize', measure); };
+    measureRef.current();
+    const onResize = () => measureRef.current();
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
   }, [minCardWidth, cardHeight, gap, min, max]);
+
+  useEffect(() => () => { roRef.current?.disconnect(); }, []);
 
   return { ref, count };
 }

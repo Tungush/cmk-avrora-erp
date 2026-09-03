@@ -1,0 +1,42 @@
+/*
+ * Экран директора (03.09.2026).
+ *
+ * Раньше он прокручивался на 936 px: карточка «Требует решения»
+ * начиналась на 302 px ниже сгиба, «Заказчики» — на 564, «Маржа» — на
+ * 1210. Директор открывал систему ради решений, а видел четыре плитки
+ * и пустоту. Теперь плитки — это ещё и переключатель: под ними стоит
+ * ровно один ответ, а не все три сразу.
+ */
+
+/* Список решений: строка постоянной высоты, чтобы шесть пунктов
+   гарантированно влезали и на 1280×800 */
+.dd-decisions { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+
+.dd-decision {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  padding: 0 14px;
+  border-radius: var(--r-md, 10px);
+  background: var(--ref-surface-sub);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color .15s var(--ease-out);
+}
+.dd-decision:hover { background: var(--ref-line); }
+
+/* Тело вкладки: занимает остаток высоты и не прокручивается */
+.dd-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Три денежные карточки в ряд: «должны мы», «должны нам», «просрочено» */
+.dd-money {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+/* Таблица маржи: строк ровно столько, сколько поместилось */
+.dd-margin { flex: 1; min-height: 0; overflow: hidden; }

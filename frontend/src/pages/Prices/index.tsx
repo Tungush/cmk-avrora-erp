@@ -1,24 +1,33 @@
 import React, { useEffect, useState } from 'react';
 import {
   Card, Stack, Text, Table, Skeleton, Group, Button, TextInput,
-  Badge, Modal, Textarea, SegmentedControl,
+  Badge, Modal, Textarea, SegmentedControl, Tabs,
 } from '@mantine/core';
 import { IconSearch, IconCoin, IconCheck } from '@tabler/icons-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
 import { useArticles } from '../../hooks/useCatalog';
+import { usePriceReviews } from '../../hooks/useRouting';
 import { useAuthStore } from '../../store/auth';
 import { PriceReviewsPanel } from '../../components/PriceReviewsPanel';
 import { formatCurrency } from '../../utils/formatters';
-import { TableScroll } from '../../components/TableScroll';
-import { PaginationBar, usePageSize } from '../../components/PaginationBar';
-import { FadeSwap } from '../../components/motion';
+import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { FitScreen, useFitGrid, useFitRows, usePageKeys } from '../../components/FitScreen';
+import { FadeSwap, TextReveal } from '../../components/motion';
 import { MastLoader } from '../../components/Mast';
-import { DigestCard, DigestGrid } from '../../components/Digest';
-import { ViewSwitch } from '../../components/ViewSwitch';
-import { IconRuler2, IconScale, IconAlertTriangle } from '@tabler/icons-react';
+import { DigestCard, type DigestCardProps } from '../../components/Digest';
+import { IconRuler2, IconScale, IconAlertTriangle, IconLayoutGrid, IconList, IconGavel } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
+import './Prices.css';
+
+/** Карточка-ответ: по её размеру считается, сколько их влезло в экран */
+const CARD_MIN_W = 268;
+const CARD_H = 380;
+/** Высота строки прайса: в неё помещается кнопка «Пересмотр цены» */
+const ROW_H = 56;
+
+type View = 'digest' | 'reviews' | 'list';
 
 /**
  * Прайс (28.08.2026). Данные о ценах жили в модели с самого начала, но
@@ -28,28 +37,28 @@ import { useNavigate } from 'react-router-dom';
  *
  * Механика пересмотра НЕ новая: заявка → директор утверждает (аудит и
  * история цен пишутся там же). Эта страница — вход в неё списком.
+ *
+ * 03.09.2026: страница больше не прокручивается. Раньше очередь
+ * «пересмотр цен» (402 px) стояла НАД сводкой и сдвигала все четыре
+ * карточки-ответа за нижний край — директор видел заявки, но не видел
+ * ответа «что вообще с ценами». Теперь это три равноправные вкладки:
+ * сводка (по умолчанию), очередь решений и весь прайс. Ничего не
+ * убрано, всё на расстоянии одного клика.
  */
 export function Prices() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const hasRole = useAuthStore((s) => s.hasRole);
-  const isDirector = hasRole(['director', 'admin']);
+  const can = useAuthStore((s) => s.can);
   const canRequest = hasRole(['engineer', 'accountant', 'sales_manager', 'admin']);
+  const canApprove = can('approve', 'article.price');
 
   const [search, setSearch] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = usePageSize('prices', 25);
   const [scope, setScope] = useState<'priced' | 'all'>('priced');
   // Раздел открывается сводкой: 2 152 строки каталога — не ответ на вопрос
-  const [view, setView] = useState<'digest' | 'list'>('digest');
+  const [view, setView] = useState<View>('digest');
   const [reviewFor, setReviewFor] = useState<any | null>(null);
   const [reason, setReason] = useState('');
-  useEffect(() => { setPage(1); }, [pageSize]);
-
-  const { data, isLoading } = useArticles({
-    search, page, pageSize,
-    ...(scope === 'priced' ? { onlyPriced: true } : {}),
-  });
 
   const digest = useQuery({
     queryKey: ['price-digest'],
@@ -58,6 +67,10 @@ export function Prices() {
       thinnest: Array<{ id: string; articleCode: string; name: string; approvedPrice: string; specPrice: string; deviationPct: string }>;
     }>('/articles/price-digest').then((r) => r.data),
   });
+
+  // Счётчик на вкладке: сколько заявок ждёт решения директора
+  const reviews = usePriceReviews('PENDING');
+  const pendingCount = canApprove ? (reviews.data?.data?.length ?? 0) : 0;
 
   const requestReview = useMutation({
     mutationFn: (articleId: string) =>
@@ -79,50 +92,23 @@ export function Prices() {
     }),
   });
 
-  const rows: any[] = data?.data ?? [];
-  const total = data?.meta?.total ?? 0;
-
-  const deviation = (a: any): number | null => {
-    const appr = Number(a.approvedPrice);
-    const calc = Number(a.specPrice);
-    if (!(appr > 0) || !(calc > 0)) return null;
-    return Math.round(((appr - calc) / calc) * 1000) / 10;
-  };
-
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <Stack gap={4}>
-        <Text component="h1" fw={700} style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
-          Прайс
-        </Text>
-        <Text size="sm" c="dimmed">
-          Утверждённые цены изделий против расчёта по спецификации.
-          Цена меняется только через пересмотр — утверждает директор
-        </Text>
-      </Stack>
-
-      {/* Директор видит очередь заявок прямо здесь, не бегая на дашборд */}
-      {isDirector && <PriceReviewsPanel />}
-
-      <ViewSwitch
-        value={view}
-        onChange={setView}
-        digestLabel="Что с ценами"
-        listLabel="Весь прайс"
-      />
-
-      {view === 'digest' ? (
-        <PriceDigest data={digest.data} loading={digest.isLoading} onList={() => setView('list')}
-          onSpecs={() => navigate('/specs')} />
-      ) : (
-      <>
-      <div className="toolbar-sticky">
-        <Group gap="sm" wrap="wrap" justify="space-between">
-          <Group gap="sm" wrap="wrap">
+  const header = (
+    <Stack gap="sm">
+      <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+        <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
+          <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
+            <TextReveal text="Прайс" />
+          </Text>
+          <Text size="sm" c="dimmed" lineClamp={1}>
+            утверждённые цены против расчёта по спецификации — цена меняется только через пересмотр
+          </Text>
+        </Group>
+        {view === 'list' && (
+          <Group gap="sm" wrap="nowrap">
             <SegmentedControl
               value={scope}
-              onChange={(v) => { setScope(v as 'priced' | 'all'); setPage(1); }}
-              size="sm"
+              onChange={(v) => setScope(v as 'priced' | 'all')}
+              size="xs"
               w="fit-content"
               data={[
                 { value: 'priced', label: 'Прайс-лист' },
@@ -133,23 +119,267 @@ export function Prices() {
               placeholder="Код, название или старый код…"
               leftSection={<IconSearch size={16} />}
               value={search}
-              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-              w={360}
-              style={{ maxWidth: '100%' }}
+              onChange={(e) => setSearch(e.target.value)}
+              size="sm"
+              w={300}
             />
           </Group>
-          <Text size="sm" c="dimmed">
-            Найдено: <Text span fw={700} ff="monospace">{total.toLocaleString('ru-RU')}</Text>
-          </Text>
-        </Group>
-      </div>
+        )}
+      </Group>
 
-      <Card withBorder radius="md" padding={0}>
-        {isLoading ? (
-          <Stack gap={4} p="md">{[...Array(8)].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)}</Stack>
-        ) : (
-          <FadeSwap swapKey={`${scope}:${page}`}>
-            <TableScroll minWidth={780}>
+      <Tabs value={view} onChange={(v) => setView((v ?? 'digest') as View)} radius="md">
+        <Tabs.List>
+          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} />}>Что с ценами</Tabs.Tab>
+          {canApprove && (
+            <Tabs.Tab
+              value="reviews"
+              leftSection={<IconGavel size={15} />}
+              rightSection={pendingCount > 0
+                ? <Badge size="xs" circle variant="filled" color="warning">{pendingCount}</Badge>
+                : undefined}
+            >
+              Пересмотр цен
+            </Tabs.Tab>
+          )}
+          <Tabs.Tab value="list" leftSection={<IconList size={15} />}>Весь прайс</Tabs.Tab>
+        </Tabs.List>
+      </Tabs>
+    </Stack>
+  );
+
+  return (
+    <FitScreen header={header}>
+      {view === 'digest' && (
+        <PriceDigest
+          data={digest.data}
+          loading={digest.isLoading}
+          onList={() => setView('list')}
+          onSpecs={() => navigate('/specs')}
+        />
+      )}
+
+      {/* Очередь решений — длинная по природе: у неё своя прокрутка
+          внутри панели, страница при этом стоит */}
+      {view === 'reviews' && (
+        <div className="section-body">
+          {pendingCount > 0
+            ? <PriceReviewsPanel />
+            : <Text size="sm" c="dimmed">Заявок на пересмотр цены нет — решать нечего.</Text>}
+        </div>
+      )}
+
+      {view === 'list' && (
+        <PriceList
+          search={search}
+          scope={scope}
+          canRequest={canRequest}
+          onReview={setReviewFor}
+        />
+      )}
+
+      <Modal
+        opened={reviewFor !== null}
+        onClose={() => setReviewFor(null)}
+        title={<Text fw={700}>Пересмотр цены: {reviewFor?.articleCode}</Text>}
+        radius="md" centered
+      >
+        {reviewFor && (
+          <Stack gap="md">
+            <Text size="sm" c="dimmed">{reviewFor.name}</Text>
+            <Group gap="xl">
+              <Stack gap={0}>
+                <Text size="xs" c="dimmed">Сейчас в прайсе</Text>
+                <Text fw={700} ff="monospace">
+                  {Number(reviewFor.approvedPrice) > 0 ? formatCurrency(Number(reviewFor.approvedPrice)) : '—'}
+                </Text>
+              </Stack>
+              <Stack gap={0}>
+                <Text size="xs" c="dimmed">Расчёт по спецификации</Text>
+                <Text fw={700} ff="monospace">
+                  {Number(reviewFor.specPrice) > 0 ? formatCurrency(Number(reviewFor.specPrice)) : '—'}
+                </Text>
+              </Stack>
+            </Group>
+            <Textarea
+              label="Почему цену надо пересмотреть"
+              placeholder="подорожал металл, изменился состав…"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              autosize minRows={2}
+            />
+            <Text size="xs" c="dimmed">
+              Новую цену называет директор при утверждении — заявка лишь запускает пересмотр.
+            </Text>
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setReviewFor(null)}>Отмена</Button>
+              <Button loading={requestReview.isPending} onClick={() => requestReview.mutate(reviewFor.id)}>
+                Подать заявку
+              </Button>
+            </Group>
+          </Stack>
+        )}
+      </Modal>
+    </FitScreen>
+  );
+}
+
+/**
+ * Сводка прайса: цена утверждена у 176 изделий из 2 152, а сравнить её
+ * с себестоимостью не с чем — расчёт есть у двух. Это и есть ответ,
+ * ради которого сюда заходят; список остаётся за вкладкой.
+ *
+ * Карточек показываем ровно столько, сколько поместилось: на 1280 px
+ * в ряд встают три, четвёртая уходит на вторую страницу, а не под край.
+ */
+function PriceDigest({
+  data, loading, onList, onSpecs,
+}: {
+  data?: {
+    total: number; priced: number; withSpec: number; comparable: number; belowCost: number;
+    thinnest: Array<{ id: string; articleCode: string; name: string; approvedPrice: string; specPrice: string; deviationPct: string }>;
+  };
+  loading: boolean;
+  onList: () => void;
+  onSpecs: () => void;
+}) {
+  const n = (v: number) => v.toLocaleString('ru-RU');
+  const total = data?.total ?? 0;
+  const priced = data?.priced ?? 0;
+  const withSpec = data?.withSpec ?? 0;
+  const comparable = data?.comparable ?? 0;
+  const noCost = Math.max(0, total - withSpec);
+  const pricedPct = total > 0 ? Math.round((priced / total) * 100) : 0;
+
+  const fit = useFitGrid(CARD_MIN_W, CARD_H, 12, 1, 12);
+
+  const cards: Array<DigestCardProps & { key: string }> = [
+    {
+      key: 'priced',
+      title: 'В прайсе',
+      tone: 'brand',
+      icon: <IconCoin size={19} />,
+      value: priced,
+      format: (v) => Math.round(v).toLocaleString('ru-RU'),
+      caption: `изделий с утверждённой ценой из ${n(total)} · ${pricedPct} % каталога`,
+      loading,
+      emptyText: 'Цена не утверждена ни у одного изделия',
+      action: { label: 'Открыть прайс', onClick: onList },
+    },
+    {
+      key: 'comparable',
+      title: 'Не с чем сравнить',
+      tone: comparable === 0 ? 'warn' : 'ok',
+      icon: <IconScale size={19} />,
+      value: comparable,
+      format: (v) => Math.round(v).toLocaleString('ru-RU'),
+      caption: comparable === 0
+        ? 'ни у одного изделия нет одновременно цены и расчёта — проверить наценку невозможно'
+        : 'изделий, где есть и цена, и расчёт себестоимости',
+      loading,
+      items: (data?.thinnest ?? []).slice(0, 4).map((a) => ({
+        id: a.id,
+        label: `${a.articleCode} · ${a.name}`,
+        value: `${Number(a.deviationPct).toFixed(0)} %`,
+        sub: `цена ${formatCurrency(Number(a.approvedPrice))} · расчёт ${formatCurrency(Number(a.specPrice))}`,
+      })),
+      emptyText: 'Сравнить цену с себестоимостью пока не на чем',
+    },
+    {
+      key: 'below',
+      title: 'Ниже себестоимости',
+      tone: (data?.belowCost ?? 0) > 0 ? 'danger' : 'ok',
+      icon: <IconAlertTriangle size={19} />,
+      value: data?.belowCost ?? 0,
+      format: (v) => Math.round(v).toLocaleString('ru-RU'),
+      caption: (data?.belowCost ?? 0) > 0
+        ? 'изделий продаются дешевле, чем стоят заводу'
+        : 'убыточных цен не найдено',
+      loading,
+      emptyText: 'Убыточных цен нет',
+    },
+    {
+      key: 'nocost',
+      title: 'Нечего считать',
+      tone: noCost > 0 ? 'warn' : 'ok',
+      icon: <IconRuler2 size={19} />,
+      value: noCost,
+      format: (v) => Math.round(v).toLocaleString('ru-RU'),
+      caption: 'изделий без спецификации и норм — себестоимость по ним нулевая, цену обосновать нечем',
+      loading,
+      emptyText: 'У всех изделий есть расчёт',
+      action: { label: 'Завести спецификации', onClick: onSpecs },
+    },
+  ];
+
+  const paged = usePagedList(cards, Math.max(1, fit.count), `${fit.count}`);
+  usePageKeys(paged.page, paged.totalPages, paged.setPage);
+
+  return (
+    <div className="prices-pane">
+      <div className="digest-grid prices-pane__grid" ref={fit.ref}>
+        {paged.slice.map(({ key, ...card }) => <DigestCard key={key} {...card} />)}
+      </div>
+      {paged.totalPages > 1 && (
+        <PaginationBar
+          page={paged.page}
+          total={paged.total}
+          pageSize={Math.max(1, fit.count)}
+          onPageChange={paged.setPage}
+          noun="карточек"
+          variant="compact"
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Весь прайс списком. Отдельный компонент, потому что useFitRows вешает
+ * наблюдатель за размером один раз — при монтировании. Пока таблица была
+ * куском общего JSX, ref появлялся только при выборе вкладки, наблюдатель
+ * к нему уже не приезжал, и вместо девяти строк оставалось четыре
+ * (03.09.2026). Размер страницы = высота экрана, поэтому селектор
+ * «25 / 50 / 100» здесь больше не нужен.
+ */
+function PriceList({
+  search, scope, canRequest, onReview,
+}: {
+  search: string;
+  scope: 'priced' | 'all';
+  canRequest: boolean;
+  onReview: (article: any) => void;
+}) {
+  const fit = useFitRows(ROW_H, 4, 40, 44);
+  const pageSize = Math.max(1, fit.rows);
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [pageSize, scope, search]);
+
+  const { data, isLoading } = useArticles({
+    search, page, pageSize,
+    ...(scope === 'priced' ? { onlyPriced: true } : {}),
+  });
+
+  const rows: any[] = data?.data ?? [];
+  const total = data?.meta?.total ?? 0;
+  usePageKeys(page, Math.max(1, Math.ceil(total / pageSize)), setPage);
+
+  const deviation = (a: any): number | null => {
+    const appr = Number(a.approvedPrice);
+    const calc = Number(a.specPrice);
+    if (!(appr > 0) || !(calc > 0)) return null;
+    return Math.round(((appr - calc) / calc) * 1000) / 10;
+  };
+
+  return (
+    <div className="prices-pane">
+      <Card withBorder radius="md" padding={0} style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        <div className="prices-list" ref={fit.ref}>
+          {isLoading ? (
+            <Stack gap={4} p="md">
+              {[...Array(Math.max(4, pageSize))].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)}
+            </Stack>
+          ) : (
+            <FadeSwap swapKey={`${scope}:${page}`}>
               <Table highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
@@ -198,7 +428,7 @@ export function Prices() {
                               size="compact-sm"
                               variant="light"
                               leftSection={<IconCoin size={14} />}
-                              onClick={() => setReviewFor(a)}
+                              onClick={() => onReview(a)}
                             >
                               Пересмотр цены
                             </Button>
@@ -216,151 +446,18 @@ export function Prices() {
                   )}
                 </Table.Tbody>
               </Table>
-            </TableScroll>
-          </FadeSwap>
-        )}
+            </FadeSwap>
+          )}
+        </div>
       </Card>
-
       <PaginationBar
         page={page}
         total={total}
         pageSize={pageSize}
         onPageChange={setPage}
-        onPageSizeChange={setPageSize}
         noun="изделий"
-        sticky
+        variant="compact"
       />
-
-      </>
-      )}
-
-      <Modal
-        opened={reviewFor !== null}
-        onClose={() => setReviewFor(null)}
-        title={<Text fw={700}>Пересмотр цены: {reviewFor?.articleCode}</Text>}
-        radius="md" centered
-      >
-        {reviewFor && (
-          <Stack gap="md">
-            <Text size="sm" c="dimmed">{reviewFor.name}</Text>
-            <Group gap="xl">
-              <Stack gap={0}>
-                <Text size="xs" c="dimmed">Сейчас в прайсе</Text>
-                <Text fw={700} ff="monospace">
-                  {Number(reviewFor.approvedPrice) > 0 ? formatCurrency(Number(reviewFor.approvedPrice)) : '—'}
-                </Text>
-              </Stack>
-              <Stack gap={0}>
-                <Text size="xs" c="dimmed">Расчёт по спецификации</Text>
-                <Text fw={700} ff="monospace">
-                  {Number(reviewFor.specPrice) > 0 ? formatCurrency(Number(reviewFor.specPrice)) : '—'}
-                </Text>
-              </Stack>
-            </Group>
-            <Textarea
-              label="Почему цену надо пересмотреть"
-              placeholder="подорожал металл, изменился состав…"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              autosize minRows={2}
-            />
-            <Text size="xs" c="dimmed">
-              Новую цену называет директор при утверждении — заявка лишь запускает пересмотр.
-            </Text>
-            <Group justify="flex-end">
-              <Button variant="default" onClick={() => setReviewFor(null)}>Отмена</Button>
-              <Button loading={requestReview.isPending} onClick={() => requestReview.mutate(reviewFor.id)}>
-                Подать заявку
-              </Button>
-            </Group>
-          </Stack>
-        )}
-      </Modal>
-    </Stack>
-  );
-}
-
-/**
- * Сводка прайса: цена утверждена у 176 изделий из 2 152, а сравнить её
- * с себестоимостью не с чем — расчёт есть у двух. Это и есть ответ,
- * ради которого сюда заходят; список остаётся за переключателем.
- */
-function PriceDigest({
-  data, loading, onList, onSpecs,
-}: {
-  data?: {
-    total: number; priced: number; withSpec: number; comparable: number; belowCost: number;
-    thinnest: Array<{ id: string; articleCode: string; name: string; approvedPrice: string; specPrice: string; deviationPct: string }>;
-  };
-  loading: boolean;
-  onList: () => void;
-  onSpecs: () => void;
-}) {
-  const n = (v: number) => v.toLocaleString('ru-RU');
-  const total = data?.total ?? 0;
-  const priced = data?.priced ?? 0;
-  const withSpec = data?.withSpec ?? 0;
-  const comparable = data?.comparable ?? 0;
-  const noCost = Math.max(0, total - withSpec);
-  const pricedPct = total > 0 ? Math.round((priced / total) * 100) : 0;
-
-  return (
-    <DigestGrid>
-      <DigestCard
-        title="В прайсе"
-        tone="brand"
-        icon={<IconCoin size={19} />}
-        value={priced}
-        format={(v) => Math.round(v).toLocaleString('ru-RU')}
-        caption={`изделий с утверждённой ценой из ${n(total)} · ${pricedPct} % каталога`}
-        loading={loading}
-        emptyText="Цена не утверждена ни у одного изделия"
-        action={{ label: 'Открыть прайс', onClick: onList }}
-      />
-
-      <DigestCard
-        title="Не с чем сравнить"
-        tone={comparable === 0 ? 'warn' : 'ok'}
-        icon={<IconScale size={19} />}
-        value={comparable}
-        format={(v) => Math.round(v).toLocaleString('ru-RU')}
-        caption={comparable === 0
-          ? 'ни у одного изделия нет одновременно цены и расчёта — проверить наценку невозможно'
-          : 'изделий, где есть и цена, и расчёт себестоимости'}
-        loading={loading}
-        items={(data?.thinnest ?? []).slice(0, 4).map((a) => ({
-          id: a.id,
-          label: `${a.articleCode} · ${a.name}`,
-          value: `${Number(a.deviationPct).toFixed(0)} %`,
-          sub: `цена ${formatCurrency(Number(a.approvedPrice))} · расчёт ${formatCurrency(Number(a.specPrice))}`,
-        }))}
-        emptyText="Сравнить цену с себестоимостью пока не на чем"
-      />
-
-      <DigestCard
-        title="Ниже себестоимости"
-        tone={(data?.belowCost ?? 0) > 0 ? 'danger' : 'ok'}
-        icon={<IconAlertTriangle size={19} />}
-        value={data?.belowCost ?? 0}
-        format={(v) => Math.round(v).toLocaleString('ru-RU')}
-        caption={(data?.belowCost ?? 0) > 0
-          ? 'изделий продаются дешевле, чем стоят заводу'
-          : 'убыточных цен не найдено'}
-        loading={loading}
-        emptyText="Убыточных цен нет"
-      />
-
-      <DigestCard
-        title="Нечего считать"
-        tone={noCost > 0 ? 'warn' : 'ok'}
-        icon={<IconRuler2 size={19} />}
-        value={noCost}
-        format={(v) => Math.round(v).toLocaleString('ru-RU')}
-        caption="изделий без спецификации и норм — себестоимость по ним нулевая, цену обосновать нечем"
-        loading={loading}
-        emptyText="У всех изделий есть расчёт"
-        action={{ label: 'Завести спецификации', onClick: onSpecs }}
-      />
-    </DigestGrid>
+    </div>
   );
 }

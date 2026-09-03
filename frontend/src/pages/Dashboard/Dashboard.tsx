@@ -53,6 +53,25 @@ ChartJS.register(
   Filler,
 );
 
+/**
+ * Значение токена палитры строкой (03.09.2026).
+ *
+ * Chart.js рисует на canvas и `var(--s-…)` не понимает — цвет ему нужен
+ * готовым. Достаём его из :root, чтобы график менялся вместе с палитрой,
+ * а не жил на своих сырых hex, как раньше. `alpha` нужен волосяной сетке
+ * и заливке под линией: у токенов прозрачных вариантов нет.
+ */
+function tokenValue(name: string, alpha?: number): string | undefined {
+  if (typeof document === 'undefined') return undefined;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  if (!raw) return undefined;
+  if (alpha == null) return raw;
+  const hex = raw.replace('#', '');
+  if (hex.length !== 6) return raw;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(hex.slice(i, i + 2), 16));
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 export function Dashboard() {
   const { data: summary, isLoading } = useProductionSummary();
   // Ряды графиков — из базы. Раньше здесь были захардкоженные массивы:
@@ -62,13 +81,16 @@ export function Dashboard() {
     queryFn: () => api.get<{ months: Array<{ label: string; ordersIn: number; planned: number; shipped: number }> }>('/dashboards/monthly-series').then((r) => r.data),
   });
   const months = series?.months ?? [];
-  // Палитра графиков — «горячий металл», валидирована на CVD и контраст
-  const chart = {
-    cat1: '#D9480F', cat2: '#0891B2',
-    muted: 'rgba(215, 212, 204, 0.75)',
-    grid: 'rgba(107, 103, 93, 0.14)',
-    tick: '#6B675D',
-  };
+  // Палитра графиков берётся из токенов (03.09.2026). Здесь были сырые
+  // hex: терракота #D9480F и бирюза #0891B2 — бирюзы нет ни в теме, ни в
+  // палитре, а вторая категория к тому же нигде не рисовалась.
+  const chart = useMemo(() => ({
+    cat1: tokenValue('--s-attention-fill'),
+    cat1Wash: tokenValue('--s-attention-fill', 0.07),
+    muted: tokenValue('--s-line'),
+    grid: tokenValue('--s-text-quiet', 0.14),
+    tick: tokenValue('--s-text-quiet'),
+  }), []);
   const user = useAuthStore((state) => state.user);
   const can = useAuthStore((state) => state.can);
   // Финансовые KPI видит только коммерция (§2.4: инженер не видит выручку)
@@ -106,7 +128,7 @@ export function Dashboard() {
         borderSkipped: false,
       },
     ],
-  }), [months]);
+  }), [months, chart]);
 
   const lineData = useMemo(() => ({
     labels: months.map((m) => m.label),
@@ -115,7 +137,7 @@ export function Dashboard() {
         label: 'Поступило заказов',
         data: months.map((m) => m.ordersIn),
         borderColor: chart.cat1,
-        backgroundColor: 'rgba(217, 72, 15, 0.07)',
+        backgroundColor: chart.cat1Wash,
         fill: true,
         tension: 0.4,
         pointBackgroundColor: chart.cat1,
@@ -123,7 +145,7 @@ export function Dashboard() {
         borderWidth: 2.5,
       },
     ],
-  }), [months]);
+  }), [months, chart]);
 
   const chartOptions = useMemo(() => ({
     responsive: true,
@@ -156,7 +178,7 @@ export function Dashboard() {
         },
       },
     },
-  }), []);
+  }), [chart]);
 
   if (isLoading) {
     return (
@@ -207,27 +229,27 @@ export function Dashboard() {
           title="План производства"
           value={`${summary.productionPlanFact.actual} / ${summary.productionPlanFact.planned}`}
           subtitle="Выполнение плана (шт)"
-          icon={<IconPackage size={20} />}
+          icon={<IconPackage aria-hidden size={20} />}
         />
         <KpiCard
           title="Загрузка цеха"
           value={`${loadPct.toFixed(1)}%`}
           subtitle={`${summary.workshopLoadHours.used} / ${summary.workshopLoadHours.total} ч.`}
-          icon={<IconCpu size={20} />}
+          icon={<IconCpu aria-hidden size={20} />}
         />
         {canFinance && (
           <KpiCard
             title="Дебиторская задолженность"
             value={formatCurrency(summary.receivablesTotal)}
             subtitle="Общая сумма задолженности"
-            icon={<IconBuildingBank size={20} />}
+            icon={<IconBuildingBank aria-hidden size={20} />}
           />
         )}
         <KpiCard
           title="Обеспеченность ГП"
           value={`${fgPct.toFixed(1)}%`}
           subtitle={`${summary.fgStockVsNorm.inStock} / ${summary.fgStockVsNorm.norm} шт.`}
-          icon={<IconActivity size={20} />}
+          icon={<IconActivity aria-hidden size={20} />}
         />
       </SimpleGrid>
 
@@ -259,7 +281,7 @@ export function Dashboard() {
             </Stack>
             <Group gap="xs">
               <ThemeIcon color="success" size="sm" variant="light" radius="xl">
-                <IconTrendingUp size={14} />
+                <IconTrendingUp aria-hidden size={16} />
               </ThemeIcon>
               <Text size="xs" fw={800} c="success.7">KZT</Text>
             </Group>

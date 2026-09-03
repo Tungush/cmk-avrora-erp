@@ -2,15 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Card, Stack, Group, Text, Badge, Table, Skeleton, Button, TextInput,
-  NumberInput, Checkbox, ActionIcon,
+  NumberInput, Checkbox, ActionIcon, Modal,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { IconTrash, IconTarget, IconPlus } from '@tabler/icons-react';
 import { dealsApi, Deal } from '../../api/deals';
-import { FadeSwap } from '../../components/motion';
-import { TableScroll } from '../../components/TableScroll';
-import { PaginationBar, usePageSize } from '../../components/PaginationBar';
+import { FadeSwap, TextReveal } from '../../components/motion';
+import { PaginationBar } from '../../components/PaginationBar';
+import { FitScreen, useFitRows, usePageKeys } from '../../components/FitScreen';
 import { formatCurrency, formatNumber } from '../../utils/formatters';
+import './Sales.css';
 
 const emptyForm = {
   customerName: '', articleName: '', qtyOrdered: '' as number | '',
@@ -18,17 +19,32 @@ const emptyForm = {
   managerName: '', plannedDispatchMonth: '', hasFormalRequest: false,
 };
 
+/** Высота строки прогноза: две строки текста в ячейке «объект / регион» */
+const ROW_H = 61;
+/** Шапка таблицы */
+const HEAD_H = 44;
+
 /**
  * Прогноз спроса до формального заказа (24.08.2026) — то, что раньше жило
  * только в листе «Планируемое (без заявок)» Excel-плана: объект/сайт,
  * заказчик, кто ведёт направление, планируемый месяц вывоза. В 1С это
  * не появляется, пока заказ не подтверждён, а в Б24 не дублируем.
+ *
+ * 03.09.2026: страница не прокручивается. Форма «новая строка» занимала
+ * 212 px первого экрана — её открывают раз в неделю, а таблицу читают
+ * каждый день, поэтому форма уехала в окно по кнопке «Добавить строку».
+ * Строк показываем ровно столько, сколько поместилось; остальные —
+ * страницами и стрелками ← →. Ни одна строка не потеряна.
  */
 export function Pipeline() {
   const qc = useQueryClient();
   const [form, setForm] = useState(emptyForm);
+  const [formOpen, setFormOpen] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = usePageSize('sales-pipeline', 25);
+
+  // Размер страницы = высота экрана, а не число 25 из настроек
+  const fit = useFitRows(ROW_H, 3, 40, HEAD_H);
+  const pageSize = Math.max(1, fit.rows);
   useEffect(() => { setPage(1); }, [pageSize]);
 
   const { data: deals, isLoading } = useQuery({
@@ -51,6 +67,7 @@ export function Pipeline() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['deals', 'pipeline'] });
       setForm(emptyForm);
+      setFormOpen(false);
       notifications.show({ title: 'Добавлено', message: 'Строка в прогнозе спроса создана', color: 'success' });
     },
     onError: (e: any) => notifications.show({
@@ -71,21 +88,108 @@ export function Pipeline() {
     },
   });
 
-  if (isLoading) {
-    return <Stack gap="md">{[...Array(2)].map((_, i) => <Skeleton key={i} height={140} radius="md" />)}</Stack>;
-  }
-
   const rows = deals?.data ?? [];
   const total = deals?.meta?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  usePageKeys(page, totalPages, setPage);
   const canSubmit = form.customerName.trim().length > 0;
 
+  const header = (
+    <Group justify="space-between" align="center" wrap="nowrap" gap="md">
+      <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
+        <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
+          <TextReveal text="Прогноз спроса" />
+        </Text>
+        <Text size="sm" c="dimmed" lineClamp={1}>
+          объекты и сделки до формального заказа — в 1С их ещё нет
+        </Text>
+        <Badge variant="light" color="gray" radius="xl" size="lg">{total}</Badge>
+      </Group>
+      <Button leftSection={<IconPlus size={16} />} onClick={() => setFormOpen(true)}>
+        Добавить строку
+      </Button>
+    </Group>
+  );
+
+  const footer = (
+    <PaginationBar
+      page={page}
+      total={total}
+      pageSize={pageSize}
+      onPageChange={setPage}
+      noun="строк"
+    />
+  );
+
   return (
-    <Stack gap="lg">
-      <Card withBorder radius="md" padding="md">
-        <Group gap="xs" mb="sm">
-          <IconTarget size={16} />
-          <Text fw={700} size="sm">Новая строка прогноза</Text>
-        </Group>
+    <FitScreen header={header} footer={footer}>
+      <Card withBorder radius="md" padding={0} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <div className="pipeline-table" ref={fit.ref}>
+          {isLoading ? (
+            <Stack gap={4} p="md">
+              {[...Array(Math.max(3, pageSize))].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)}
+            </Stack>
+          ) : rows.length === 0 ? (
+            <Text size="sm" c="dimmed" p="md">Пока пусто — добавьте строку кнопкой сверху</Text>
+          ) : (
+            <FadeSwap swapKey={page}>
+              {/* Ширина колонок задана жёстко: девять колонок по контенту
+                  давали таблицу в 1413 px, и «Ведёт / План вывоза / Заявка»
+                  просто обрезало справа (03.09.2026). Длинные имена теперь
+                  сжимаются многоточием, а не выталкивают колонки за край */}
+              <Table highlightOnHover layout="fixed">
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Заказчик</Table.Th>
+                    <Table.Th>Изделие</Table.Th>
+                    <Table.Th>Объект / регион</Table.Th>
+                    <Table.Th ta="right" w={78}>Кол-во</Table.Th>
+                    <Table.Th ta="right" w={132}>Сумма</Table.Th>
+                    <Table.Th w={104}>Ведёт</Table.Th>
+                    <Table.Th w={116}>План вывоза</Table.Th>
+                    <Table.Th w={78}>Заявка</Table.Th>
+                    <Table.Th w={68} />
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {rows.map((d: Deal) => (
+                    <Table.Tr key={d.id}>
+                      <Table.Td><Text size="sm" fw={600} lineClamp={1}>{d.customer?.name ?? 'нет данных'}</Text></Table.Td>
+                      <Table.Td><Text size="sm" lineClamp={2}>{d.article?.name ?? 'нет данных'}</Text></Table.Td>
+                      <Table.Td>
+                        <Text size="sm" lineClamp={1}>{d.siteCode || '—'}</Text>
+                        <Text size="xs" c="dimmed" lineClamp={1}>{d.region || ''}</Text>
+                      </Table.Td>
+                      <Table.Td ta="right" ff="monospace">{formatNumber(d.qtyOrdered, 0)}</Table.Td>
+                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(d.amountOrdered)}</Table.Td>
+                      <Table.Td>{d.managerName || '—'}</Table.Td>
+                      <Table.Td>{d.plannedDispatchMonth || 'нет плана'}</Table.Td>
+                      <Table.Td>
+                        <Checkbox size="md" aria-label="Заявка подана" checked={d.hasFormalRequest}
+                          onChange={(e) => toggleFormal.mutate({ id: d.id, value: e.target.checked })} />
+                      </Table.Td>
+                      <Table.Td>
+                        <ActionIcon variant="subtle" color="danger" size="lg" aria-label="Удалить" onClick={() => remove.mutate(d.id)}>
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+            </FadeSwap>
+          )}
+        </div>
+      </Card>
+
+      {/* Форма заводится раз в неделю, а таблицу читают каждый день —
+          поэтому форма в окне, а не над списком (03.09.2026) */}
+      <Modal
+        opened={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={<Group gap="xs"><IconTarget size={16} /><Text fw={700}>Новая строка прогноза</Text></Group>}
+        radius="md" size="lg" centered
+      >
         <Group gap="sm" wrap="wrap" align="flex-end">
           <TextInput label="Заказчик" placeholder="КарТел" value={form.customerName}
             onChange={(e) => setForm({ ...form, customerName: e.target.value })} w={200} required />
@@ -111,72 +215,7 @@ export function Pipeline() {
             Добавить
           </Button>
         </Group>
-      </Card>
-
-      <Card withBorder radius="md" padding={0}>
-        <Group justify="space-between" p="md" pb="sm">
-          <Text fw={700} size="sm">Прогноз спроса</Text>
-          <Badge variant="light" color="gray" radius="xl" size="lg">{total}</Badge>
-        </Group>
-        {rows.length === 0 ? (
-          <Text size="sm" c="dimmed" px="md" pb="md">Пока пусто — заполните строку выше</Text>
-        ) : (
-          <FadeSwap swapKey={page}>
-            <TableScroll minWidth={1000}>
-              <Table highlightOnHover>
-                <Table.Thead>
-                  <Table.Tr>
-                    <Table.Th>Заказчик</Table.Th>
-                    <Table.Th>Изделие</Table.Th>
-                    <Table.Th>Объект / регион</Table.Th>
-                    <Table.Th ta="right">Кол-во</Table.Th>
-                    <Table.Th ta="right">Сумма</Table.Th>
-                    <Table.Th>Ведёт</Table.Th>
-                    <Table.Th>План вывоза</Table.Th>
-                    <Table.Th>Заявка</Table.Th>
-                    <Table.Th w={56} />
-                  </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                  {rows.map((d: Deal) => (
-                    <Table.Tr key={d.id}>
-                      <Table.Td><Text size="sm" fw={600}>{d.customer?.name ?? 'нет данных'}</Text></Table.Td>
-                      <Table.Td><Text size="sm" lineClamp={2}>{d.article?.name ?? 'нет данных'}</Text></Table.Td>
-                      <Table.Td>
-                        <Text size="sm">{d.siteCode || '—'}</Text>
-                        <Text size="xs" c="dimmed">{d.region || ''}</Text>
-                      </Table.Td>
-                      <Table.Td ta="right" ff="monospace">{formatNumber(d.qtyOrdered, 0)}</Table.Td>
-                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(d.amountOrdered)}</Table.Td>
-                      <Table.Td>{d.managerName || '—'}</Table.Td>
-                      <Table.Td>{d.plannedDispatchMonth || 'нет плана'}</Table.Td>
-                      <Table.Td>
-                        <Checkbox size="md" checked={d.hasFormalRequest}
-                          onChange={(e) => toggleFormal.mutate({ id: d.id, value: e.target.checked })} />
-                      </Table.Td>
-                      <Table.Td>
-                        <ActionIcon variant="subtle" color="danger" size="lg" aria-label="Удалить" onClick={() => remove.mutate(d.id)}>
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Table.Td>
-                    </Table.Tr>
-                  ))}
-                </Table.Tbody>
-              </Table>
-            </TableScroll>
-          </FadeSwap>
-        )}
-      </Card>
-
-      <PaginationBar
-        page={page}
-        total={total}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={setPageSize}
-        noun="строк"
-        sticky
-      />
-    </Stack>
+      </Modal>
+    </FitScreen>
   );
 }
