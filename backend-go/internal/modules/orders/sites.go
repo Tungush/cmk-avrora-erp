@@ -26,7 +26,9 @@ SELECT o.project_site                                          AS site,
        COUNT(DISTINCT o.id)                                    AS orders_count,
        COUNT(DISTINCT o.id) FILTER (WHERE o.overdue_days > 0)  AS overdue_orders,
        COUNT(ol.id)                                            AS lines_count,
-       COUNT(ol.id) FILTER (WHERE d.line_id IS NOT NULL)       AS done_lines,
+       COUNT(ol.id) FILTER (
+         WHERE d.line_id IS NOT NULL OR sh.shipped > 0
+       )                                                       AS done_lines,
        COALESCE(SUM(ol.qty * ol.unit_price), 0)                AS amount,
        MIN(o.planned_shipment_date) FILTER (
          WHERE o.status NOT IN ('CLOSED', 'CANCELLED')
@@ -41,6 +43,19 @@ SELECT o.project_site                                          AS site,
           FROM production_stages
          WHERE status = 'done' AND order_line_id IS NOT NULL
   ) d ON d.line_id = ol.id
+  -- Отгруженное изделие изготовлено по определению (04.09.2026).
+  --
+  -- Раньше «сделано» считалось ТОЛЬКО по отметкам цеха, а их в базе 17
+  -- на весь завод: кнопку «Изготовлено» почти не жмут. Из-за этого на
+  -- каждой площадке стояло «0 / 25 изделий» даже там, где всё давно
+  -- вывезено и подписан акт. Акт — документ приёмки: если заказчик
+  -- принял изделие, спорить с тем, что оно сделано, бессмысленно.
+  LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(al.qty), 0) AS shipped
+          FROM acceptance_act_lines al
+          JOIN orders ao ON ao.order_number = al.order_number
+         WHERE ao.id = ol.order_id AND al.article_id = ol.article_id
+  ) sh ON TRUE
  WHERE o.project_site IS NOT NULL AND o.project_site <> ''
    AND o.is_archived = false
  GROUP BY o.project_site

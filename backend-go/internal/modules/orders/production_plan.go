@@ -762,9 +762,18 @@ func (h *ProductionPlanHandler) Weekly(c *gin.Context) {
 		       count(DISTINCT o.id) AS orders_count,
 		       coalesce(sum(ol.qty), 0) AS total_qty,
 		       coalesce(sum(ol.reserved_qty), 0) AS reserved_qty,
-		       coalesce(sum(ol.shipped_qty), 0) AS shipped_qty
+		       -- Отгружено — по актам, а не по колонке: она заполнена у 2
+		       -- строк из 1814, потому что её пишет только форма внутри
+		       -- сервиса, а 228 актов приехали импортом из 1С (04.09.2026)
+		       coalesce(sum(coalesce(nullif(sh.shipped, 0), ol.shipped_qty)), 0) AS shipped_qty
 		FROM orders o
 		LEFT JOIN order_lines ol ON ol.order_id = o.id
+		LEFT JOIN LATERAL (
+		      SELECT coalesce(sum(al.qty), 0) AS shipped
+		        FROM acceptance_act_lines al
+		        JOIN orders ao ON ao.order_number = al.order_number
+		       WHERE ao.id = ol.order_id AND al.article_id = ol.article_id
+		) sh ON TRUE
 		WHERE o.status IN ('CONFIRMED', 'IN_PRODUCTION', 'READY_TO_SHIP')
 		GROUP BY 1
 		ORDER BY 1 NULLS LAST`)

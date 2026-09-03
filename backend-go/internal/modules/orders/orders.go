@@ -129,9 +129,46 @@ type orderLineOut struct {
 	Article *models.Article `json:"article"`
 }
 
-const orderLineColsPrefixed = `ol.id, ol.order_id, ol.article_id, ol.qty, ol.unit, ol.unit_price, ol.line_total_vat,
+// Отгружено — СЧИТАЕТСЯ ПО АКТАМ, а не берётся из колонки (04.09.2026).
+//
+// Колонка order_lines.shipped_qty заполнена у 2 строк из 1814: её пишет
+// только форма акта внутри сервиса, а 228 актов приехали из 1С импортом
+// и колонку не трогали. Из-за этого «Деньги» и «Проекты» показывали
+// нули: «0 / 25 изделий» на площадке, где всё давно вывезено.
+//
+// Связь актов с позициями проверена на живых данных: 836 строк актов
+// находят позицию по паре «номер заказа + артикул», из них 820 — ровно
+// одну; неоднозначных 8 (один артикул дважды в одном заказе).
+//
+// Второй источник — движения склада готовой продукции типа «отгрузка» —
+// НЕ суммируется с актами: сверка показала 854 пары, совпадающие до
+// копейки, и ни одного расхождения. Это одни и те же события, залитые
+// вторым слоем при импорте; сложить их значило бы удвоить отгрузку.
+// Акт выбран источником как документ: он покрывает ещё две пары,
+// которых в движениях нет.
+//
+// Сохранённая колонка остаётся запасным вариантом: если по позиции нет
+// ни одной строки акта, берётся то, что записал сервис.
+// Если один артикул стоит в заказе ДВАЖДЫ (8 случаев на живых данных),
+// количество акта разносится между позициями ПРОПОРЦИОНАЛЬНО заказанному.
+// Без этого каждая из двух строк получала полное количество акта, и обе
+// выглядели отгруженными сверх заказа. Пропорция сохраняет итог по
+// заказу точным и не выдумывает данных: акт не говорит, какая именно из
+// двух одинаковых позиций вывезена.
+const shippedQtyExpr = `COALESCE(NULLIF((
+		SELECT sum(al.qty * ol.qty / NULLIF(sib.total_qty, 0))
+		FROM acceptance_act_lines al
+		JOIN orders ao ON ao.order_number = al.order_number
+		CROSS JOIN LATERAL (
+			SELECT sum(o2.qty) AS total_qty FROM order_lines o2
+			WHERE o2.order_id = ol.order_id AND o2.article_id = ol.article_id
+		) sib
+		WHERE ao.id = ol.order_id AND al.article_id = ol.article_id
+	), 0), ol.shipped_qty)`
+
+var orderLineColsPrefixed = `ol.id, ol.order_id, ol.article_id, ol.qty, ol.unit, ol.unit_price, ol.line_total_vat,
 	ol.prepayment, ol.post_payment_1, ol.post_payment_2, ol.penalty, ol.balance_due, ol.reserved_qty,
-	ol.shipped_qty, ol.site_code, ol.source_sheet, ol.source_row_number, ol.article_code_raw,
+	` + shippedQtyExpr + ` AS shipped_qty, ol.site_code, ol.source_sheet, ol.source_row_number, ol.article_code_raw,
 	ol.product_name_raw, ol.raw_columns`
 
 const articleColsPrefixed = `a.id, a.article_code, a.legacy_code, a.name, a.weight_kg, a.series, a.description,
