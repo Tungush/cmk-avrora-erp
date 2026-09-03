@@ -1313,6 +1313,11 @@ model AcceptanceActLine {
   article Article?      @relation(fields: [articleId], references: [id])
 
   @@index([actId])
+  // Поиск строк акта парой «номер заказа + артикул»: так считается
+  // отгрузка позиции заказа (04.09.2026, найдено прогоном /review).
+  // Без индекса база прочёсывала таблицу на каждую позицию: 607 мс на
+  // 1814 позициях против 23 мс на странице реестра.
+  @@index([orderNumber, articleId])
   @@map("acceptance_act_lines")
 }
 
