@@ -7,6 +7,7 @@ import { IconArrowRight, IconCheck, IconShieldLock } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/auth';
 import { LogoMark } from '../components/Brand';
+import { MastSolid } from '../components/MastSolid';
 import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
 import { useCursorLight, useMagnetic } from '../components/Aurora';
@@ -103,7 +104,7 @@ export function Login() {
               встают снизу вверх, как при монтаже, потом поднимаются
               антенны и загорается авиационный огонь */}
           <div className="login-mast" aria-hidden>
-            <Mast height={520} sections={8} stroke={1.9} signal />
+            <MastSolid height={520} progress={1} onDark />
           </div>
 
           <div className="login-hero__text">

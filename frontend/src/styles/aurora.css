@@ -1797,12 +1797,28 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   .section-head__sub { display: none; }
 }
 
-/* Сложенный металл — знак проекта (04.09.2026) */
-.metal-stack__sheet {
-  fill: none;
-  stroke: var(--s-line-strong);
-}
-.metal-stack__sheet.is-done {
-  fill: color-mix(in srgb, var(--s-action) 16%, transparent);
-  stroke: var(--s-action);
-}
+
+/* ---------------------------------------------------------------
+   Вышка плотным силуэтом (04.09.2026)
+
+   Заливка и обводка РАЗВЕДЕНЫ по разным классам намеренно. Пока контур
+   рисовался тем же классом с fill="none" в атрибуте, CSS перебивал
+   атрибут и закрашивал силуэт светлым поверх залитой доли: готовность
+   не показывалась вовсе, все вышки выглядели пустыми.
+   --------------------------------------------------------------- */
+.ms-fill    { fill: color-mix(in srgb, var(--s-action) 12%, var(--s-surface)); stroke: none; }
+.ms-fill.is-done { fill: var(--s-action); }
+.ms-outline { fill: none; stroke: var(--s-text); stroke-linejoin: round; }
+.ms-base    { fill: var(--s-action); stroke: var(--s-text); stroke-linejoin: round; }
+.ms-beacon  { fill: var(--s-attention); stroke: var(--s-text); }
+.ms-wave    { fill: none; stroke: var(--s-text); }
+
+/* На тёмной подложке (экран входа) контур ведётся светлым, иначе тёмное
+   по тёмному пропадает целиком */
+.mast-solid[data-on-dark] .ms-outline,
+.mast-solid[data-on-dark] .ms-base,
+.mast-solid[data-on-dark] .ms-beacon,
+.mast-solid[data-on-dark] .ms-wave { stroke: var(--s-text-on-panel); }
+.mast-solid[data-on-dark] .ms-fill { fill: color-mix(in srgb, var(--s-text-on-panel) 14%, transparent); }
+.mast-solid[data-on-dark] .ms-fill.is-done { fill: color-mix(in srgb, var(--s-text-on-panel) 34%, transparent); }
+.mast-solid[data-on-dark] .ms-base { fill: color-mix(in srgb, var(--s-text-on-panel) 22%, transparent); }

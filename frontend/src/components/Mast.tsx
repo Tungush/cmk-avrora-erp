@@ -1,6 +1,7 @@
 import { Button } from '@mantine/core';
 import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
 import { apiErrorMessage, apiErrorTitle } from '../api/errors';
+import { MastSolid } from './MastSolid';
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useMotionOff } from './motion';
@@ -310,7 +311,7 @@ export function MastLoader({
   }
   return (
     <div className="mast-empty">
-      <Mast height={height} sections={sections} />
+      <MastSolid height={height} progress={0} signal={false} />
       <div className="mast-empty__title">{title}</div>
       {hint && <div className="mast-empty__hint">{hint}</div>}
     </div>

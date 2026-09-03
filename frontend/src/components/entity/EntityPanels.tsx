@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { formatDate, formatMoney, formatCompactMoney } from '../../utils/formatters';
 import { Ref, useEntity, type EntityTarget } from '../EntityRef';
+import { MastSolid } from '../MastSolid';
 import { Mast } from '../Mast';
 
 /**
@@ -280,7 +281,7 @@ function SitePanel({ id }: { id: string }) {
   return (
     <Stack gap="lg">
       <Group gap="md" wrap="nowrap" align="center">
-        <Mast height={92} sections={6} progress={progress} stroke={1.6} />
+        <MastSolid height={92} progress={progress} />
         <Stack gap={2} style={{ minWidth: 0 }}>
           <Text size="lg" fw={600}>{(id || '').replace(/^KZ-/, '').replace(/_/g, ' · ')}</Text>
           <Text size="sm" c="dimmed">{s?.customerName ?? ''}</Text>

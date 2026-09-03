@@ -4,7 +4,7 @@ import { Group, Text, TextInput, Skeleton, Tooltip } from '@mantine/core';
 import { IconSearch, IconAntenna, IconClockExclamation, IconCircleCheck, IconCurrencyTenge } from '@tabler/icons-react';
 import api from '../../api/client';
 import { MastLoader } from '../../components/Mast';
-import { MetalStack } from '../../components/MetalStack';
+import { MastSolid } from '../../components/MastSolid';
 import { PulseRow } from '../../components/SectionHeader';
 import { FitScreen, useFitGrid, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
@@ -94,7 +94,7 @@ export function Sites() {
             <TextReveal text="Проекты" />
           </Text>
           <Text size="sm" c="dimmed" lineClamp={1}>
-            базовые станции: что для площадки уже изготовлено
+            площадки заказчика: что уже сдано, а что ещё в работе
           </Text>
         </Group>
         <TextInput
@@ -197,7 +197,7 @@ function SiteCard({ row }: { row: SiteRow }) {
       data-state={done ? 'done' : overdue ? 'overdue' : undefined}
     >
       <div className="site-card__mast">
-        <MetalStack height={124} layers={6} progress={progress} stroke={1.9} />
+        <MastSolid height={108} progress={progress} />
       </div>
 
       <div className="site-card__body">
