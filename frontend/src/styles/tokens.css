@@ -130,6 +130,15 @@
   --c-input-border:     var(--s-line-strong);
   --c-input-border-focus: var(--s-focus);
 
+  /* Полоса доли — одна на весь сервис (04.09.2026). До этого полос было
+     четыре высоты (xs/sm/md/lg у Mantine) плюс своя в дайджестах на 4 px,
+     а дорожка задавалась сырым rgba(0,0,0,.06) мимо палитры. Разнобой
+     тонких линий читается как неряшливость быстрее любого другого
+     разнобоя: глаз сравнивает их между собой на одном экране. */
+  --c-bar-h:            6px;
+  --c-bar-track:        color-mix(in srgb, var(--s-text) 9%, transparent);
+  --c-bar-fill:         var(--s-action);
+
   --c-chip-bg:          var(--s-surface-quiet);
   --c-chip-fg:          var(--s-text-quiet);
   --c-chip-bg-attention: var(--s-attention-wash);

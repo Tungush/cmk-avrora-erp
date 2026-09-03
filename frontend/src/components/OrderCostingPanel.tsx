@@ -335,7 +335,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                     <Text size="xs" c="dimmed">Акт из 1С</Text>
                     <Text size="xs" ff="monospace">{r.acted > 0 ? formatCurrency(r.acted) : 'ещё нет'}</Text>
                   </Group>
-                  {r.acted > 0 && <Progress value={pct} size="sm" radius="xl" color={r.status === 'MATCHED' ? 'success' : 'danger'} />}
+                  {r.acted > 0 && <Progress value={pct} radius="xl" color={r.status === 'MATCHED' ? 'success' : 'danger'} />}
                 </Card>
               );
             })}

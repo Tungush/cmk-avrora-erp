@@ -65,15 +65,15 @@
 
   /* Тёплая подсветка полосы «пульса». Еле заметная: её задача — отделить
      полосу от холста, а не покрасить её. */
-  --wash-green: linear-gradient(160deg, rgba(23, 49, 77, 0.05) 0%, rgba(23, 49, 77, 0.02) 46%, rgba(255,255,255,0) 78%);
+  --wash-green: linear-gradient(160deg, color-mix(in srgb, var(--s-panel) 5%, transparent) 0%, color-mix(in srgb, var(--s-panel) 2%, transparent) 46%, rgba(255,255,255,0) 78%);
 
   --ref-r-card: var(--c-card-radius);
   --ref-r-tile: 16px;
   --ref-r-chip: 12px;
 
-  --ref-sh: 0 1px 2px rgba(22, 24, 26, 0.03), 0 10px 26px -18px rgba(22, 24, 26, 0.18);
-  --ref-sh-hover: 0 2px 6px rgba(22, 24, 26, 0.05), 0 20px 40px -22px rgba(22, 24, 26, 0.24);
-  --ref-sh-pill: 0 6px 16px -8px rgba(22, 24, 26, 0.34);
+  --ref-sh: 0 1px 2px color-mix(in srgb, var(--s-text) 3%, transparent), 0 10px 26px -18px color-mix(in srgb, var(--s-text) 18%, transparent);
+  --ref-sh-hover: 0 2px 6px color-mix(in srgb, var(--s-text) 5%, transparent), 0 20px 40px -22px color-mix(in srgb, var(--s-text) 24%, transparent);
+  --ref-sh-pill: 0 6px 16px -8px color-mix(in srgb, var(--s-text) 34%, transparent);
 
   --mx: 50%;
   --my: 40%;
@@ -223,8 +223,22 @@ a:hover > .mantine-Card-root,
   filter: none;
 }
 
-.mantine-Progress-section { background-image: none; background-color: var(--c-blue); }
-.mantine-Progress-root { background: rgba(0, 0, 0, 0.06); }
+/* Все полосы доли — одной высоты и с одной дорожкой. Проп size= у
+   Mantine намеренно перебивается: девять полос стояли в четырёх разных
+   размерах, и на одном экране это читалось как небрежность. */
+.mantine-Progress-root {
+  height: var(--c-bar-h) !important;
+  background: var(--c-bar-track);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.mantine-Progress-section {
+  background-image: none;
+  background-color: var(--c-bar-fill);
+}
+/* Совсем узкие доли не рисуем щепками: 2 px — минимум, ниже которого
+   сегмент не читается, а только рябит */
+.mantine-Progress-section[style*="width"] { min-width: 2px; }
 
 /* Значок «живое»: белая пилюля с зелёной точкой */
 .live-pill {
@@ -238,7 +252,7 @@ a:hover > .mantine-Card-root,
 .live-pill::before {
   content: ''; width: 7px; height: 7px; border-radius: 50%;
   background: var(--c-green);
-  box-shadow: 0 0 0 3px rgba(74, 93, 58, 0.26);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--s-ok) 26%, transparent);
 }
 
 /* Круглые кнопки-иконки в шапке — ряд кружков из макета */
@@ -416,7 +430,7 @@ a:hover > .mantine-Card-root,
   color: var(--ref-ink);
 }
 .pulse-tile:not([data-active])[data-tone='brand']  .pulse-tile__icon { background: var(--s-attention-wash); border-color: transparent; color: var(--s-attention); }
-.pulse-tile:not([data-active])[data-tone='ok']     .pulse-tile__icon { background: rgba(74, 93, 58, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile:not([data-active])[data-tone='ok']     .pulse-tile__icon { background: color-mix(in srgb, var(--s-ok) 16%, transparent);  border-color: transparent; color: var(--ref-green-ink); }
 .pulse-tile:not([data-active])[data-tone='warn']   .pulse-tile__icon { background: color-mix(in srgb, var(--s-attention-fill) 16%, transparent); border-color: transparent; color: var(--ref-amber-ink); }
 .pulse-tile:not([data-active])[data-tone='danger'] .pulse-tile__icon { background: color-mix(in srgb, var(--s-attention-fill) 14%, transparent); border-color: transparent; color: var(--ref-coral-ink); }
 
@@ -609,7 +623,7 @@ a:hover > .mantine-Card-root,
   border-bottom: 1px solid var(--ref-line);
   transition: background-color .15s var(--ease-out);
 }
-.worklist__row[data-done='true'] { background: rgba(74, 93, 58, 0.07); }
+.worklist__row[data-done='true'] { background: color-mix(in srgb, var(--s-ok) 7%, transparent); }
 .worklist__row[data-done='true'] .worklist__name { color: var(--ref-muted); }
 .worklist__head {
   display: grid;
@@ -882,7 +896,7 @@ a:hover > .mantine-Card-root,
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
 .site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
-.site-card[data-state='done'] { background: linear-gradient(160deg, rgba(74,93,58,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
+.site-card[data-state='done'] { background: linear-gradient(160deg, color-mix(in srgb, var(--s-ok) 9%, transparent), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
@@ -939,7 +953,7 @@ a:hover > .mantine-Card-root,
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
 .site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
 .site-card[data-state='done'] {
-  background: linear-gradient(160deg, rgba(74, 93, 58, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
+  background: linear-gradient(160deg, color-mix(in srgb, var(--s-ok) 10%, transparent), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
@@ -1148,13 +1162,15 @@ a:hover > .mantine-Card-root,
 .digest-item__sub { grid-column: 1 / -1; font-size: 13px; color: var(--ref-muted); }
 .digest-item__bar {
   grid-column: 1 / -1;
-  height: 4px;
+  /* Та же высота и та же дорожка, что у прогресса: полоса в карточке и
+     полоса в таблице не должны выглядеть как два разных элемента */
+  height: var(--c-bar-h);
   border-radius: 999px;
-  background: rgba(0, 0, 0, 0.07);
+  background: var(--c-bar-track);
   margin-top: 5px;
   overflow: hidden;
 }
-.digest-item__bar i { display: block; height: 100%; border-radius: 999px; background: var(--c-blue); }
+.digest-item__bar i { display: block; height: 100%; border-radius: 999px; background: var(--c-bar-fill); }
 
 .digest-card__action {
   display: flex;

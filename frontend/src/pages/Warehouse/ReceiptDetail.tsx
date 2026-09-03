@@ -139,7 +139,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
               {formatMoney(unpaid, cur)}
             </Text>
           </Group>
-          <Progress value={paidPct} size="md" radius="xl" mt={4} color={paidPct >= 100 ? 'success' : 'brand'} />
+          <Progress value={paidPct} radius="xl" mt={4} color={paidPct >= 100 ? 'success' : 'brand'} />
           {payments.length > 0 && (
             <Stack gap={4} mt="xs">
               <Text size="xs" c="dimmed" fw={600}>Платежи ({payments.length})</Text>

@@ -238,7 +238,7 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
       id="card-stages"
       extra={steps.length > 0 ? (
         <Group gap="xs">
-          <Progress value={(doneCount / steps.length) * 100} w={80} size="sm" radius="xl"
+          <Progress value={(doneCount / steps.length) * 100} w={80} radius="xl"
             color={doneCount === steps.length ? 'success' : 'brand'} />
           <Text size="xs" ff="monospace" c="dimmed">{doneCount}/{steps.length}</Text>
         </Group>
@@ -759,7 +759,7 @@ export function OrderDetail({
                 </Text>
               </Group>
               {contracted > 0 && (
-                <Progress value={(paid / contracted) * 100} size="sm" radius="xl" color="success" mt={4} />
+                <Progress value={(paid / contracted) * 100} radius="xl" color="success" mt={4} />
               )}
             </Stack>
           )}

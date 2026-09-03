@@ -91,7 +91,7 @@ export function WeeklyPlan() {
                     )}
                   </Table.Td>
                   <Table.Td>
-                    <Progress value={(w.totalQty / maxQty) * 100} size="md" radius="xl" />
+                    <Progress value={(w.totalQty / maxQty) * 100} radius="xl" />
                   </Table.Td>
                 </Table.Tr>
               ))}

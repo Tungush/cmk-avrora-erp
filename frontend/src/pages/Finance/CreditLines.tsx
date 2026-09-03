@@ -82,7 +82,7 @@ export function CreditLines() {
                   <Text fw={700} ff="monospace" c="success.7">{formatCurrency(line.availableAmount)}</Text>
                 </Stack>
               </SimpleGrid>
-              <Progress value={usedPct} size="md" radius="xl" color={usedPct > 85 ? 'warning' : 'brand'} mb="md" />
+              <Progress value={usedPct} radius="xl" color={usedPct > 85 ? 'warning' : 'brand'} mb="md" />
 
               <Group gap="lg" mb="md" wrap="wrap">
                 {line.nextPayment && (

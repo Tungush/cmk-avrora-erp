@@ -112,7 +112,7 @@ export function RoleWidgets() {
               <Group key={r.status} justify="space-between" wrap="nowrap" gap="xs">
                 <StatusBadge status={r.status} />
                 <Group gap="xs" wrap="nowrap" style={{ flex: 1, maxWidth: '60%' }}>
-                  <Progress value={(r.count / funnelTotal) * 100} size="sm" radius="xl" style={{ flex: 1 }} />
+                  <Progress value={(r.count / funnelTotal) * 100} radius="xl" style={{ flex: 1 }} />
                   <Text size="xs" ff="monospace" w={54} ta="right">{r.count.toLocaleString('ru-RU')}</Text>
                 </Group>
               </Group>

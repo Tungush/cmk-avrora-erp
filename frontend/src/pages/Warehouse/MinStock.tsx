@@ -147,8 +147,7 @@ export function MinStock() {
                         <Table.Td data-priority="2">
                           <Group gap={8} wrap="nowrap">
                             <Progress
-                              value={r.readinessPct}
-                              size="md" radius="xl" style={{ flex: 1, minWidth: 80 }}
+                              value={r.readinessPct} radius="xl" style={{ flex: 1, minWidth: 80 }}
                               /* 'teal'/'yellow'/'red' темой не объявлены (03.09.2026).
                                  Середину увели в нейтраль: warning и danger в нашей
                                  палитре — одна терракота, полоса ими не различалась */

@@ -179,7 +179,7 @@ export function DirectorDashboard() {
                     <Text size="sm" c="dimmed">Оплачено</Text>
                     <Text size="sm" fw={700}>{formatCurrency(money.totalPaid)} · {paidPct.toFixed(0)}%</Text>
                   </Group>
-                  <Progress value={paidPct} size="lg" radius="xl" color="success" />
+                  <Progress value={paidPct} radius="xl" color="success" />
                 </Box>
                 <Group justify="space-between">
                   <Text size="sm" c="dimmed">Законтрактовано</Text>

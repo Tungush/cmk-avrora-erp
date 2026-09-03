@@ -114,8 +114,8 @@ h1, h2, h3, h4, h5, h6, p {
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
 
   /* Тени тёплые и почти незаметные */
-  --sh-sm: 0 1px 2px rgba(28, 27, 24, .03), 0 8px 22px -16px rgba(28, 27, 24, .16);
-  --sh-md: 0 2px 4px rgba(28, 27, 24, .03), 0 18px 38px -22px rgba(28, 27, 24, .22);
+  --sh-sm: 0 1px 2px color-mix(in srgb, var(--s-text) 3%, transparent), 0 8px 22px -16px color-mix(in srgb, var(--s-text) 16%, transparent);
+  --sh-md: 0 2px 4px color-mix(in srgb, var(--s-text) 3%, transparent), 0 18px 38px -22px color-mix(in srgb, var(--s-text) 22%, transparent);
 }
 
 /* ---------------------------------------------------------------
@@ -386,8 +386,8 @@ textarea.input-field {
 :root {
   --ease-out: cubic-bezier(0.25, 1, 0.5, 1);       /* вход и ховер */
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);   /* перемещения */
-  --shadow-hover: 0 4px 16px rgba(30, 29, 25, 0.07), 0 1px 3px rgba(30, 29, 25, 0.05);
-  --shadow-pop: 0 16px 48px rgba(30, 29, 25, 0.14), 0 4px 12px rgba(30, 29, 25, 0.08);
+  --shadow-hover: 0 4px 16px color-mix(in srgb, var(--s-text) 7%, transparent), 0 1px 3px color-mix(in srgb, var(--s-text) 5%, transparent);
+  --shadow-pop: 0 16px 48px color-mix(in srgb, var(--s-text) 14%, transparent), 0 4px 12px color-mix(in srgb, var(--s-text) 8%, transparent);
 }
 
 /* Интерактивные карточки: лёгкий подъём на ховере, посадка при нажатии.
@@ -568,13 +568,13 @@ textarea.input-field {
 }
 .table-scroll[data-shadow-left='true']::before {
   left: 0;
-  box-shadow: 18px 0 18px -12px rgba(30, 29, 25, 0.16);
+  box-shadow: 18px 0 18px -12px color-mix(in srgb, var(--s-text) 16%, transparent);
   float: left;
   height: 100%;
 }
 .table-scroll[data-shadow-right='true']::after {
   right: 0;
-  box-shadow: -18px 0 18px -12px rgba(30, 29, 25, 0.16);
+  box-shadow: -18px 0 18px -12px color-mix(in srgb, var(--s-text) 16%, transparent);
   float: right;
   height: 100%;
 }
@@ -701,7 +701,7 @@ textarea.input-field {
 }
 .mantine-SegmentedControl-indicator {
   background: #fff;
-  box-shadow: 0 1px 2px rgba(20,20,18,.06), 0 3px 8px rgba(20,20,18,.08);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--s-text) 6%, transparent), 0 3px 8px color-mix(in srgb, var(--s-text) 8%, transparent);
 }
 .mantine-SegmentedControl-label { font-weight: 600; }
 .mantine-Tabs-list[data-variant='pills'] {
