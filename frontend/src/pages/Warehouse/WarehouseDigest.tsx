@@ -80,12 +80,17 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
 
   const cards: Array<DigestCardProps & { key: string }> = [];
 
-  // Перехваты — первыми: решение директора, а не сноска в конце сетки
+  // Перехваты — первыми: решение директора, а не сноска в конце сетки.
+  // 03.09.2026: им же отдана графитовая плитка. В системе тёмная плитка
+  // на экране одна и означает «вот ответ»; раньше она стояла на
+  // «Обрезках в дело» — полезной, но не требующей решения карточке, да
+  // ещё и пятой, то есть на второй странице сетки. Экран Склада
+  // открывался вообще без опоры.
   if (overrideRows.length > 0) {
     cards.push({
       key: 'overrides',
       title: 'Перехваты резерва',
-      tone: 'danger',
+      tone: 'brand',
       icon: <IconGavel size={19} aria-hidden />,
       value: overrideRows.length,
       caption: 'ждут решения директора: чей заказ получит партию',
@@ -183,7 +188,8 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
   cards.push({
     key: 'offcuts',
     title: 'Обрезки в дело',
-    tone: 'brand',
+    // Не «ответ» экрана: обрезки — возможность сэкономить, а не решение
+    tone: 'ok',
     icon: <IconScissors size={19} aria-hidden />,
     value: offcutRows.length,
     caption: 'деловой отход: длины, которые можно не резать заново',
