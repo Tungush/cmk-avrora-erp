@@ -1646,3 +1646,45 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .mantine-Button-root[data-disabled] svg,
 .mantine-ActionIcon-root:disabled svg,
 .mantine-ActionIcon-root[data-disabled] svg { color: var(--s-text-quiet) !important; }
+
+/* ---------------------------------------------------------------
+   Строка фильтров: плитки, которые ПЕРЕКЛЮЧАЮТ список (04.09.2026)
+
+   В реестре заказов та же строка занимала 169 px при таблице в 281 px —
+   фильтр съедал больше половины того, что доставалось данным, и из 384
+   заказов на экран влезало четыре строки. Здесь плитка сжата до пилюли
+   «подпись + число» в одну строку: 46 px вместо 137.
+
+   Тон сохраняется: число внимания остаётся кирпичным, выбранная пилюля
+   темнеет — то же поведение, только без высоты KPI-карточки.
+   --------------------------------------------------------------- */
+.pulse-row[data-compact] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pulse-row[data-compact] .pulse-tile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+/* Значок и подпись — в одну строку, без переносов и без отступа снизу */
+.pulse-row[data-compact] .pulse-tile > * { margin-bottom: 0 !important; }
+.pulse-row[data-compact] .pulse-tile .mantine-Group-root { gap: 8px; margin-bottom: 0; }
+.pulse-row[data-compact] .pulse-tile__value { font-size: 17px; line-height: 1; }
+/* Значка в компактной пилюле нет: подпись рядом и так называет фильтр,
+   а 32 px на каждой из четырёх пилюль — это лишняя строка переноса. */
+.pulse-row[data-compact] .pulse-tile__icon { display: none; }
+/* Пояснение под числом в пилюле не помещается и не нужно: рядом подпись */
+.pulse-row[data-compact] .pulse-tile__hint { display: none; }
+.pulse-row[data-compact] .pulse-tile[data-clickable]:hover { transform: none; box-shadow: var(--ref-sh); }
+/* Пилюля шириной по содержимому. Без этого внутренняя Group с
+   justify="space-between" растягивала плитку на всю строку, и четыре
+   фильтра вставали в столбик — хуже, чем было. */
+.pulse-row[data-compact] .pulse-tile { width: auto; }
+.pulse-row[data-compact] .pulse-tile .mantine-Group-root { width: auto; flex: 0 0 auto; justify-content: flex-start; }
+.pulse-row[data-compact] .pulse-tile__value { white-space: nowrap; }

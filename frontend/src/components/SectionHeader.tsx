@@ -61,17 +61,27 @@ export interface PulseItem {
  * Ряд плиток-срезов. Пустые (0) не прячем: «просроченных нет» — это
  * ответ на вопрос, а исчезнувшая плитка заставила бы искать заново.
  */
-export function PulseRow({ items, loading }: { items: PulseItem[]; loading?: boolean }) {
+/**
+ * @param compact Плитки как строка фильтров, а не как KPI-карточки.
+ *
+ * Нужен там, где плитки ПЕРЕКЛЮЧАЮТ список, а не отвечают на вопрос
+ * «что происходит». В реестре заказов такая строка занимала 169 px при
+ * таблице в 281 px: фильтр съедал больше половины того, что доставалось
+ * данным, и из 384 заказов на экран влезало четыре строки. Фильтр не
+ * должен выглядеть как карточка отчёта — в компактном виде это строка
+ * пилюль «подпись + число» высотой 46 px (04.09.2026).
+ */
+export function PulseRow({ items, loading, compact }: { items: PulseItem[]; loading?: boolean; compact?: boolean }) {
   if (loading) {
     return (
-      <div className="pulse-row">
-        {[...Array(4)].map((_, i) => <Skeleton key={i} height={92} radius="lg" />)}
+      <div className="pulse-row" data-compact={compact ? 'true' : undefined}>
+        {[...Array(4)].map((_, i) => <Skeleton key={i} height={compact ? 46 : 92} radius={compact ? 'xl' : 'lg'} />)}
       </div>
     );
   }
   return (
     <FadeRise>
-      <div className="pulse-row">
+      <div className="pulse-row" data-compact={compact ? 'true' : undefined}>
         {items.map((it) => {
           const clickable = !!it.onClick;
           return (

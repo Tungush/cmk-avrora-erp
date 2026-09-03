@@ -22,6 +22,7 @@ import { DigestCard, DigestGrid } from '../../components/Digest';
 import { ViewSwitch } from '../../components/ViewSwitch';
 import { IconClockExclamation, IconInbox, IconTruckDelivery, IconLayoutGrid } from '@tabler/icons-react';
 import { TableScroll } from '../../components/TableScroll';
+import { useFitHeight } from '../../components/FitScreen';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap, Stagger } from '../../components/motion';
 import { MastLoader } from '../../components/Mast';
@@ -179,6 +180,20 @@ export function OrdersRegistry() {
   const [page, setPage] = useState(1);
   // Размер страницы помнится для реестра заказов отдельно (25 / 50 / 100)
   const [pageSize, setPageSize] = usePageSize('orders', 25);
+  /**
+   * Реестр держался в высоту 25 строк независимо от экрана (04.09.2026).
+   *
+   * У обёртки таблицы не было maxHeight вовсе: 25 строк по 50 px давали
+   * 1250 px, страница уезжала вниз на 1018 px, и на экране 900 px было
+   * видно ДВЕ строки из 384 заказов — остальное за сгибом. Это прямо
+   * противоречит правилу «страница не прокручивается»: список должен
+   * показывать столько строк, сколько поместилось.
+   *
+   * Теперь высота таблицы меряется, а размер страницы из неё следует.
+   * Ручной выбор «25/50/100 на стр.» остаётся: если человек сознательно
+   * просит больше — таблица прокрутится внутри себя, а не страница.
+   */
+  const fit = useFitHeight(42, 220);
   const [viewName, setViewName] = useState('');
   // Реестр открывается сводкой решений, а не таблицей на 384 строки
   const [view, setView] = useState<'digest' | 'list'>('digest');
@@ -337,7 +352,9 @@ export function OrdersRegistry() {
         </DigestGrid>
       ) : (
       <>
+      {/* Компактно: здесь плитки переключают список, а не отчитываются */}
       <PulseRow
+        compact
         loading={counts.loading && !meta}
         items={[
           {
@@ -494,7 +511,7 @@ export function OrdersRegistry() {
               )}
             </Stack>
           ) : (
-            <TableScroll minWidth={820}>
+            <TableScroll minWidth={820} maxHeight={fit.height} containerRef={fit.ref}>
               <Table highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
@@ -541,15 +558,17 @@ export function OrdersRegistry() {
         </Card>
       </FadeSwap>
 
-      <PaginationBar
-        page={page}
-        total={total}
-        pageSize={pageSize}
-        onPageChange={setPage}
-        onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
-        noun="заказов"
-        sticky
-      />
+      <div ref={fit.footerRef}>
+        <PaginationBar
+          page={page}
+          total={total}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+          noun="заказов"
+          sticky
+        />
+      </div>
       </>
       )}
 
