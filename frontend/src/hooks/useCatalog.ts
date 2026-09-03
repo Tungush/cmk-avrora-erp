@@ -15,6 +15,22 @@ export function useArticles(params?: Record<string, string | number | boolean>) 
   });
 }
 
+/**
+ * Сколько изделий в каждой очереди работы (04.09.2026).
+ *
+ * Работа инженера на экране «Изделия» — не листать каталог, а закрывать
+ * пробелы: из 2152 изделий 453 без состава, 477 без норм, 445 не имеют
+ * ни того ни другого. Раньше список этого не показывал вовсе, и найти
+ * незаполненное можно было только глазами по 2152 строкам.
+ */
+export function useArticleGaps() {
+  return useQuery({
+    queryKey: ['article-gaps'],
+    queryFn: () => articlesApi.gaps().then((res) => res.data),
+    staleTime: 60_000,
+  });
+}
+
 export function useMaterials(params?: Record<string, string | number>) {
   return useQuery({
     queryKey: ['materials', params],

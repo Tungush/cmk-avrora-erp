@@ -99,6 +99,9 @@ func main() {
 	protected.GET("/articles", articles.FindAll)
 	// Сводка прайса — до маршрута /articles/:id
 	protected.GET("/articles/price-digest", articles.PriceDigest)
+	// Счётчики очередей работы инженера — до /articles/:id, иначе «gaps»
+	// разберётся как идентификатор
+	protected.GET("/articles/gaps", articles.Gaps)
 	protected.GET("/articles/:id", articles.FindOne)
 	protected.GET("/articles/:id/bom", articles.GetBom)
 	protected.POST("/articles", auth.RequireRoles("engineer", "admin"), articles.Create)

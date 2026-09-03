@@ -11,7 +11,7 @@ import {
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
-import { useArticles } from '../../hooks/useCatalog';
+import { useArticles, useArticleGaps } from '../../hooks/useCatalog';
 import {
   useRouting, useCosting, useSaveNorm, useSaveActual, usePromoteActual,
   usePreviewNorm, useUsage, useNormHistory, useCostingHistory, useRequestPriceReview,
@@ -798,7 +798,17 @@ export function Specifications() {
   // страницу списка её там уже нет, а шапка редактора должна остаться
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [historyOpened, setHistoryOpened] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('routing');
+  const [activeTab, setActiveTab] = useState<string>('work');
+  /**
+   * Очередь работы (04.09.2026, просьба владельца пересмотреть страницу).
+   *
+   * Инженер приходит сюда не листать каталог, а закрывать пробелы: из
+   * 2152 изделий 453 без состава, 477 без норм, 445 без того и другого.
+   * Раньше список показывал все 2152 подряд, и найти незаполненное можно
+   * было только глазами. Теперь очередь выбирается явно и видно, сколько
+   * в ней осталось.
+   */
+  const [gap, setGap] = useState<string>('');
 
   // Список изделий занимает ровно ту высоту, что осталась от окна: сколько
   // строк влезло — столько и запрашиваем с сервера (02.09.2026)
@@ -810,8 +820,9 @@ export function Specifications() {
   // (26.08.2026 — «удали тут всё что сырьё и убери кнопку показать сырьё»).
   // Сырьё живёт в разделе «Материалы».
   const { data: articlesData, isLoading: articlesLoading } = useArticles({
-    search, page, pageSize: fit.rows,
+    search, page, pageSize: fit.rows, ...(gap ? { gap } : {}),
   });
+  const { data: gaps } = useArticleGaps();
   const articles = articlesData?.data ?? [];
   const articlesTotal = articlesData?.meta?.total;
   const activeId = selectedId ?? articles[0]?.id ?? null;
@@ -866,6 +877,32 @@ export function Specifications() {
         <HistoryModal articleId={activeId} opened={historyOpened} onClose={() => setHistoryOpened(false)} />
       )}
 
+      {/* ОЧЕРЕДЬ РАБОТЫ (04.09.2026). Инженер приходит закрывать пробелы,
+          а не листать каталог: из 2152 изделий 453 без состава, 477 без
+          норм, 445 без того и другого. Пилюля показывает, сколько
+          осталось в очереди, и переключает список на неё. */}
+      <div className="specs-queue" role="tablist" aria-label="Очередь работы">
+        {[
+          { v: '', label: 'Все', n: gaps?.total },
+          { v: 'empty', label: 'Пустые', n: gaps?.empty },
+          { v: 'nobom', label: 'Без состава', n: gaps?.nobom },
+          { v: 'nonorms', label: 'Без норм', n: gaps?.nonorms },
+          { v: 'noprice', label: 'Без цены', n: gaps?.noprice },
+        ].map((q) => (
+          <button
+            key={q.v || 'all'}
+            type="button"
+            role="tab"
+            aria-selected={gap === q.v}
+            data-active={gap === q.v ? 'true' : undefined}
+            onClick={() => { setGap(q.v); setPage(1); }}
+          >
+            {q.label}
+            {q.n != null && <span className="specs-queue__n">{q.n.toLocaleString('ru-RU')}</span>}
+          </button>
+        ))}
+      </div>
+
       <div className="specs-split" data-stacked={stacked ? 'true' : undefined}>
         {/* Список артикулов — ровно по высоте окна */}
         <ArticleListPane
@@ -881,6 +918,7 @@ export function Specifications() {
           onSelect={handleSelect}
           stacked={stacked}
           listRef={fit.ref}
+          emptyText={gap ? 'В этой очереди пусто — заполнять нечего' : undefined}
         />
 
         {/* Редактор: всё об изделии на одном экране, разделами-вкладками.
@@ -901,10 +939,15 @@ export function Specifications() {
             </Group>
           ) : <Skeleton height={28} width={320} radius="sm" mb="xs" />}
 
-          <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? 'routing')} radius="md" keepMounted={false}>
+          {/* Нормы и состав СОЕДИНЕНЫ в одну рабочую вкладку (04.09.2026).
+              Себестоимость — это материалы ПЛЮС труд, а они лежали по
+              разным вкладкам: инженер правил часы, не видя материалов, и
+              не мог понять, почему сумма такая. Разбор цены и «где
+              применяется» остались вкладками — они справочные, в них не
+              работают. */}
+          <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? 'work')} radius="md" keepMounted={false}>
             <Tabs.List>
-              <Tabs.Tab value="routing">Трудозатраты</Tabs.Tab>
-              <Tabs.Tab value="bom">Материалы (состав)</Tabs.Tab>
+              <Tabs.Tab value="work">Нормы и состав</Tabs.Tab>
               <Tabs.Tab value="cost">Разбор цены</Tabs.Tab>
               <Tabs.Tab value="usage">Где применяется</Tabs.Tab>
             </Tabs.List>
@@ -913,25 +956,26 @@ export function Specifications() {
           <div className="specs-editor__body">
             <FadeSwap swapKey={`${activeId ?? 'none'}-${activeTab}`}>
               {!activeId ? null
-                : activeTab === 'bom' ? <BomPanel articleId={activeId} />
-                  : activeTab === 'cost' ? <CostingPanel articleId={activeId} />
-                    : activeTab === 'usage' ? <UsagePanel articleId={activeId} />
-                      : (
-                        /* Нормы и итог цены — на одном экране: инженер правит
-                           часы и сразу видит, во что это вылилось. Полный
-                           разбор формулы — во вкладке «Разбор цены» */
-                        <Stack gap="sm">
+                : activeTab === 'cost' ? <CostingPanel articleId={activeId} />
+                  : activeTab === 'usage' ? <UsagePanel articleId={activeId} />
+                    : (
+                      /* Рабочая вкладка: слева нормы, справа состав, снизу
+                         итог по обоим. Инженер правит часы и сразу видит,
+                         во что это вылилось вместе с материалами. */
+                      <div className="specs-work">
+                        <div className="specs-work__norms">
                           {routingLoading || !routing
                             ? <Skeleton height={220} radius="lg" />
-                            : (
-                              <StageTable
-                                stages={routing.stages}
-                                articleId={activeId}
-                              />
-                            )}
+                            : <StageTable stages={routing.stages} articleId={activeId} />}
+                        </div>
+                        <div className="specs-work__bom">
+                          <BomPanel articleId={activeId} />
+                        </div>
+                        <div className="specs-work__total">
                           <CostStrip articleId={activeId} />
-                        </Stack>
-                      )}
+                        </div>
+                      </div>
+                    )}
             </FadeSwap>
           </div>
         </div>

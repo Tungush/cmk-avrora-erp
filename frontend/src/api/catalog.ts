@@ -5,6 +5,8 @@ export const articlesApi = {
   list: (params?: Record<string, string | number | boolean>) =>
     api.get<PaginatedResponse<Article>>('/articles', { params }),
   get: (id: string) => api.get<Article>(`/articles/${id}`),
+  /** Счётчики очередей: сколько изделий без состава, без норм, без цены */
+  gaps: () => api.get<{ total: number; nobom: number; nonorms: number; noprice: number; empty: number }>('/articles/gaps'),
   create: (body: Record<string, unknown>) => api.post<Article>('/articles', body),
   update: (id: string, body: Record<string, unknown>) => api.patch<Article>(`/articles/${id}`, body),
   getPriceHistory: (id: string) => api.get<PriceHistory[]>(`/articles/${id}/price-history`),

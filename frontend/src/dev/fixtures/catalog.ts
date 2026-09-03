@@ -1182,6 +1182,26 @@ function stageFromPath(path: string, at: number): Stage {
 // ---------------------------------------------------------------------------
 
 export const routes: FixtureRoute[] = [
+  // ---------- Очереди работы инженера (строго до /articles/:id) ----------
+  {
+    method: 'GET',
+    match: /^\/articles\/gaps$/,
+    handler: () => {
+      // Считаем по тем же данным, что отдаёт список: иначе пилюля обещала
+      // бы одно число, а список показывал другое — и разошлись бы уже
+      // внутри режима дизайна (04.09.2026)
+      const noBom = (a: typeof ARTICLES[number]) => a.bom.length === 0;
+      const noNorms = (a: typeof ARTICLES[number]) => a.norms.length === 0;
+      return {
+        total: ARTICLES.length,
+        nobom: ARTICLES.filter(noBom).length,
+        nonorms: ARTICLES.filter(noNorms).length,
+        noprice: ARTICLES.filter((a) => !(a.seed.price > 0)).length,
+        empty: ARTICLES.filter((a) => noBom(a) && noNorms(a)).length,
+      };
+    },
+  },
+
   // ---------- Сводка прайса (строго до /articles/:id) ----------
   {
     method: 'GET',
@@ -1199,14 +1219,30 @@ export const routes: FixtureRoute[] = [
 
       let list = ARTICLES;
       if (onlyPriced) list = list.filter((a) => a.seed.price > 0);
+      // Очередь работы инженера: те же условия, что в Go (gapWhere).
+      // Без этого пилюли «Без состава» / «Без норм» в режиме дизайна
+      // ничего не меняли, и проверить экран было нельзя (04.09.2026).
+      const gap = params.get('gap');
+      if (gap) {
+        const noBom = (a: typeof ARTICLES[number]) => a.bom.length === 0;
+        const noNorms = (a: typeof ARTICLES[number]) => a.norms.length === 0;
+        if (gap === 'nobom') list = list.filter(noBom);
+        else if (gap === 'nonorms') list = list.filter(noNorms);
+        else if (gap === 'noprice') list = list.filter((a) => !(a.seed.price > 0));
+        else if (gap === 'empty') list = list.filter((a) => noBom(a) && noNorms(a));
+      }
       if (search) {
         const q = lc(search);
         list = list.filter((a) => lc(a.seed.code).includes(q) || lc(a.seed.name).includes(q) || lc(a.seed.legacy ?? '').includes(q));
       }
 
       const { data, page, pageSize } = pageOf(list, params, 50);
-      // Настоящий масштаб каталога виден в пагинации: 2 152 изделия, 176 с ценой
-      const total = search ? list.length : onlyPriced ? REAL_PRICED : REAL_TOTAL;
+      // Настоящий масштаб каталога виден в пагинации: 2 152 изделия, 176 с
+      // ценой. Но при поиске и в очереди работы total обязан считаться по
+      // отфильтрованному: иначе пилюля обещает «Без состава 13», а
+      // пагинация под списком пишет «из 2 152» (04.09.2026).
+      const filtered = search || gap;
+      const total = filtered ? list.length : onlyPriced ? REAL_PRICED : REAL_TOTAL;
       return { data: data.map(articleOut), meta: { page, pageSize, total } };
     },
   },

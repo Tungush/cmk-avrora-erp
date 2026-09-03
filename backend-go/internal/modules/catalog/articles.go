@@ -97,7 +97,58 @@ type articleOut struct {
 	PriceHistory []interface{} `json:"priceHistory,omitempty"`
 }
 
-// FindAll — GET /articles?search=&page=&pageSize=&includeResale=&onlyPriced=
+// gapWhere — условие «чего у изделия не хватает» (04.09.2026).
+//
+// Работа инженера на экране «Изделия» — не листать каталог, а ЗАКРЫВАТЬ
+// пробелы: из 2317 изделий 609 не имеют ни состава, ни норм, и по ним
+// себестоимость нулевая. Раньше список этого не умел: 2317 строк подряд,
+// и найти незаполненное можно было только глазами.
+func gapWhere(gap string) string {
+	switch gap {
+	case "nobom":
+		return " AND NOT EXISTS (SELECT 1 FROM bom_items b WHERE b.article_id = articles.id)"
+	case "nonorms":
+		return " AND NOT EXISTS (SELECT 1 FROM routing_operations r WHERE r.article_id = articles.id)"
+	case "noprice":
+		return " AND (approved_price IS NULL OR approved_price = 0)"
+	case "empty": // ни состава, ни норм — самая большая дыра
+		return " AND NOT EXISTS (SELECT 1 FROM bom_items b WHERE b.article_id = articles.id)" +
+			" AND NOT EXISTS (SELECT 1 FROM routing_operations r WHERE r.article_id = articles.id)"
+	default:
+		return ""
+	}
+}
+
+// Gaps — GET /articles/gaps: сколько изделий в каждой очереди работы.
+// Считается одним запросом: четыре отдельных подсчёта на каждое открытие
+// экрана — это четыре прохода по таблице там, где хватает одного.
+func (h *ArticlesHandler) Gaps(c *gin.Context) {
+	const q = `
+		SELECT count(*) AS total,
+		       count(*) FILTER (WHERE nb) AS nobom,
+		       count(*) FILTER (WHERE nn) AS nonorms,
+		       count(*) FILTER (WHERE approved_price IS NULL OR approved_price = 0) AS noprice,
+		       count(*) FILTER (WHERE nb AND nn) AS empty
+		  FROM (
+		    SELECT a.approved_price,
+		           NOT EXISTS (SELECT 1 FROM bom_items b WHERE b.article_id = a.id) AS nb,
+		           NOT EXISTS (SELECT 1 FROM routing_operations r WHERE r.article_id = a.id) AS nn
+		      FROM articles a
+		     WHERE a.is_material_resale = false
+		  ) x`
+	var total, nobom, nonorms, noprice, empty int
+	if err := h.pool.QueryRow(c.Request.Context(), q).
+		Scan(&total, &nobom, &nonorms, &noprice, &empty); err != nil {
+		common.Fail(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Ошибка базы данных")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"total": total, "nobom": nobom, "nonorms": nonorms,
+		"noprice": noprice, "empty": empty,
+	})
+}
+
+// FindAll — GET /articles?search=&page=&pageSize=&includeResale=&onlyPriced=&gap=
 func (h *ArticlesHandler) FindAll(c *gin.Context) {
 	page, _ := strconv.Atoi(c.Query("page"))
 	if page < 1 {
@@ -117,6 +168,8 @@ func (h *ArticlesHandler) FindAll(c *gin.Context) {
 	if c.Query("onlyPriced") == "true" {
 		where += " AND approved_price > 0"
 	}
+	// Очередь работы: показать только то, что не заполнено
+	where += gapWhere(c.Query("gap"))
 	if search := strings.TrimSpace(c.Query("search")); search != "" {
 		args = append(args, "%"+search+"%")
 		n := strconv.Itoa(len(args))

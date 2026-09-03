@@ -69,6 +69,8 @@ interface ArticleListPaneProps {
   pageSize: number;
   /** Замеряемая область: по её высоте и считается pageSize */
   listRef?: React.Ref<HTMLDivElement>;
+  /** Что показать, когда список пуст: у очереди работы свой текст */
+  emptyText?: string;
 }
 
 /**
@@ -79,7 +81,7 @@ interface ArticleListPaneProps {
  */
 export function ArticleListPane({
   articles, loading, total, page, onPageChange, search, onSearchChange, activeId, onSelect,
-  stacked, pageSize, listRef: measureRef,
+  stacked, pageSize, listRef: measureRef, emptyText,
 }: ArticleListPaneProps) {
   const listRef = useRef<HTMLDivElement>(null);
   // Пока грузится следующая страница, счётчик «из N» не должен мигать в «Нет изделий»
@@ -128,7 +130,9 @@ export function ArticleListPane({
                 ))}
             {!loading && articles.length === 0 && (
               <Stack gap="xs" py="md" align="center">
-                <Text size="sm" c="dimmed" ta="center">Артикула нет в справочнике</Text>
+                {/* Пустая очередь — это не «ничего не нашлось», а хорошая
+                    новость: в ней не осталось работы (04.09.2026) */}
+                <Text size="sm" c="dimmed" ta="center">{emptyText ?? 'Артикула нет в справочнике'}</Text>
                 {/* Заявка на номенклатуру подаётся из карточки сделки —
                     у позиции без артикула (решение 26.08.2026) */}
               </Stack>
