@@ -22,6 +22,7 @@ import { BomPanel } from './BomPanel';
 import { NomenclatureRequestsButton } from './NomenclaturePanel';
 import { ArticleListPane, ARTICLE_ROW_H } from './ArticleList';
 import { FitScreen, useFitRows } from '../../components/FitScreen';
+import { SectionHead } from '../../components/SectionHeader';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap, Collapse } from '../../components/motion';
@@ -836,27 +837,27 @@ export function Specifications() {
 
   const noBom = activeArticle && !activeArticle.isMaterialResale && !activeArticle.bomItems?.length;
 
+  /* Общая шапка раздела (04.09.2026): здесь вкладок нет — они внутри
+     панели изделия, — но название, пояснение и кнопки идут через тот же
+     компонент, что и в остальных разделах. Одинаковая шапка везде важнее
+     мелкой экономии: человек не должен заново искать глазами, где что. */
   const header = (
-    <Group justify="space-between" align="center" wrap="nowrap" gap="md">
-      <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-        <Text component="h1" fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
-          <TextReveal text="Изделия" />
-        </Text>
-        <Text size="sm" c="dimmed" lineClamp={1}>
-          нормы труда и себестоимость по каждому артикулу
-        </Text>
-      </Group>
-      <Group gap="xs" wrap="nowrap">
-        <NomenclatureRequestsButton />
-        <Button variant="default" size="sm" leftSection={<IconHistory aria-hidden size={16} />}
-          onClick={() => setHistoryOpened(true)} disabled={!activeId}>
-          История
-        </Button>
-        <Button variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />} onClick={() => refetch()}>
-          Пересчитать
-        </Button>
-      </Group>
-    </Group>
+    <SectionHead
+      title="Изделия"
+      subtitle="нормы труда и себестоимость по каждому артикулу"
+      actions={(
+        <>
+          <NomenclatureRequestsButton />
+          <Button variant="default" size="sm" leftSection={<IconHistory aria-hidden size={16} />}
+            onClick={() => setHistoryOpened(true)} disabled={!activeId}>
+            История
+          </Button>
+          <Button variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />} onClick={() => refetch()}>
+            Пересчитать
+          </Button>
+        </>
+      )}
+    />
   );
 
   return (

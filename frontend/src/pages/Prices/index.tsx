@@ -19,6 +19,7 @@ import { MastLoader } from '../../components/Mast';
 import { DigestCard, type DigestCardProps } from '../../components/Digest';
 import { IconRuler2, IconScale, IconAlertTriangle, IconLayoutGrid, IconList, IconGavel } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
+import { SectionHead } from '../../components/SectionHeader';
 import './Prices.css';
 
 /** Карточка-ответ: по её размеру считается, сколько их влезло в экран */
@@ -92,59 +93,48 @@ export function Prices() {
     }),
   });
 
+  /* Название, вкладки и поиск — одной строкой (04.09.2026). Раньше это
+     были три уровня: название, под ним вкладки, а поиск с переключателем
+     охвата — сбоку от названия. Счётчик заявок на пересмотр остался: он
+     говорит, что вкладка требует внимания. */
   const header = (
-    <Stack gap="sm">
-      <Group justify="space-between" align="center" wrap="nowrap" gap="md">
-        <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
-          <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
-            <TextReveal text="Прайс" />
-          </Text>
-          <Text size="sm" c="dimmed" lineClamp={1}>
-            утверждённые цены против расчёта по спецификации — цена меняется только через пересмотр
-          </Text>
-        </Group>
-        {view === 'list' && (
-          <Group gap="sm" wrap="nowrap">
-            <SegmentedControl
-              value={scope}
-              onChange={(v) => setScope(v as 'priced' | 'all')}
-              size="xs"
-              w="fit-content"
-              data={[
-                { value: 'priced', label: 'Прайс-лист' },
-                { value: 'all', label: 'Весь каталог' },
-              ]}
-            />
-            <TextInput
-              placeholder="Код, название или старый код…"
-              leftSection={<IconSearch size={16} aria-hidden />}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              size="sm"
-              w={300}
-            />
-          </Group>
-        )}
-      </Group>
-
-      <Tabs value={view} onChange={(v) => setView((v ?? 'digest') as View)} radius="md">
-        <Tabs.List>
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} aria-hidden />}>Что с ценами</Tabs.Tab>
-          {canApprove && (
-            <Tabs.Tab
-              value="reviews"
-              leftSection={<IconGavel size={15} aria-hidden />}
-              rightSection={pendingCount > 0
-                ? <Badge size="xs" circle variant="filled" color="warning">{pendingCount}</Badge>
-                : undefined}
-            >
-              Пересмотр цен
-            </Tabs.Tab>
-          )}
-          <Tabs.Tab value="list" leftSection={<IconList size={15} aria-hidden />}>Весь прайс</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-    </Stack>
+    <SectionHead
+      title="Прайс"
+      subtitle="утверждённые цены против расчёта по спецификации — цена меняется только через пересмотр"
+      value={view}
+      onChange={(v) => setView(v as View)}
+      tabs={[
+        { value: 'digest', label: 'Что с ценами', icon: <IconLayoutGrid size={16} aria-hidden /> },
+        ...(canApprove ? [{
+          value: 'reviews',
+          label: pendingCount > 0 ? `Пересмотр цен · ${pendingCount}` : 'Пересмотр цен',
+          icon: <IconGavel size={16} aria-hidden />,
+        }] : []),
+        { value: 'list', label: 'Весь прайс', icon: <IconList size={16} aria-hidden /> },
+      ]}
+      actions={view === 'list' ? (
+        <>
+          <SegmentedControl
+            value={scope}
+            onChange={(v) => setScope(v as 'priced' | 'all')}
+            size="xs"
+            w="fit-content"
+            data={[
+              { value: 'priced', label: 'Прайс-лист' },
+              { value: 'all', label: 'Весь каталог' },
+            ]}
+          />
+          <TextInput
+            placeholder="Код, название или старый код…"
+            leftSection={<IconSearch size={16} aria-hidden />}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            size="sm"
+            w={260}
+          />
+        </>
+      ) : undefined}
+    />
   );
 
   return (

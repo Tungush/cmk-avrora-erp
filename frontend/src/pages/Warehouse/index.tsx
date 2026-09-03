@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tabs, Text, Group } from '@mantine/core';
+import { SectionHead } from '../../components/SectionHeader';
 import {
   IconGavel,
   IconBoxSeam,
@@ -18,7 +18,6 @@ import { Offcuts } from './Offcuts';
 import { WarehouseDigest } from './WarehouseDigest';
 import { FadeSwap } from '../../components/motion';
 import { FitScreen } from '../../components/FitScreen';
-import { TextReveal } from '../../components/motion';
 import './Warehouse.css';
 
 /** Обёртка сводки тянется на всю высоту — по ней меряется сетка карточек */
@@ -46,33 +45,29 @@ export function Warehouse() {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
 
+  /* Название и вкладки — одной строкой (04.09.2026). Вкладки стояли
+     отдельным рядом под названием: вместе это 88 px до первой строки
+     данных на каждом из семи видов раздела. */
   const header = (
-    <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
-      <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
-        <TextReveal text="Склад" />
-      </Text>
-      <Text size="sm" c="dimmed" lineClamp={1}>
-        сырьё с ценами закупа — отсюда берётся себестоимость в спецификациях
-      </Text>
-    </Group>
+    <SectionHead
+      title="Склад"
+      subtitle="сырьё с ценами закупа — отсюда берётся себестоимость в спецификациях"
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'digest', label: 'Сводка', icon: <IconLayoutGrid aria-hidden size={16} /> },
+        { value: 'stock', label: 'Склад сырья', icon: <IconBoxSeam aria-hidden size={16} /> },
+        { value: 'storeroom', label: 'Кладовая', icon: <IconTool aria-hidden size={16} /> },
+        { value: 'fg', label: 'Склад ГП', icon: <IconBuildingWarehouse aria-hidden size={16} /> },
+        { value: 'batches', label: 'Партии и резервы', icon: <IconGavel aria-hidden size={16} /> },
+        { value: 'minstock', label: 'Мин. остатки', icon: <IconGauge aria-hidden size={16} /> },
+        { value: 'offcuts', label: 'Обрезки', icon: <IconScissors aria-hidden size={16} /> },
+      ]}
+    />
   );
 
   return (
     <FitScreen header={header}>
-      {/* Панели рисуем сами под списком вкладок: так смена вкладки
-          анимируется одним FadeSwap, а не «мигает» при перемонтировании */}
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'digest')} radius="md">
-        <Tabs.List>
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={16} />}>Сводка</Tabs.Tab>
-          <Tabs.Tab value="stock" leftSection={<IconBoxSeam size={16} />}>Склад сырья</Tabs.Tab>
-          <Tabs.Tab value="storeroom" leftSection={<IconTool size={16} />}>Кладовая</Tabs.Tab>
-          <Tabs.Tab value="fg" leftSection={<IconBuildingWarehouse size={16} />}>Склад ГП</Tabs.Tab>
-          <Tabs.Tab value="batches" leftSection={<IconGavel size={16} />}>Партии и резервы</Tabs.Tab>
-          <Tabs.Tab value="minstock" leftSection={<IconGauge size={16} />}>Мин. остатки</Tabs.Tab>
-          <Tabs.Tab value="offcuts" leftSection={<IconScissors size={16} />}>Обрезки</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-
       {/* Сводка обязана влезать целиком — у неё своя панель без прокрутки
           (иначе пятая карточка «Перехваты резерва» уезжала под край,
           03.09.2026). Реестрам прокрутка внутри панели по-прежнему нужна */}

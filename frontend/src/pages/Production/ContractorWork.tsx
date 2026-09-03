@@ -31,6 +31,7 @@ import {
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { Ref } from '../../components/EntityRef';
 import { TableScroll } from '../../components/TableScroll';
+import { SectionHead } from '../../components/SectionHeader';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { ContractorDigest } from './ContractorDigest';
@@ -1812,15 +1813,20 @@ export function ContractorWork() {
     return next;
   }, { replace: true });
 
+  /* Название и вкладки — одной строкой (04.09.2026): вкладки стояли
+     отдельным рядом под названием и отнимали высоту у данных. */
   const header = (
-    <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
-      <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
-        <TextReveal text="Подряд" />
-      </Text>
-      <Text size="sm" c="dimmed" lineClamp={1}>
-        кто делает наши работы на стороне — штат считается по нормам и сюда не попадает
-      </Text>
-    </Group>
+    <SectionHead
+      title="Подряд"
+      subtitle="кто делает наши работы на стороне — штат считается по нормам и сюда не попадает"
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'digest', label: 'Что требует решения', icon: <IconLayoutGrid aria-hidden size={16} /> },
+        { value: 'requests', label: 'Заявки', icon: <IconClipboardList aria-hidden size={16} /> },
+        { value: 'allocated', label: 'Разнесено по заказам', icon: <IconListDetails aria-hidden size={16} /> },
+      ]}
+    />
   );
 
   return (
@@ -1833,18 +1839,6 @@ export function ContractorWork() {
         keepMounted={false}
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       >
-        <Tabs.List mb="sm">
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid aria-hidden size={16} />}>
-            Что требует решения
-          </Tabs.Tab>
-          <Tabs.Tab value="requests" leftSection={<IconClipboardList aria-hidden size={16} />}>
-            Заявки
-          </Tabs.Tab>
-          <Tabs.Tab value="allocated" leftSection={<IconListDetails aria-hidden size={16} />}>
-            Разнесено по заказам
-          </Tabs.Tab>
-        </Tabs.List>
-
         <div className="section-body">
           <Tabs.Panel value="digest"><ContractorDigest onGoTab={setTab} /></Tabs.Panel>
           <Tabs.Panel value="requests"><RequestsTab /></Tabs.Panel>

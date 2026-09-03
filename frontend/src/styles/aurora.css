@@ -315,12 +315,19 @@ a:hover > .mantine-Card-root,
    6. Таблицы: белая поверхность, тихие линии
    --------------------------------------------------------------- */
 
-.mantine-Table-thead { background: transparent; -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* Шапка таблицы ПРИЛИПАЕТ к верху прокручиваемой области (position:
+   sticky), поэтому она обязана быть непрозрачной. Пока фон был
+   прозрачным, строки просвечивали сквозь неё: на складе число «252»
+   из уезжающей строки ложилось поверх заголовка «Стоимость запаса».
+   Это касалось всех таблиц с внутренней прокруткой (04.09.2026). */
+.mantine-Table-thead { background: var(--s-surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
 .mantine-Table-th {
-  background: transparent !important;
+  background: var(--s-surface) !important;
   color: var(--ref-muted);
   border-bottom: 1px solid var(--ref-line) !important;
 }
+/* На тихой подложке (шапка внутри карточки) — тот же тон, что у неё */
+.table-scroll .mantine-Table-th { background: var(--s-surface) !important; }
 .mantine-Table-td { border-bottom: 1px solid var(--ref-line) !important; }
 .mantine-Table-tbody .mantine-Table-tr:hover > .mantine-Table-td { background: var(--ref-surface-sub); }
 .table-scroll[data-sticky-first='true'] th:first-child,

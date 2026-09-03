@@ -1,6 +1,7 @@
 import React from 'react';
 import { Text, Tabs, Group } from '@mantine/core';
 import { useSearchParams } from 'react-router-dom';
+import { SectionHead } from '../../components/SectionHeader';
 import { Receivables } from './Receivables';
 import { Reconciliation } from './Reconciliation';
 import { PaymentDocuments } from './PaymentDocuments';
@@ -19,15 +20,23 @@ export function Finance() {
   const [params, setParams] = useSearchParams();
   const tab = params.get('tab') ?? 'receivables';
 
+  const setTab = (v: string) => setParams({ tab: v }, { replace: true });
+
+  /* Название и вкладки — одной строкой (04.09.2026): вкладки стояли
+     отдельным рядом под названием и отнимали высоту у данных. */
   const header = (
-    <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
-      <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
-        <TextReveal text="Деньги" />
-      </Text>
-      <Text size="sm" c="dimmed" lineClamp={1}>
-        кто должен нам по заказам, сколько должны мы по закупу и чем это подтверждено
-      </Text>
-    </Group>
+    <SectionHead
+      title="Деньги"
+      subtitle="кто должен нам по заказам, сколько должны мы по закупу и чем это подтверждено"
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'receivables', label: 'Нам должны' },
+        { value: 'reconciliation', label: 'Сверка с закупом' },
+        { value: 'documents', label: 'Договоры-основания' },
+        { value: 'damu', label: 'ДАМУ' },
+      ]}
+    />
   );
 
   return (
@@ -39,13 +48,6 @@ export function Finance() {
         keepMounted={false}
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       >
-        <Tabs.List mb="sm">
-          <Tabs.Tab value="receivables">Нам должны</Tabs.Tab>
-          <Tabs.Tab value="reconciliation">Сверка с закупом</Tabs.Tab>
-          <Tabs.Tab value="documents">Договоры-основания</Tabs.Tab>
-          <Tabs.Tab value="damu">ДАМУ</Tabs.Tab>
-        </Tabs.List>
-
         {/* Смена вкладки — плавная: старое растворяется, новое поднимается.
             Длинные реестры прокручиваются внутри панели, не страницей */}
         <div className="section-body">

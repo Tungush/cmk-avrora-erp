@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Tabs, Text, Group } from '@mantine/core';
 import { IconChartBar, IconFileInvoice, IconShoppingCartPlus, IconLayoutGrid } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
+import { SectionHead } from '../../components/SectionHeader';
 import { PurchasesDashboard } from './PurchasesDashboard';
 import { PurchasesRegistry } from './PurchasesRegistry';
 import { PurchaseQueue } from './PurchaseQueue';
@@ -33,15 +34,21 @@ export function Purchases() {
     setTab('registry');
   };
 
+  /* Название и вкладки — одной строкой (04.09.2026): вкладки стояли
+     отдельным рядом под названием и отнимали высоту у данных. */
   const header = (
-    <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
-      <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
-        <TextReveal text="Закупки" />
-      </Text>
-      <Text size="sm" c="dimmed" lineClamp={1}>
-        заказы поставщику из 1С — что заказано, что пришло, кому и сколько должны
-      </Text>
-    </Group>
+    <SectionHead
+      title="Закупки"
+      subtitle="заказы поставщику из 1С — что заказано, что пришло, кому и сколько должны"
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'digest', label: 'Что требует решения', icon: <IconLayoutGrid aria-hidden size={16} /> },
+        { value: 'dashboard', label: 'Разрезы', icon: <IconChartBar aria-hidden size={16} /> },
+        { value: 'registry', label: 'Все заказы поставщику', icon: <IconFileInvoice aria-hidden size={16} /> },
+        { value: 'queue', label: 'На закуп', icon: <IconShoppingCartPlus aria-hidden size={16} /> },
+      ]}
+    />
   );
 
   return (
@@ -54,13 +61,6 @@ export function Purchases() {
         keepMounted={false}
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       >
-        <Tabs.List mb="sm">
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid aria-hidden size={16} />}>Что требует решения</Tabs.Tab>
-          <Tabs.Tab value="dashboard" leftSection={<IconChartBar aria-hidden size={16} />}>Разрезы</Tabs.Tab>
-          <Tabs.Tab value="registry" leftSection={<IconFileInvoice aria-hidden size={16} />}>Все заказы поставщику</Tabs.Tab>
-          <Tabs.Tab value="queue" leftSection={<IconShoppingCartPlus aria-hidden size={16} />}>На закуп</Tabs.Tab>
-        </Tabs.List>
-
         {/* Сводка влезает в экран целиком; разрезы и реестры длиннее —
             они прокручиваются ВНУТРИ панели, страница остаётся неподвижной */}
         <div className="section-body">
