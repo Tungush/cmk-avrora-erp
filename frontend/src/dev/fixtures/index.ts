@@ -6,6 +6,7 @@ import { routes as contractors } from './contractors';
 import { routes as warehouse } from './warehouse';
 import { routes as purchases } from './purchases';
 import { routes as sales } from './sales';
+import { routes as finance } from './finance';
 
 /**
  * Реестр фикстур режима дизайна. Модули подключаются по мере готовности;
@@ -21,4 +22,5 @@ export const ALL_ROUTES: FixtureRoute[] = [
   ...warehouse,
   ...purchases,
   ...sales,
+  ...finance,
 ];
