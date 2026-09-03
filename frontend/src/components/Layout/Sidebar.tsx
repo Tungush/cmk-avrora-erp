@@ -57,20 +57,25 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
 
   return (
     <Stack justify="space-between" h="100%" gap={0}>
-      <Stack gap={0}>
-        <Box pb="sm" mb="sm" style={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          {collapsed ? <LogoMark size={30} /> : <LogoLockup />}
+      {/* Меню обязано влезать целиком: одиннадцать пунктов по 44 px плюс
+          знак, разделители и блок пользователя на невысоком окне не
+          помещались, и нижние пункты обрезались (03.09.2026). Высота
+          пункта теперь тянется от высоты окна — clamp в nav.css */}
+      <Stack gap={0} style={{ minHeight: 0, flex: '1 1 auto' }} className="nav-top">
+        <Box pb={6} mb={2} style={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
+          {collapsed ? <LogoMark size={26} /> : <LogoLockup />}
         </Box>
 
-        <Divider my="sm" />
+        <Divider my={6} />
 
         {!collapsed && (
-          <Text size="xs" tt="uppercase" fw={700} c="dimmed" px="sm" mb={6} style={{ letterSpacing: '0.1em' }}>
+          <Text size="xs" tt="uppercase" fw={700} c="dimmed" px="sm" mb={4} className="nav-label"
+            style={{ letterSpacing: '0.1em' }}>
             Меню
           </Text>
         )}
 
-        <Stack gap={2} mt="xs">
+        <Stack gap={1} mt={2} className="nav-list" style={{ minHeight: 0 }}>
           {navItems.map((item) => {
             if (!canAccessModule(item.module, permissions)) return null;
             if ((item as any).roles && !(item as any).roles.some((r: string) => user?.roles?.includes(r))) return null;
@@ -90,7 +95,6 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                 className="nav-item"
                 aria-label={item.label}
                 px={collapsed ? 0 : 'xs'}
-                h={44}
                 style={{
                   position: 'relative',
                   borderRadius: 'var(--r-full)',
@@ -136,19 +140,19 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
         </Stack>
       </Stack>
 
-      <Box pt="md">
-        <Divider mb="sm" />
+      <Box pt={6} style={{ flex: '0 0 auto' }}>
+        <Divider mb={6} />
         {collapsed ? (
           <Tooltip label={`${displayName} · ${roleLabel}`} position="right" withArrow>
-            <Group justify="center" p={4}>
-              <Avatar size={38} radius="xl" color="dark.9">
+            <Group justify="center" p={2}>
+              <Avatar size={32} radius="xl" color="dark.9">
                 <Text fw={700} c="white" size="sm">{initials}</Text>
               </Avatar>
             </Group>
           </Tooltip>
         ) : (
-          <Group gap="sm" wrap="nowrap" p="xs">
-            <Avatar size={38} radius="xl" color="dark.9">
+          <Group gap="sm" wrap="nowrap" p={6}>
+            <Avatar size={34} radius="xl" color="dark.9">
               <Text fw={700} c="white" size="sm">{initials}</Text>
             </Avatar>
             <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>

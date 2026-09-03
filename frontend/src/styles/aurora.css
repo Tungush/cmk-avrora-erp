@@ -1411,11 +1411,21 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .mantine-Table-td, .mantine-Table-th { overflow-wrap: anywhere; }
 
 /* Числа и суммы не переносятся по разрядам, но и не выходят за край */
-[class*='__value'], [class*='__qty'], [class*='__sum'], .kpi-value {
+[class*='__value'], [class*='__sum'], .kpi-value {
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* Короткие обязательные поля не сжимаются и не обрезаются: «17 шт» и
+   код артикула должны читаться целиком даже на 1280 со свёрнутым меню.
+   Место уступает длинное название — оно и так с многоточием */
+.worklist__qty, .worklist__code, .bom-row__num, .bom-row__unit {
+  flex: 0 0 auto;
+  overflow: visible;
+  text-overflow: clip;
+}
+.worklist__name { flex: 1 1 auto; }
 
 /* ---------------------------------------------------------------
    14. Сквозная связанность: ссылки на сущности и карточка-шторка
@@ -1502,3 +1512,20 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+/* ---------------------------------------------------------------
+   15. Меню влезает в любое окно (03.09.2026)
+   Одиннадцать пунктов по 44 px + знак + разделители + пользователь на
+   окне ниже 820 px не помещались, и нижние пункты обрезались. Высота
+   пункта тянется от высоты окна: 44 px на большом мониторе, 34 px на
+   ноутбуке 13". Ниже 34 px не опускаемся — палец в цеху не попадёт.
+   --------------------------------------------------------------- */
+
+.mantine-AppShell-navbar .nav-item {
+  height: clamp(34px, 4.3vh, 44px);
+  min-height: 34px;
+  flex: 0 0 auto;
+}
+.mantine-AppShell-navbar .nav-item svg { width: clamp(18px, 2.1vh, 21px); height: clamp(18px, 2.1vh, 21px); }
+/* На совсем низком окне подпись «Меню» уходит: место дороже */
+@media (max-height: 760px) { .nav-label { display: none; } }
