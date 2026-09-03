@@ -58,12 +58,12 @@ h1, h2, h3, h4, h5, h6, p {
 
   /* Нейтральные */
   --gray-0: var(--s-surface);
-  --gray-1: var(--p-sand-50);
+  --gray-1: var(--p-slate-50);
   --gray-2: var(--s-line);
   --gray-3: var(--s-line-strong);
   --gray-5: var(--s-text-faint);   /* только линии и иконки */
   --gray-6: var(--s-text-quiet);
-  --gray-7: var(--p-sand-700);
+  --gray-7: var(--p-slate-700);
   --gray-9: var(--s-text);
 
   /* Акцент — терракота; для текста её тёмный брат */
@@ -276,7 +276,7 @@ table td, table th,
 .input-field:focus {
   /* Фокус — цветом внимания; синева осталась от прежней темы (03.09.2026) */
   border-color: var(--s-focus);
-  box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--s-focus) 18%, transparent);
 }
 
 .input-field:disabled {

@@ -1,22 +1,19 @@
 @import './tokens.css';
 
 /* ===============================================================
-   ЦМК АВРОРА — визуальная система (03.09.2026, ревизия 2)
+   ЦМК АВРОРА — визуальная система
+   Палитра «Индиго и кирпич» (04.09.2026)
 
    Все цвета берутся из tokens.css. Здесь только правила элементов.
 
-   КОМПОЗИЦИЯ ЭКРАНА — она и решает, а не оттенки:
+   КОМПОЗИЦИЯ ЭКРАНА:
 
-     почти белый холст  →  белые карточки  →  ОДНА тёмная панель
-     графитом  →  один акцент терракотой на том, что требует решения.
+     почти белый холст  →  белые карточки  →  ОДНА индиговая плитка
+     ответа  →  кирпичный акцент на том, что требует решения.
 
-   Первая версия красила панель бежем по референсу. Беж и кремовый холст
-   различались всего в 1,4 раза по светлоте: панель читалась пятном, а
-   вся страница — сепией. Тёмный якорь исправил это одним ходом:
-   графитовая плитка сразу говорит «вот ответ», а терракота на светлом
-   холсте наконец бьёт в глаз.
-
-   Терракота и коралл владельца сохранены. Беж выведен из роли панели.
+   Индиго держит структуру: рейка меню, плитка ответа, кнопки. Кирпич
+   не касается ничего, кроме внимания. Зелень означает только «сделано».
+   Идентификаторы не красятся вовсе — моноширинный и пунктир.
 
    Шрифт Onest: у Urbanist из прежнего референса нет кириллицы.
    =============================================================== */
@@ -33,12 +30,12 @@
   --c-terra-ink: var(--s-attention);
   --c-black: var(--s-text);
   --c-ok: var(--s-ok);
-  --c-ok-ink: var(--p-moss-700);
+  --c-ok-ink: var(--p-forest-700);
   --c-danger: var(--s-attention-fill);
   --c-danger-ink: var(--s-attention);
-  --c-blue: var(--s-action);          /* заливка полос и прогресса */
+  --c-blue: var(--s-action);          /* заливка полос и прогресса — индиго */
   --c-blue-ink: var(--s-attention);
-  --c-blue-deep: var(--p-terra-800);
+  --c-blue-deep: var(--p-indigo-800);
   --c-blue-wash: var(--s-attention-wash);
   --c-amber: var(--s-attention-soft);
   --c-amber-ink: var(--s-attention);
@@ -50,7 +47,7 @@
   --ref-coral: var(--s-attention);
   --ref-coral-ink: var(--s-attention);
   --ref-green: var(--s-ok);
-  --ref-green-ink: var(--p-moss-700);
+  --ref-green-ink: var(--p-forest-700);
   --ref-amber: var(--s-attention-soft);
   --ref-amber-ink: var(--s-attention);
   --ref-blue: var(--s-action);
@@ -68,15 +65,15 @@
 
   /* Тёплая подсветка полосы «пульса». Еле заметная: её задача — отделить
      полосу от холста, а не покрасить её. */
-  --wash-green: linear-gradient(160deg, rgba(184, 67, 31, 0.05) 0%, rgba(184, 67, 31, 0.02) 46%, rgba(255,255,255,0) 78%);
+  --wash-green: linear-gradient(160deg, rgba(23, 49, 77, 0.05) 0%, rgba(23, 49, 77, 0.02) 46%, rgba(255,255,255,0) 78%);
 
   --ref-r-card: var(--c-card-radius);
   --ref-r-tile: 16px;
   --ref-r-chip: 12px;
 
-  --ref-sh: 0 1px 2px rgba(28, 27, 24, 0.03), 0 10px 26px -18px rgba(28, 27, 24, 0.18);
-  --ref-sh-hover: 0 2px 6px rgba(28, 27, 24, 0.05), 0 20px 40px -22px rgba(28, 27, 24, 0.24);
-  --ref-sh-pill: 0 6px 16px -8px rgba(28, 27, 24, 0.34);
+  --ref-sh: 0 1px 2px rgba(22, 24, 26, 0.03), 0 10px 26px -18px rgba(22, 24, 26, 0.18);
+  --ref-sh-hover: 0 2px 6px rgba(22, 24, 26, 0.05), 0 20px 40px -22px rgba(22, 24, 26, 0.24);
+  --ref-sh-pill: 0 6px 16px -8px rgba(22, 24, 26, 0.34);
 
   --mx: 50%;
   --my: 40%;
@@ -97,7 +94,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   width: 38vmax; height: 38vmax;
   margin-left: -19vmax; margin-top: -19vmax;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(216, 195, 165, 0.20), transparent 62%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--s-panel) 20%, transparent), transparent 62%);
   filter: blur(60px);
   transform: translate3d(var(--cursor-x, 50vw), var(--cursor-y, 40vh), 0);
   will-change: transform;
@@ -147,7 +144,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   position: absolute; inset: 0;
   border-radius: inherit;
   background: radial-gradient(420px circle at var(--mx) var(--my),
-    rgba(216, 195, 165, 0.16), transparent 62%);
+    color-mix(in srgb, var(--s-panel) 16%, transparent), transparent 62%);
   opacity: 0;
   transition: opacity .35s var(--ease-out);
   pointer-events: none;
@@ -211,8 +208,10 @@ a:hover > .mantine-Card-root,
 /* Кнопка действия — тёмная пилюля «Handle» */
 .mantine-Button-root[data-variant='filled'] {
   background-image: none;
-  /* Действие в референсе — плоская ЧЁРНАЯ пилюля, без градиента */
-  background-color: var(--c-black);
+  /* Действие — плоская индиговая пилюля, без градиента. Раньше здесь
+     были чернила: в тёплой палитре действие было чёрным. В «Индиго и
+     кирпиче» структуру держит синий, и кнопка — часть структуры. */
+  background-color: var(--s-action);
   color: var(--s-text-on-dark);
   border: none;
   box-shadow: var(--ref-sh-pill);
@@ -255,8 +254,8 @@ a:hover > .mantine-Card-root,
    4. Меню: активный пункт — тёмная пилюля, как активная вкладка
    --------------------------------------------------------------- */
 
-/* Активная пилюля меню — чёрная, как кнопка «Try Now» в референсе */
-.mantine-AppShell-navbar { --pill-dark: var(--c-black); }
+/* Активный пункт меню — та же индиговая пилюля, что и кнопка действия */
+.mantine-AppShell-navbar { --pill-dark: var(--s-action); }
 .nav-item { transition: background-color .15s var(--ease-out); border-radius: 999px; }
 .nav-item:hover { background: var(--ref-surface-sub); }
 .nav-item[aria-current='page'] .mantine-Text-root { color: var(--s-text-on-dark) !important; }
@@ -309,7 +308,7 @@ a:hover > .mantine-Card-root,
 .mantine-PasswordInput-input:focus-within {
   background: var(--ref-surface);
   border-color: var(--c-input-border-focus);
-  box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.18);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--s-focus) 18%, transparent);
 }
 
 /* ---------------------------------------------------------------
@@ -369,13 +368,16 @@ a:hover > .mantine-Card-root,
 
 .pulse-tile[data-active] {
   background-image: none;
-  background-color: var(--ref-ink);
+  /* Плитка ответа — индиговая, как рейка и кнопки: она часть структуры.
+     Раньше здесь были чернила, потому что в тёплой палитре структуру
+     держал чёрный. В «Индиго и кирпиче» чернила остались только тексту. */
+  background-color: var(--s-panel);
   box-shadow: var(--ref-sh-pill);
 }
-.pulse-tile[data-active] .mantine-Text-root { color: rgba(255,255,255,0.6) !important; }
+.pulse-tile[data-active] .mantine-Text-root { color: color-mix(in srgb, var(--s-text-on-panel) 72%, transparent) !important; }
 .pulse-tile[data-active] .pulse-tile__value { color: var(--s-text-on-dark); -webkit-text-fill-color: var(--s-text-on-dark); }
 .pulse-tile[data-active] .pulse-tile__icon {
-  background: rgba(255,255,255,0.14); color: var(--s-text-on-dark); border-color: transparent;
+  background: color-mix(in srgb, var(--s-text-on-panel) 14%, transparent); color: var(--s-text-on-dark); border-color: transparent;
 }
 
 .pulse-tile__value {
@@ -408,8 +410,8 @@ a:hover > .mantine-Card-root,
 }
 .pulse-tile:not([data-active])[data-tone='brand']  .pulse-tile__icon { background: var(--s-attention-wash); border-color: transparent; color: var(--s-attention); }
 .pulse-tile:not([data-active])[data-tone='ok']     .pulse-tile__icon { background: rgba(74, 93, 58, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
-.pulse-tile:not([data-active])[data-tone='warn']   .pulse-tile__icon { background: rgba(233, 128, 116, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
-.pulse-tile:not([data-active])[data-tone='danger'] .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile:not([data-active])[data-tone='warn']   .pulse-tile__icon { background: color-mix(in srgb, var(--s-attention-fill) 16%, transparent); border-color: transparent; color: var(--ref-amber-ink); }
+.pulse-tile:not([data-active])[data-tone='danger'] .pulse-tile__icon { background: color-mix(in srgb, var(--s-attention-fill) 14%, transparent); border-color: transparent; color: var(--ref-coral-ink); }
 
 /* ---------------------------------------------------------------
    8. Экран входа: тёмная сцена, стеклянная панель, свет за курсором
@@ -455,7 +457,7 @@ a:hover > .mantine-Card-root,
   position: absolute;
   inset: auto -10% -25% -20%;
   height: 62%;
-  background: radial-gradient(ellipse at 28% 100%, rgba(233, 128, 116, 0.38), transparent 62%);
+  background: radial-gradient(ellipse at 28% 100%, color-mix(in srgb, var(--s-attention-fill) 38%, transparent), transparent 62%);
   pointer-events: none;
 }
 .login-hero__text { position: relative; z-index: 2; max-width: 500px; }
@@ -482,12 +484,12 @@ a:hover > .mantine-Card-root,
 .login-scene__glow { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; will-change: transform; }
 .login-scene__glow--a {
   width: 54vmax; height: 54vmax; top: -22vmax; right: -18vmax;
-  background: radial-gradient(circle, rgba(216, 195, 165, 0.30), transparent 62%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--s-panel) 30%, transparent), transparent 62%);
   
 }
 .login-scene__glow--b {
   width: 40vmax; height: 40vmax; bottom: -18vmax; right: 12vw;
-  background: radial-gradient(circle, rgba(233, 128, 116, 0.24), transparent 60%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--s-attention-fill) 24%, transparent), transparent 60%);
   
 }
 .login-scene__glow--c { display: none; }
@@ -525,7 +527,7 @@ a:hover > .mantine-Card-root,
   content: '';
   position: absolute; inset: 0;
   border-radius: inherit;
-  background: radial-gradient(460px circle at var(--mx) var(--my), rgba(216, 195, 165, 0.16), transparent 62%);
+  background: radial-gradient(460px circle at var(--mx) var(--my), color-mix(in srgb, var(--s-panel) 16%, transparent), transparent 62%);
   opacity: 0;
   transition: opacity .35s var(--ease-out);
   pointer-events: none;
@@ -541,7 +543,7 @@ a:hover > .mantine-Card-root,
 }
 
 /* Действие — чёрная пилюля, как «Try Now» в референсе */
-.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--c-black); color: var(--s-text-on-dark); }
+.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--s-action); color: var(--s-text-on-dark); }
 .login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: var(--s-action-hover); }
 
 /* Заголовок на голубой панели — белый; градиентного текста в референсе нет */
@@ -634,9 +636,9 @@ a:hover > .mantine-Card-root,
 /* Значки состояний: «просрочено» — приглушённый кирпичный, «внимание» —
    кислотный маркер референса с чёрным текстом */
 .worklist__chip[data-tone='danger'] {
-  background: rgba(232, 90, 79, 0.10);
+  background: color-mix(in srgb, var(--s-attention-fill) 10%, transparent);
   color: var(--c-danger-ink);
-  border-color: rgba(232, 90, 79, 0.22);
+  border-color: color-mix(in srgb, var(--s-attention-fill) 22%, transparent);
 }
 .worklist__chip[data-tone='warn'] {
   background: var(--c-yellow);
@@ -862,7 +864,7 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(232, 90, 79, 0.34); }
+.site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
 .site-card[data-state='done'] { background: linear-gradient(160deg, rgba(74,93,58,.09), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
@@ -918,7 +920,7 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
-.site-card[data-state='overdue'] { border-color: rgba(232, 90, 79, 0.34); }
+.site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
 .site-card[data-state='done'] {
   background: linear-gradient(160deg, rgba(74, 93, 58, .10), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
@@ -1279,7 +1281,7 @@ a:hover > .mantine-Card-root,
 .mantine-Skeleton-root::after {
   background: linear-gradient(90deg,
     var(--ref-surface-sub) 0%,
-    rgba(216, 195, 165, 0.12) 45%,
+    color-mix(in srgb, var(--s-panel) 12%, transparent) 45%,
     var(--ref-surface-sub) 90%) !important;
   background-size: 200% 100% !important;
   animation: skeleton-sweep 1.4s ease-in-out infinite !important;
