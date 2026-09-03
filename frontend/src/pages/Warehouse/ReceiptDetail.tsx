@@ -299,7 +299,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
                     {batchesPaged.slice.map((b) => (
                       <Table.Tr key={b.id}>
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{b.material.materialCode}</Text>
+                          <Text size="sm" ff="monospace" fw={600}>{b.material.materialCode}</Text>
                           <Text size="xs" c="dimmed" lineClamp={1}>{b.material.name}</Text>
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace">

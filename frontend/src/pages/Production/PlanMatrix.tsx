@@ -10,6 +10,7 @@ import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { useArticles } from '../../hooks/useCatalog';
 import { TableScroll } from '../../components/TableScroll';
+import { useFitHeight } from '../../components/FitScreen';
 import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 
@@ -93,6 +94,12 @@ export function PlanMatrix() {
     { plan: 0, fact: 0, demand: 0 },
   )), [rows, months]);
 
+  // Высота таблицы — замером. Ни одного зашитого числа: подвал
+  // (пагинация и легенда) мерится сам, здесь только запас на отступы
+  // между блоками стека.
+  // 44, а не 40: на 1280×800 округление субпикселей давало 1 px прокрутки.
+  const fit = useFitHeight(44, 300);
+
   return (
     <Stack gap="md">
       <div className="toolbar-sticky">
@@ -125,7 +132,7 @@ export function PlanMatrix() {
           {isLoading ? (
             <Stack gap={4} p="md">{[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}</Stack>
           ) : rows.length > 0 && (
-            <TableScroll minWidth={1300} maxHeight="max(360px, calc(100vh - 320px))">
+            <TableScroll minWidth={1300} maxHeight={fit.height} containerRef={fit.ref}>
               <Table withColumnBorders verticalSpacing={6}>
                 <Table.Thead>
                   <Table.Tr>
@@ -141,7 +148,7 @@ export function PlanMatrix() {
                   {slice.map((r) => (
                     <Table.Tr key={r.article.id}>
                       <Table.Td>
-                        <Text size="sm" ff="monospace" fw={700} c="brand.7">{r.article.articleCode}</Text>
+                        <Text size="sm" ff="monospace" fw={700}>{r.article.articleCode}</Text>
                         <Text size="xs" c="dimmed" lineClamp={1}>{r.article.name}</Text>
                       </Table.Td>
                       {months.map((m) => {
@@ -207,6 +214,9 @@ export function PlanMatrix() {
         </Card>
       </FadeSwap>
 
+      {/* Пагинация и легенда — один блок: его высоту мерит useFitHeight,
+          чтобы таблица заняла ровно остаток экрана */}
+      <div ref={fit.footerRef}>
       {!isLoading && total > 0 && (
         <PaginationBar
           page={page}
@@ -219,10 +229,16 @@ export function PlanMatrix() {
         />
       )}
 
+      {/* Легенда описывала прежнюю палитру: обещала «жёлтую заливку» и
+          зелёный факт, хотя факт зелёный только когда он НЕ отстаёт.
+          03.09.2026: говорим ровно то, что видно. */}
       <Text size="sm" c="dimmed">
-        В ячейке: <Text span fw={700}>план</Text> / <Text span c="success.7">факт выпуска</Text> /
-        <Text span c="dimmed"> з: потребность заказов</Text>. Жёлтая заливка — факт отстаёт от плана.
+        В ячейке: <Text span fw={700}>план</Text> / <Text span fw={600}>факт выпуска</Text> /
+        <Text span> з: потребность заказов</Text>. Отставание от плана помечено
+        дважды — <Text span c="warning.7" fw={600}>цветом факта</Text> и заливкой ячейки;
+        выполненное идёт <Text span c="success.7" fw={600}>зелёным</Text>.
       </Text>
+      </div>
 
       {/* Правка ячейки */}
       <Modal

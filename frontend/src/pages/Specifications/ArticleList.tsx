@@ -38,7 +38,7 @@ function ArticleRow({
       style={{ height: ARTICLE_ROW_H }}
     >
       <Group gap={8} wrap="nowrap" justify="space-between">
-        <Text size="sm" ff="var(--ff-num)" c="var(--ref-coral-ink)" fw={700} style={{ whiteSpace: 'nowrap' }}>
+        <Text size="sm" ff="var(--ff-num)" fw={700} style={{ whiteSpace: 'nowrap' }}>
           {a.articleCode}
         </Text>
         {a.isMaterialResale ? (

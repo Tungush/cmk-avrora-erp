@@ -1,6 +1,11 @@
-/* Строка списка изделий: подсветка при наведении и выбранная строка.
-   Цвета — те же, что были инлайном в index.tsx, только теперь с :hover
-   и фокусом с клавиатуры. */
+/* Строка списка изделий: наведение, выбор, фокус с клавиатуры.
+
+   03.09.2026, ревизия 2: выбор больше НЕ красится акцентом. Акцент в
+   системе означает «требует решения», а выбранная строка ничего не
+   требует — она просто выбрана. Читается тихой подложкой и чернильной
+   полосой слева. Заодно убран синий остаток прежней палитры из
+   light-dark(): тёмной темы у сервиса нет, и второй аргумент держал
+   rgba(90,124,255) — цвет из палитры, которой давно нет. */
 .row {
   display: block;
   width: 100%;
@@ -12,15 +17,16 @@
 }
 
 .row:hover {
-  background: var(--gray-1);
+  background: var(--s-surface-quiet);
 }
 
 .row:focus-visible {
-  border-color: var(--mantine-color-brand-4);
+  border-color: var(--s-focus);
 }
 
 .row[data-active='true'],
 .row[data-active='true']:hover {
-  background: light-dark(var(--mantine-color-brand-0), rgba(90, 124, 255, 0.12));
-  border-color: light-dark(var(--mantine-color-brand-2), rgba(90, 124, 255, 0.35));
+  background: var(--s-surface-quiet);
+  border-color: var(--s-line);
+  box-shadow: inset 3px 0 0 0 var(--s-text);
 }

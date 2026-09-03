@@ -117,7 +117,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
                 {shortages.map((sh) => (
                   <Table.Tr key={sh.materialId}>
                     <Table.Td>
-                      <Text size="sm" ff="monospace" fw={600} c="brand.7">{sh.materialCode}</Text>
+                      <Text size="sm" ff="monospace" fw={600}>{sh.materialCode}</Text>
                       <Text size="xs" c="dimmed" lineClamp={1}>{sh.name}</Text>
                     </Table.Td>
                     <Table.Td ta="right" ff="monospace" fw={700} style={{ whiteSpace: 'nowrap' }}>

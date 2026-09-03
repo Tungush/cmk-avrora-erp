@@ -147,7 +147,7 @@ export function RoleWidgets() {
         <Stack gap={4}>
           {w.specsWithoutNorms.top.map((a) => (
             <Group key={a.id} gap={8} wrap="nowrap">
-              <Text size="xs" ff="monospace" fw={600} c="brand.7">{a.articleCode}</Text>
+              <Text size="xs" ff="monospace" fw={600}>{a.articleCode}</Text>
               <Text size="xs" c="dimmed" truncate>{a.name}</Text>
             </Group>
           ))}
@@ -170,7 +170,7 @@ export function RoleWidgets() {
           {w.priceDeviations.map((a) => (
             <Group key={a.id} justify="space-between" wrap="nowrap" gap="xs">
               <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-                <Text size="xs" ff="monospace" fw={600} c="brand.7">{a.articleCode}</Text>
+                <Text size="xs" ff="monospace" fw={600}>{a.articleCode}</Text>
                 <Text size="xs" c="dimmed" truncate>{a.name}</Text>
               </Group>
               <Group gap={8} wrap="nowrap">

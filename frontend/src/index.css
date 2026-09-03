@@ -50,38 +50,53 @@ h1, h2, h3, h4, h5, h6, p {
    --------------------------------------------------------------- */
 
 :root {
-  /* Палитра владельца (референс Exteta), задана 03.09.2026 — подробности
-     и добавленные цвета описаны в шапке styles/aurora.css. Имена токенов
-     прежние: их зовут по всему коду, менялись только значения. Источник
-     цвета один — здесь и в aurora.css. */
+  /* ЦВЕТ ЗДЕСЬ НЕ ЗАДАЁТСЯ (03.09.2026, ревизия 2).
+     Раньше этот блок держал СВОЮ копию палитры в hex — и она разошлась
+     с aurora.css: экран получал два разных набора цветов, отсюда и была
+     дисгармония. Теперь каждый токен ссылается на семантику из
+     styles/tokens.css. Источник цвета в проекте ровно один. */
 
-  /* Нейтральные: кремовый холст, тёплый уголь вместо чёрного */
-  --gray-0: #FFFFFF; --gray-1: #FAF8F3; --gray-2: #DCD7C9; --gray-3: #CFC8B7;
-  --gray-5: #8E8D8A; --gray-6: #66625A; --gray-7: #4A473F; --gray-9: #33312C;
+  /* Нейтральные */
+  --gray-0: var(--s-surface);
+  --gray-1: var(--p-sand-50);
+  --gray-2: var(--s-line);
+  --gray-3: var(--s-line-strong);
+  --gray-5: var(--s-text-faint);   /* только линии и иконки */
+  --gray-6: var(--s-text-quiet);
+  --gray-7: var(--p-sand-700);
+  --gray-9: var(--s-text);
 
   /* Акцент — терракота; для текста её тёмный брат */
-  --brand-6: #E85A4F; --brand-7: #9A3412; --brand-0: #FBEEEA;
+  --brand-6: var(--s-attention-fill);
+  --brand-7: var(--s-attention);
+  --brand-0: var(--s-attention-wash);
 
-  /* Маркер — коралл */
-  --mark: #E98074; --mark-ink: #9A3412;
+  /* Маркер — коралл владельца */
+  --mark: var(--s-attention-soft);
+  --mark-ink: var(--s-attention);
 
-  /* Статусы в той же тёплой семье */
-  --ok-6: #3A5F43;   --ok-0: #EFF3ED;
-  --warn-6: #9A3412; --warn-0: #FBEEEA;
-  --err-6: #9A3412;  --err-0: #FBEEEA;
-  --info-6: #66625A; --info-0: #F5F2E9;
+  /* Статусы. Предупреждение и ошибка — один тон намеренно: в цеху нет
+     разницы «внимание» и «ошибка», есть «требует решения». */
+  --ok-6: var(--s-ok);            --ok-0: var(--s-ok-wash);
+  --warn-6: var(--s-attention);   --warn-0: var(--s-attention-wash);
+  --err-6: var(--s-attention);    --err-0: var(--s-attention-wash);
+  --info-6: var(--s-text-quiet);  --info-0: var(--s-surface-quiet);
 
   /* Поверхности */
-  --app-bg: #EAE7DC;
-  --app-surface: #FFFFFF;
-  --ink: #33312C;
-  --pill-dark: #33312C;
+  --app-bg: var(--s-bg);
+  --app-surface: var(--s-surface);
+  --ink: var(--s-text);
+  --pill-dark: var(--s-action);
 
-  /* Палитра графиков — из той же семьи */
-  --chart-cat1: #D8C3A5; --chart-cat2: #E98074;
-  --chart-cat3: #3A5F43; --chart-cat4: #8E8D8A;
-  --chart-grid: rgba(51, 49, 44, .10);
-  --chart-tick: #66625A;
+  /* Палитра графиков: графит, терракота, коралл, зелень, тёплый серый.
+     Порядок — по убыванию заметности, чтобы первый ряд читался первым. */
+  --chart-cat1: var(--s-panel);
+  --chart-cat2: var(--s-attention-fill);
+  --chart-cat3: var(--s-attention-soft);
+  --chart-cat4: var(--s-ok);
+  --chart-cat5: var(--s-text-faint);
+  --chart-grid: color-mix(in srgb, var(--s-text) 10%, transparent);
+  --chart-tick: var(--s-text-quiet);
 
   /* Типографика: 6 размеров, больше не нужно */
   --fz-xs: 13px;  /* подписи, метки колонок — ниже 13 не опускаемся */
@@ -99,8 +114,8 @@ h1, h2, h3, h4, h5, h6, p {
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-6: 24px; --sp-8: 32px;
 
   /* Тени тёплые и почти незаметные */
-  --sh-sm: 0 1px 2px rgba(51, 49, 44, .03), 0 8px 22px -16px rgba(51, 49, 44, .16);
-  --sh-md: 0 2px 4px rgba(51, 49, 44, .03), 0 18px 38px -22px rgba(51, 49, 44, .22);
+  --sh-sm: 0 1px 2px rgba(28, 27, 24, .03), 0 8px 22px -16px rgba(28, 27, 24, .16);
+  --sh-md: 0 2px 4px rgba(28, 27, 24, .03), 0 18px 38px -22px rgba(28, 27, 24, .22);
 }
 
 /* ---------------------------------------------------------------
@@ -250,9 +265,9 @@ table td, table th,
   font: inherit;
   font-size: 14px;
   line-height: 1.45;
-  color: var(--mantine-color-black, #1f1f1f);
+  color: var(--s-text);
   background-color: #fff;
-  border: 1px solid var(--mantine-color-gray-3, #dee2e6);
+  border: 1px solid var(--s-line-strong);
   border-radius: var(--mantine-radius-md, 8px);
   outline: none;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
@@ -265,8 +280,8 @@ table td, table th,
 }
 
 .input-field:disabled {
-  background-color: var(--mantine-color-gray-1, #f1f3f5);
-  color: var(--mantine-color-gray-6, #868e96);
+  background-color: var(--s-surface-quiet);
+  color: var(--s-text-quiet);
   cursor: not-allowed;
 }
 
@@ -308,19 +323,19 @@ textarea.input-field {
 
 .btn-secondary {
   background-color: #fff;
-  color: var(--mantine-color-dark-7, #2a2a2a);
-  border-color: var(--mantine-color-gray-3, #dee2e6);
+  color: var(--s-text);
+  border-color: var(--s-line-strong);
 }
 .btn-secondary:not(:disabled):hover {
-  background-color: var(--mantine-color-gray-1, #f1f3f5);
+  background-color: var(--s-surface-quiet);
 }
 
 .btn-danger {
-  background-color: var(--mantine-color-danger-6, #e53228);
+  background-color: var(--s-attention-fill);
   color: #fff;
 }
 .btn-danger:not(:disabled):hover {
-  background-color: var(--mantine-color-danger-7, #b8261e);
+  background-color: var(--s-attention);
 }
 
 /* Таблица в карточке заказа: скроллится сама, не ломая страницу */
@@ -328,7 +343,7 @@ textarea.input-field {
   width: 100%;
   max-width: 100%;
   overflow-x: auto;
-  border: 1px solid var(--mantine-color-gray-2, #e9ecef);
+  border: 1px solid var(--s-line);
   border-radius: var(--mantine-radius-md, 8px);
   background: #fff;
 }
@@ -345,7 +360,7 @@ textarea.input-field {
   padding: 10px 14px;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid var(--mantine-color-gray-2, #e9ecef);
+  border-bottom: 1px solid var(--s-line);
 }
 
 .table-container th {
@@ -353,8 +368,8 @@ textarea.input-field {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--mantine-color-gray-6, #868e96);
-  background: var(--mantine-color-gray-0, #f8f9fa);
+  color: var(--s-text-quiet);
+  background: var(--s-surface-quiet);
 }
 
 .table-container tbody tr:last-child td {

@@ -258,7 +258,7 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
                   key={s.id}
                   title={
                     <Group gap={6} wrap="nowrap">
-                      <Text size="sm" ff="monospace" fw={700} c="brand.7">{s.code}</Text>
+                      <Text size="sm" ff="monospace" fw={700}>{s.code}</Text>
                       <Text size="sm" fw={s.status === 'IN_PROGRESS' ? 700 : 500} lineClamp={1}>{s.name}</Text>
                     </Group>
                   }
@@ -681,7 +681,7 @@ export function OrderDetail({
                               <Badge size="xs" color="warning" variant="light">нет в справочнике</Badge>
                               {canProduction && (
                                 <Text
-                                  size="xs" c="brand.7" fw={600} style={{ cursor: 'pointer' }}
+                                  size="xs" fw={600} style={{ cursor: 'pointer' }}
                                   onClick={() => setNomenclatureFor(l.productNameRaw ?? l.articleCodeRaw ?? '')}
                                 >
                                   заявка в 1С

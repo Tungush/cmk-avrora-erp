@@ -92,7 +92,7 @@ export function MaterialReceipts() {
                     return (
                       <Table.Tr key={r.id}>
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material?.materialCode ?? '—'}</Text>
+                          <Text size="sm" ff="monospace" fw={600}>{r.material?.materialCode ?? '—'}</Text>
                           <Text size="xs" c="dimmed" lineClamp={1}>{r.material?.name ?? '—'}</Text>
                         </Table.Td>
                         <Table.Td ff="monospace">{formatDate(r.movementDate)}</Table.Td>

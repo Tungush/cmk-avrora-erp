@@ -82,7 +82,7 @@ export function PurchasesRegistry({ filters, onFiltersChange }: {
           <Group gap="sm">
             {activeFilters > 0 && (
               <Text
-                size="sm" c="brand.7" fw={600} style={{ cursor: 'pointer' }}
+                size="sm" fw={600} style={{ cursor: 'pointer' }}
                 onClick={() => { onFiltersChange({}); setPage(1); }}
               >
                 сбросить фильтры ({activeFilters})

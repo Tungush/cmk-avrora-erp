@@ -93,7 +93,7 @@ export function GlobalSearch({ opened, onClose }: { opened: boolean; onClose: ()
                     <Icon icon={IconPackage} size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
                     <Box style={{ minWidth: 0 }}>
                       <Group gap={6} wrap="nowrap">
-                        <Text size="sm" fw={700} ff="monospace" c="brand.7">{o.orderNumber}</Text>
+                        <Text size="sm" fw={700} ff="monospace">{o.orderNumber}</Text>
                         {o.isArchived && (
                           <Badge size="xs" color="gray" variant="light">архив</Badge>
                         )}
@@ -139,7 +139,7 @@ export function GlobalSearch({ opened, onClose }: { opened: boolean; onClose: ()
                     <Text size="xs" c="dimmed" lineClamp={1}>
                       {m.name}
                       {m.viaAlias && (
-                        <Text span c="brand.7"> · найдено по «{m.viaAlias}»</Text>
+                        <Text span c="dimmed"> · найдено по «{m.viaAlias}»</Text>
                       )}
                     </Text>
                   </Box>

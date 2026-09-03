@@ -1,25 +1,22 @@
 @import './tokens.css';
 
 /* ===============================================================
-   ЦМК АВРОРА — визуальная система
+   ЦМК АВРОРА — визуальная система (03.09.2026, ревизия 2)
 
-   Палитра задана владельцем 03.09.2026 (референс Exteta), ровно эти hex:
+   Все цвета берутся из tokens.css. Здесь только правила элементов.
 
-     #EAE7DC кремовый холст   · #D8C3A5 бежевая панель
-     #8E8D8A тёплый серый     · #E98074 коралл  · #E85A4F терракота
+   КОМПОЗИЦИЯ ЭКРАНА — она и решает, а не оттенки:
 
-   Схема тёплая и низкоконтрастная — на неё можно смотреть весь день.
-   Кремовый холст, белые карточки, бежевая плоская панель вместо цветной
-   заливки, коралл и терракота — только там, где нужно внимание.
+     почти белый холст  →  белые карточки  →  ОДНА тёмная панель
+     графитом  →  один акцент терракотой на том, что требует решения.
 
-   Что пришлось добавить, потому что референс этого не даёт:
-   1. Чернила. В палитре нет тёмного цвета для текста. Взят тёплый уголь
-      #33312C — он из той же тёплой семьи и даёт 10:1 на кремовом.
-   2. Читаемые варианты цветов. #8E8D8A как текст даёт всего 2,6:1 на
-      кремовом — им рисуются только линии и иконки, а вторичный текст
-      идёт цветом #66625A (4,7:1). Терракота текстом — #AD3828 (5,6:1).
-   3. «Готово». Зелёного в палитре нет вовсе; взята тёплая олива #7D8A5C,
-      чтобы состояние не выпадало из семьи.
+   Первая версия красила панель бежем по референсу. Беж и кремовый холст
+   различались всего в 1,4 раза по светлоте: панель читалась пятном, а
+   вся страница — сепией. Тёмный якорь исправил это одним ходом:
+   графитовая плитка сразу говорит «вот ответ», а терракота на светлом
+   холсте наконец бьёт в глаз.
+
+   Терракота и коралл владельца сохранены. Беж выведен из роли панели.
 
    Шрифт Onest: у Urbanist из прежнего референса нет кириллицы.
    =============================================================== */
@@ -29,7 +26,7 @@
    незачем. Новый код пишется на --s-* и --c-* из tokens.css. */
 :root {
   --c-cream: var(--s-bg);
-  --c-beige: var(--s-panel);
+  --c-beige: var(--s-surface-quiet);  /* был беж-панель; панель стала графитом */
   --c-warm-gray: var(--s-text-faint);
   --c-coral: var(--s-attention-soft);
   --c-terra: var(--s-attention-fill);
@@ -39,7 +36,7 @@
   --c-ok-ink: var(--p-moss-700);
   --c-danger: var(--s-attention-fill);
   --c-danger-ink: var(--s-attention);
-  --c-blue: var(--s-panel);
+  --c-blue: var(--s-action);          /* заливка полос и прогресса */
   --c-blue-ink: var(--s-attention);
   --c-blue-deep: var(--p-terra-800);
   --c-blue-wash: var(--s-attention-wash);
@@ -56,10 +53,10 @@
   --ref-green-ink: var(--p-moss-700);
   --ref-amber: var(--s-attention-soft);
   --ref-amber-ink: var(--s-attention);
-  --ref-blue: var(--s-panel);
+  --ref-blue: var(--s-action);
   --ref-blue-ink: var(--s-attention);
   --ref-pink: var(--s-attention-fill);
-  --ref-clay: var(--s-panel);
+  --ref-clay: var(--s-surface-quiet);
   --ref-ink: var(--s-text);
   --ref-muted: var(--s-text-quiet);
   --ref-orange: var(--s-attention-fill);
@@ -69,15 +66,17 @@
   --ref-surface-sub: var(--s-surface-quiet);
   --ref-line: var(--s-line);
 
-  --wash-green: linear-gradient(160deg, rgba(216, 195, 165, 0.34) 0%, rgba(216, 195, 165, 0.10) 46%, rgba(255,255,255,0) 78%);
+  /* Тёплая подсветка полосы «пульса». Еле заметная: её задача — отделить
+     полосу от холста, а не покрасить её. */
+  --wash-green: linear-gradient(160deg, rgba(184, 67, 31, 0.05) 0%, rgba(184, 67, 31, 0.02) 46%, rgba(255,255,255,0) 78%);
 
   --ref-r-card: var(--c-card-radius);
   --ref-r-tile: 16px;
   --ref-r-chip: 12px;
 
-  --ref-sh: 0 1px 2px rgba(51, 49, 44, 0.03), 0 10px 26px -18px rgba(51, 49, 44, 0.18);
-  --ref-sh-hover: 0 2px 6px rgba(51, 49, 44, 0.05), 0 20px 40px -22px rgba(51, 49, 44, 0.24);
-  --ref-sh-pill: 0 6px 16px -8px rgba(51, 49, 44, 0.34);
+  --ref-sh: 0 1px 2px rgba(28, 27, 24, 0.03), 0 10px 26px -18px rgba(28, 27, 24, 0.18);
+  --ref-sh-hover: 0 2px 6px rgba(28, 27, 24, 0.05), 0 20px 40px -22px rgba(28, 27, 24, 0.24);
+  --ref-sh-pill: 0 6px 16px -8px rgba(28, 27, 24, 0.34);
 
   --mx: 50%;
   --my: 40%;
@@ -214,12 +213,12 @@ a:hover > .mantine-Card-root,
   background-image: none;
   /* Действие в референсе — плоская ЧЁРНАЯ пилюля, без градиента */
   background-color: var(--c-black);
-  color: #fff;
+  color: var(--s-text-on-dark);
   border: none;
   box-shadow: var(--ref-sh-pill);
 }
 .mantine-Button-root[data-variant='filled']:hover:not(:disabled) {
-  background-color: #1A1A1A;
+  background-color: var(--s-action-hover);
   box-shadow: 0 10px 22px -8px rgba(0, 0, 0, 0.40);
   transform: translateY(-1px);
   filter: none;
@@ -250,7 +249,7 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
   color: var(--ref-ink);
 }
-.mantine-AppShell-header .mantine-ActionIcon-root:hover { background: #EFF1EF; }
+.mantine-AppShell-header .mantine-ActionIcon-root:hover { background: var(--s-surface-quiet); }
 
 /* ---------------------------------------------------------------
    4. Меню: активный пункт — тёмная пилюля, как активная вкладка
@@ -260,8 +259,8 @@ a:hover > .mantine-Card-root,
 .mantine-AppShell-navbar { --pill-dark: var(--c-black); }
 .nav-item { transition: background-color .15s var(--ease-out); border-radius: 999px; }
 .nav-item:hover { background: var(--ref-surface-sub); }
-.nav-item[aria-current='page'] .mantine-Text-root { color: #fff !important; }
-.nav-item[aria-current='page'] svg { color: #fff !important; }
+.nav-item[aria-current='page'] .mantine-Text-root { color: var(--s-text-on-dark) !important; }
+.nav-item[aria-current='page'] svg { color: var(--s-text-on-dark) !important; }
 
 /* ---------------------------------------------------------------
    5. Вкладки, сегменты, пагинация — пилюли референса
@@ -279,7 +278,7 @@ a:hover > .mantine-Card-root,
 .mantine-Tabs-tab[data-variant='pills'][data-active] {
   background-image: none;
   background-color: var(--ref-ink);
-  color: #fff;
+  color: var(--s-text-on-dark);
   box-shadow: var(--ref-sh-pill);
 }
 .mantine-Tabs-tab[data-variant='pills']:not([data-active]):hover { background: var(--ref-surface-sub); color: var(--ref-ink); }
@@ -374,9 +373,9 @@ a:hover > .mantine-Card-root,
   box-shadow: var(--ref-sh-pill);
 }
 .pulse-tile[data-active] .mantine-Text-root { color: rgba(255,255,255,0.6) !important; }
-.pulse-tile[data-active] .pulse-tile__value { color: #fff; -webkit-text-fill-color: #fff; }
+.pulse-tile[data-active] .pulse-tile__value { color: var(--s-text-on-dark); -webkit-text-fill-color: var(--s-text-on-dark); }
 .pulse-tile[data-active] .pulse-tile__icon {
-  background: rgba(255,255,255,0.14); color: #fff; border-color: transparent;
+  background: rgba(255,255,255,0.14); color: var(--s-text-on-dark); border-color: transparent;
 }
 
 .pulse-tile__value {
@@ -407,7 +406,7 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
   color: var(--ref-ink);
 }
-.pulse-tile:not([data-active])[data-tone='brand']  .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile:not([data-active])[data-tone='brand']  .pulse-tile__icon { background: var(--s-attention-wash); border-color: transparent; color: var(--s-attention); }
 .pulse-tile:not([data-active])[data-tone='ok']     .pulse-tile__icon { background: rgba(74, 93, 58, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
 .pulse-tile:not([data-active])[data-tone='warn']   .pulse-tile__icon { background: rgba(233, 128, 116, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
 .pulse-tile:not([data-active])[data-tone='danger'] .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
@@ -542,8 +541,8 @@ a:hover > .mantine-Card-root,
 }
 
 /* Действие — чёрная пилюля, как «Try Now» в референсе */
-.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--c-black); color: #fff; }
-.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: #1A1A1A; }
+.login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--c-black); color: var(--s-text-on-dark); }
+.login-card .mantine-Button-root[data-variant='filled']:hover:not(:disabled) { background-color: var(--s-action-hover); }
 
 /* Заголовок на голубой панели — белый; градиентного текста в референсе нет */
 .login-title { letter-spacing: -0.03em; }
@@ -641,7 +640,7 @@ a:hover > .mantine-Card-root,
 }
 .worklist__chip[data-tone='warn'] {
   background: var(--c-yellow);
-  color: #000;
+  color: var(--s-text);
   border-color: transparent;
 }
 .worklist__chip[data-tone='info'] {
@@ -1044,13 +1043,25 @@ a:hover > .mantine-Card-root,
    1,41:1: заголовок карточки был почти невидим на шести разделах
    (03.09.2026, аудит по скилу) */
 .digest-card[data-tone='brand']  { background: var(--s-panel); color: var(--s-text-on-panel); border-color: transparent; }
-.digest-card[data-tone='brand'] .kpi-icon { background: rgba(51,49,44,.08); border-color: rgba(51,49,44,.14); color: var(--s-text-on-panel); }
-.digest-card[data-tone='brand'] .mantine-Text-root { color: rgba(51,49,44,.72) !important; }
-.digest-card[data-tone='brand'] .digest-item { border-color: rgba(51,49,44,.14); }
+.digest-card[data-tone='brand'] .kpi-icon {
+  /* Панель графитовая: подложка значка должна быть СВЕТЛЕЕ фона, иначе
+     значок пропадает. Тёмный тон здесь был ошибкой светлой панели. */
+  background: color-mix(in srgb, var(--s-text-on-panel) 12%, transparent);
+  border-color: color-mix(in srgb, var(--s-text-on-panel) 22%, transparent);
+  color: var(--s-text-on-panel);
+}
+/* Панель стала графитовой (ревизия 2): текст на ней ОБЯЗАН идти от
+   --s-text-on-panel. Прежние правила задавали чернила с прозрачностью —
+   они были рассчитаны на светлый беж и на графите давали 1:1, то есть
+   надпись «Новые из 1С» и подпись под числом пропадали совсем. */
+.digest-card[data-tone='brand'] .mantine-Text-root {
+  color: color-mix(in srgb, var(--s-text-on-panel) 76%, transparent) !important;
+}
+.digest-card[data-tone='brand'] .digest-item { border-color: color-mix(in srgb, var(--s-text-on-panel) 18%, transparent); }
 .digest-card[data-tone='brand'] .digest-item__label { color: var(--s-text-on-panel); }
 .digest-card[data-tone='brand'] .digest-item__value { color: var(--s-text-on-panel); }
-.digest-card[data-tone='brand'] .digest-item__sub { color: rgba(51,49,44,.68); }
-.digest-card[data-tone='brand'] .digest-item__bar { background: rgba(51,49,44,.14); }
+.digest-card[data-tone='brand'] .digest-item__sub { color: color-mix(in srgb, var(--s-text-on-panel) 70%, transparent); }
+.digest-card[data-tone='brand'] .digest-item__bar { background: color-mix(in srgb, var(--s-text-on-panel) 18%, transparent); }
 .digest-card[data-tone='brand'] .digest-item__bar i { background: var(--s-attention); }
 
 .digest-card__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -1131,16 +1142,28 @@ a:hover > .mantine-Card-root,
   border-radius: 999px;
   border: none;
   background: var(--ref-ink);
-  color: #fff;
+  color: var(--s-text-on-dark);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   box-shadow: var(--ref-sh-pill);
   transition: transform .18s var(--ease-out), background-color .18s var(--ease-out);
 }
-.digest-card__action:hover { background: #1B211D; transform: translateY(-1px); }
-.digest-card[data-tone='brand'] .digest-card__action { background: var(--c-black); }
-.digest-card[data-tone='brand'] .digest-card__action:hover { background: #1A1A1A; }
+.digest-card__action:hover { background: var(--s-action-hover); transform: translateY(-1px); }
+
+/* На тёмной панели действие ИНВЕРТИРУЕТСЯ в светлую пилюлю. Раньше здесь
+   стояли чернила: по графиту это 1,06:1 — кнопку «Принять в работу» было
+   не видно вовсе. Инверсия попутно правит и иерархию: на тёмной плитке
+   светлая кнопка — самое заметное на экране, а она и есть главное
+   действие раздела. */
+.digest-card[data-tone='brand'] .digest-card__action {
+  background: var(--s-text-on-panel);
+  color: var(--s-text);
+  box-shadow: none;
+}
+.digest-card[data-tone='brand'] .digest-card__action:hover {
+  background: color-mix(in srgb, var(--s-text-on-panel) 88%, var(--s-attention));
+}
 
 /* Переключатель «сводка ↔ список» — тёмная пилюля из референса */
 .view-switch {
@@ -1171,7 +1194,7 @@ a:hover > .mantine-Card-root,
 .view-switch button:hover { color: var(--ref-ink); }
 .view-switch button[data-active='true'] {
   background: var(--ref-ink);
-  color: #fff;
+  color: var(--s-text-on-dark);
   box-shadow: var(--ref-sh-pill);
 }
 
@@ -1355,7 +1378,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   padding: 0 8px;
   border-radius: 6px;
   background: var(--c-yellow);
-  color: #000;
+  color: var(--s-text);
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
@@ -1363,7 +1386,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .worklist__chip[data-tone='warn'] {
   background: var(--c-yellow);
   border-color: transparent;
-  color: #000;
+  color: var(--s-text);
 }
 
 /* Тонкая цветная полоса слева у карточки-показателя — приём референса:
@@ -1394,7 +1417,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .digest-card, .site-card, .stage-cell { border-color: var(--ref-line); }
 
 /* Иконка показателя — светло-серый круг, без цветной заливки */
-.kpi-icon, .pulse-tile__icon { background: var(--ref-surface-sub); border-color: var(--ref-line); color: #000; }
+.kpi-icon, .pulse-tile__icon { background: var(--ref-surface-sub); border-color: var(--ref-line); color: var(--s-text); }
 
 /* Тело раздела с вкладками: занимает остаток высоты. Прокрутка, если она
    нужна тяжёлой вкладке, живёт ВНУТРИ панели — страница не двигается */
@@ -1591,3 +1614,27 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 
 /* Клавиши в подсказке поиска: Mantine ставит 12 px, пол системы — 13 */
 .mantine-Kbd-root { font-size: 13px; }
+
+/* ---------------------------------------------------------------
+   Выключенные кнопки: текст обязан оставаться читаемым (03.09.2026)
+
+   Аудит контраста нашёл «Сохранить» на 2,2:1 — цветом --s-text-faint,
+   который в системе разрешён только линиям и иконкам. Выключенность
+   должна читаться по плоскому фону, отсутствию тени и курсору, а не
+   по нечитаемой надписи: мастер должен понимать, ЧТО именно нельзя
+   нажать, а не гадать.
+   --------------------------------------------------------------- */
+.mantine-Button-root:disabled,
+.mantine-Button-root[data-disabled],
+.mantine-ActionIcon-root:disabled,
+.mantine-ActionIcon-root[data-disabled] {
+  background-color: var(--s-surface-quiet) !important;
+  color: var(--s-text-quiet) !important;
+  border-color: var(--s-line) !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+.mantine-Button-root:disabled svg,
+.mantine-Button-root[data-disabled] svg,
+.mantine-ActionIcon-root:disabled svg,
+.mantine-ActionIcon-root[data-disabled] svg { color: var(--s-text-quiet) !important; }

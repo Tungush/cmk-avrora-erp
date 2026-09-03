@@ -110,7 +110,6 @@ export function OrderRef({
         size={size}
         fw={bold ? 700 : 500}
         ff="monospace"
-        c="brand.7"
         style={{
           background: 'none',
           border: 'none',

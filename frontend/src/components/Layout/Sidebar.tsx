@@ -112,13 +112,13 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                       inset: 0,
                       borderRadius: 'var(--r-full)',
                       background: 'var(--pill-dark)',
-                      boxShadow: '0 6px 16px rgba(30, 29, 25, 0.22)',
+                      boxShadow: '0 6px 16px color-mix(in srgb, var(--s-text) 22%, transparent)',
                     }}
                   />
                 )}
                 <Group gap="sm" wrap="nowrap" style={{ position: 'relative', zIndex: 1 }}>
                   <Icon size={20}
-                    style={{ color: isActive ? '#fff' : 'var(--gray-6)', flexShrink: 0 }} />
+                    style={{ color: isActive ? 'var(--s-text-on-dark)' : 'var(--s-text-quiet)', flexShrink: 0 }} />
                   {!collapsed && (
                     <Text size="md" fw={isActive ? 700 : 500}
                       c={isActive ? 'white' : undefined} style={{ whiteSpace: 'nowrap' }}>

@@ -331,7 +331,7 @@ export function BatchesReserves() {
                           {/* Ссылки на материал тут нет: /batch-reservations/expiring
                               отдаёт только код, имя и единицу — id материала в
                               ответе отсутствует (03.09.2026) */}
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material.materialCode}</Text>
+                          <Text size="sm" ff="monospace" fw={600}>{r.material.materialCode}</Text>
                           <Text size="xs" c="dimmed" lineClamp={1}>{r.material.name}</Text>
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace">{r.qty} {r.material.unit}</Table.Td>

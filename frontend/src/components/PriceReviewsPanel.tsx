@@ -48,7 +48,7 @@ function ReviewRow({ review }: { review: PriceReview }) {
       <Group justify="space-between" wrap="wrap" gap="sm">
         <Stack gap={2} style={{ minWidth: 200, flex: 1 }}>
           <Group gap="xs">
-            <Text size="sm" ff="monospace" fw={700} c="brand.7">{review.article.articleCode}</Text>
+            <Text size="sm" ff="monospace" fw={700}>{review.article.articleCode}</Text>
             <Badge
               size="sm"
               variant="light"

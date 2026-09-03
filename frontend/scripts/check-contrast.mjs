@@ -36,33 +36,43 @@ const ratio = (a, b) => {
 // здесь, а не парсить CSS, — сознательно: проверка должна падать, если
 // кто-то поменял токен и забыл про контраст.
 const P = {
-  cream: '#EAE7DC',      // --p-sand-200, холст
-  beige: '#D8C3A5',      // --p-sand-400, панель
-  warmGray: '#8E8D8A',   // --p-sand-600, только линии и иконки
-  coral: '#E98074',      // --p-terra-300
-  terra: '#E85A4F',      // --p-terra-400, заливка внимания
-  terraInk: '#9A3412',   // --p-terra-700, внимание текстом
-  ink: '#33312C',        // --p-sand-900
-  muted: '#66625A',      // --p-sand-700
-  surface: '#FFFFFF',
-  line: '#DCD7C9',
-  ok: '#3A5F43',         // --p-moss-600
-  okInk: '#2E4B35',
+  bg: '#F7F6F3',         // --p-sand-100, холст
+  surface: '#FFFFFF',    // --p-sand-0
+  quiet: '#F2F0EB',      // --p-sand-200, тихая поверхность
+  line: '#E6E3DC',       // --p-sand-300
+  lineStrong: '#D5D0C5', // --p-sand-400, рамка поля
+  faint: '#A9A399',      // --p-sand-500, только линии и иконки
+  muted: '#6B6760',      // --p-sand-600, вторичный текст
+  ink: '#1C1B18',        // --p-sand-900
+  panel: '#23211E',      // --p-graphite, тёмная панель
+  coral: '#E98074',      // --p-terra-300, цвет владельца
+  fill: '#E06A45',       // --p-terra-400, заливка внимания
+  att: '#B8431F',        // --p-terra-600, внимание текстом
+  wash: '#FBEDE7',       // --p-terra-100, подложка значка
+  ok: '#1E4D33',         // --p-moss-600
 };
 
 const checks = [
-  ['чернила на кремовом', P.ink, P.cream, 4.5],
-  ['чернила на белом', P.ink, P.surface, 4.5],
-  ['вторичный на кремовом', P.muted, P.cream, 4.5],
+  ['текст на холсте', P.ink, P.bg, 4.5],
+  ['текст на белом', P.ink, P.surface, 4.5],
+  ['текст на тихой поверхности', P.ink, P.quiet, 4.5],
+  ['вторичный на холсте', P.muted, P.bg, 4.5],
   ['вторичный на белом', P.muted, P.surface, 4.5],
-  ['терракота-текст на белом', P.terraInk, P.surface, 4.5],
-  ['терракота-текст на кремовом', P.terraInk, P.cream, 4.5],
+  ['вторичный на тихой поверхности', P.muted, P.quiet, 4.5],
+  ['внимание на холсте', P.att, P.bg, 4.5],
+  ['внимание на белом', P.att, P.surface, 4.5],
+  ['внимание на тихой поверхности', P.att, P.quiet, 4.5],
+  ['внимание на своей подложке', P.att, P.wash, 4.5],
   ['«готово» на белом', P.ok, P.surface, 4.5],
-  ['чернила на беже (панель)', P.ink, P.beige, 4.5],
-  ['белый на терракоте (только заливка)', P.surface, P.terra, 3.0],
-  ['внимание на тихой поверхности', P.terraInk, '#F5F2E9', 4.5],
-  ['белый на чернилах (пилюля)', P.surface, P.ink, 4.5],
-  ['тёплый серый на кремовом (только линии)', P.warmGray, P.cream, 1.5],
+  ['«готово» на холсте', P.ok, P.bg, 4.5],
+  ['белое на графитовой панели', P.surface, P.panel, 4.5],
+  ['белое на тёмной пилюле', P.surface, P.ink, 4.5],
+  ['белое на заливке внимания (только заливка)', P.surface, P.fill, 3.0],
+  ['разделитель на белом (нетекст)', P.line, P.surface, 1.2],
+  ['рамка поля на белом (нетекст)', P.lineStrong, P.surface, 1.4],
+  ['иконка на холсте (нетекст)', P.faint, P.bg, 1.9],
+  ['кольцо фокуса на холсте (нетекст)', P.att, P.bg, 3.0],
+  ['кольцо фокуса на белом (нетекст)', P.att, P.surface, 3.0],
 ];
 
 let bad = 0;
@@ -75,11 +85,11 @@ for (const [name, fg, bg, min] of checks) {
 }
 
 // Различимость состояний по светлоте: для дальтоника тон не работает
-const lTerra = lum(P.terra);
+const lTerra = lum(P.att);
 const lOk = lum(P.ok);
 const lightnessGap = Math.max(lTerra, lOk) / Math.min(lTerra, lOk);
 console.log('\nРАЗЛИЧИМОСТЬ СОСТОЯНИЙ (красный + зелёный — опасная пара)');
-console.log(`  просрочено ${P.terra} · яркость ${lTerra.toFixed(3)}`);
+console.log(`  просрочено ${P.att} · яркость ${lTerra.toFixed(3)}`);
 console.log(`  готово     ${P.ok} · яркость ${lOk.toFixed(3)}`);
 console.log(`  ${lightnessGap >= 2 ? '✓' : '✗'} разница по светлоте ${lightnessGap.toFixed(1)}× (нужно ≥ 2×, иначе для дальтоника это один цвет)`);
 if (lightnessGap < 2) bad += 1;

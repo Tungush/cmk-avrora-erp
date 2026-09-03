@@ -460,11 +460,13 @@ function CostingPanel({ articleId }: { articleId: string }) {
   if (isLoading || !data) return <Skeleton height={280} radius="md" />;
 
   const { result, explain } = data;
+  // Разбор себестоимости — палитра графиков из index.css, по убыванию
+  // заметности: материалы и труд решают, логистика и энергия — остаток.
   const parts = [
-    { label: 'Материалы', value: result.materialCost, color: 'var(--mantine-color-brand-4)' },
-    { label: 'Трудозатраты', value: result.laborCost, color: 'var(--mantine-color-brand-7)' },
-    { label: 'Логистика', value: result.logisticsCost, color: 'var(--mantine-color-gray-5)' },
-    { label: 'Вода/газ/эл.', value: result.utilitiesCost, color: 'var(--mantine-color-gray-4)' },
+    { label: 'Материалы', value: result.materialCost, color: 'var(--chart-cat1)' },
+    { label: 'Трудозатраты', value: result.laborCost, color: 'var(--chart-cat2)' },
+    { label: 'Логистика', value: result.logisticsCost, color: 'var(--chart-cat3)' },
+    { label: 'Вода/газ/эл.', value: result.utilitiesCost, color: 'var(--chart-cat5)' },
   ];
   const total = result.totalCost || 1;
 
@@ -578,7 +580,7 @@ function UsagePanel({ articleId }: { articleId: string }) {
   const renderOrder = (o: (typeof data.orders)[number]) => (
     <Group key={o.orderId} justify="space-between" wrap="nowrap" gap="xs">
       <Group gap={8} wrap="nowrap" style={{ minWidth: 0 }}>
-        <Text size="sm" ff="monospace" c="brand.7" fw={600} style={{ whiteSpace: 'nowrap' }}>
+        <Text size="sm" ff="monospace" fw={600} style={{ whiteSpace: 'nowrap' }}>
           {o.orderNumber}
         </Text>
         <Text size="sm" c="dimmed" truncate>{o.customer ?? '—'}</Text>

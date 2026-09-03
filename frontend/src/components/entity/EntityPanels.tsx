@@ -99,7 +99,7 @@ function ArticlePanel({ id }: { id: string }) {
   return (
     <Stack gap="lg">
       <Group gap={10} wrap="nowrap" align="baseline">
-        <Text ff="var(--ff-num)" fw={700} c="brand.7" size="lg">{a.articleCode}</Text>
+        <Text ff="var(--ff-num)" fw={700} size="lg">{a.articleCode}</Text>
         <Text size="md" style={{ minWidth: 0 }}>{a.name}</Text>
       </Group>
 
@@ -171,7 +171,7 @@ function MaterialPanel({ id }: { id: string }) {
   return (
     <Stack gap="lg">
       <Group gap={10} wrap="nowrap" align="baseline">
-        <Text ff="var(--ff-num)" fw={700} c="brand.7" size="lg">{m.materialCode}</Text>
+        <Text ff="var(--ff-num)" fw={700} size="lg">{m.materialCode}</Text>
         <Text size="md" style={{ minWidth: 0 }}>{m.name}</Text>
       </Group>
 

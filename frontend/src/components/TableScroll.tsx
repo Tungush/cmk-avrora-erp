@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Box } from '@mantine/core';
 
 interface TableScrollProps {
@@ -9,6 +9,12 @@ interface TableScrollProps {
   maxHeight?: number | string;
   /** minWidth таблицы: ниже этой ширины появляется внутренняя прокрутка */
   minWidth?: number;
+  /**
+   * Внешний ref на прокручиваемую область (03.09.2026). Нужен тем, кто
+   * ЗАМЕРЯЕТ доступную высоту вместо угадывания её формулой — например
+   * useFitHeight в производственном плане.
+   */
+  containerRef?: (node: HTMLDivElement | null) => void;
   style?: React.CSSProperties;
 }
 
@@ -19,9 +25,15 @@ interface TableScrollProps {
  * прокрутке было понятно, к какой строке относятся числа.
  */
 export function TableScroll({
-  children, stickyFirstColumn = true, maxHeight, minWidth, style,
+  children, stickyFirstColumn = true, maxHeight, minWidth, containerRef, style,
 }: TableScrollProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // Свой ref нужен для теней на краях, внешний — для замера высоты.
+  // Отдаём узел обоим.
+  const setNode = useCallback((node: HTMLDivElement | null) => {
+    ref.current = node;
+    containerRef?.(node);
+  }, [containerRef]);
   const [edges, setEdges] = useState({ left: false, right: false });
 
   useEffect(() => {
@@ -42,7 +54,7 @@ export function TableScroll({
 
   return (
     <Box
-      ref={ref}
+      ref={setNode}
       className="table-scroll"
       data-sticky-first={stickyFirstColumn ? 'true' : undefined}
       data-shadow-left={edges.left ? 'true' : undefined}

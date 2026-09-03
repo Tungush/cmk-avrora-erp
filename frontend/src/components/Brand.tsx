@@ -63,11 +63,14 @@ export function LogoLockup({
           fw={600}
           lh={1}
           style={{
-            letterSpacing: '0.3em',
-            fontSize: 11,
+            letterSpacing: '0.24em',
+            /* 13 px — нижняя граница системы. Было 11: подпись читалась
+               на 2,5:1, то есть почти не читалась. Разрядку пришлось
+               чуть сжать, иначе строка перестала влезать в рейку. */
+            fontSize: 13,
             color: onDark
-              ? 'color-mix(in srgb, var(--s-text-on-dark) 60%, transparent)'
-              : 'var(--gray-5)',
+              ? 'color-mix(in srgb, var(--s-text-on-dark) 76%, transparent)'
+              : 'var(--s-text-quiet)',
           }}
         >
           ЦМК·ERP

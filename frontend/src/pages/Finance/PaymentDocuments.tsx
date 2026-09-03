@@ -95,7 +95,7 @@ export function PaymentDocuments() {
                     return (
                       <Table.Tr key={d.id}>
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{d.doNumber ?? '—'}</Text>
+                          <Text size="sm" ff="monospace" fw={600}>{d.doNumber ?? '—'}</Text>
                         </Table.Td>
                         <Table.Td ff="monospace" style={{ whiteSpace: 'nowrap' }}>
                           {d.doDate ? formatDate(d.doDate) : '—'}

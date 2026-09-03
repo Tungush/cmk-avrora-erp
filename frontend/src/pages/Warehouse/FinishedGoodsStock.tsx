@@ -203,7 +203,7 @@ export function FinishedGoodsStock() {
               {balanceRows.map((r) => (
                 <Table.Tr key={r.articleId}>
                   <Table.Td>
-                    <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.articleCode}</Text>
+                    <Text size="sm" ff="monospace" fw={600}>{r.articleCode}</Text>
                     <Text size="xs" c="dimmed" lineClamp={1}>{r.name}</Text>
                   </Table.Td>
                   <Table.Td ta="right" ff="monospace">
@@ -251,7 +251,7 @@ export function FinishedGoodsStock() {
               {moveRows.map((r) => (
                 <Table.Tr key={r.id}>
                   <Table.Td>
-                    <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.article?.articleCode ?? '—'}</Text>
+                    <Text size="sm" ff="monospace" fw={600}>{r.article?.articleCode ?? '—'}</Text>
                     <Text size="xs" c="dimmed" lineClamp={1}>{r.article?.name ?? '—'}</Text>
                   </Table.Td>
                   <Table.Td ff="monospace">{formatDate(r.movementDate)}</Table.Td>

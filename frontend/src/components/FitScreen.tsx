@@ -20,6 +20,71 @@ export const ROW_H = 45;
 const HEAD_H = 42;
 
 /**
+ * Сколько пикселей осталось от верха элемента до низа окна (03.09.2026).
+ *
+ * Нужен там, где строки НЕ одинаковой высоты и посчитать их числом
+ * нельзя. Пример — производственный план: в ячейке живут план, факт и
+ * потребность, поэтому строка занимает от 62 до 78 px в зависимости от
+ * содержимого, а страница по выбору пользователя держит 25 строк.
+ *
+ * Раньше высота таблицы задавалась формулой `calc(100vh - 320px)`.
+ * Число 320 было угадано: настоящая обвязка (шапка, заголовок, вкладки,
+ * выбор года, пагинация, легенда) занимает 429 px, и страница уезжала
+ * вниз на 109 px — ровно то, чего быть не должно.
+ *
+ * Здесь ничего не угадывается: берём собственный `top` элемента и
+ * вычитаем запас под то, что стоит НИЖЕ него.
+ *
+ * Возвращает два ref: `ref` — на саму измеряемую область, `footerRef` —
+ * на то, что стоит НИЖЕ неё (пагинация, легенда). Высота подвала тоже
+ * измеряется, а не задаётся числом: стоит переписать легенду в две
+ * строки — и любое зашитое число опять уводит страницу в прокрутку.
+ *
+ * @param reserve запас на отступы между блоками, px
+ * @param min     не сжимать меньше этого — иначе таблица станет щелью
+ */
+export function useFitHeight(reserve = 0, min = 240) {
+  const [h, setH] = useState(min);
+  const nodeRef = useRef<HTMLElement | null>(null);
+  const footRef = useRef<HTMLElement | null>(null);
+
+  const measure = useCallback(() => {
+    const node = nodeRef.current;
+    if (!node) return;
+    const top = node.getBoundingClientRect().top;
+    const foot = footRef.current?.getBoundingClientRect().height ?? 0;
+    setH(Math.max(min, Math.round(window.innerHeight - top - foot - reserve)));
+  }, [reserve, min]);
+
+  const measureRef = useRef(measure);
+  measureRef.current = measure;
+
+  const ref = useCallback((node: HTMLElement | null) => {
+    nodeRef.current = node;
+    if (node) measureRef.current();
+  }, []);
+
+  const footerRef = useCallback((node: HTMLElement | null) => {
+    footRef.current = node;
+    if (node) measureRef.current();
+  }, []);
+
+  useEffect(() => {
+    const run = () => measureRef.current();
+    run();
+    window.addEventListener('resize', run);
+    // Обвязка над таблицей может менять высоту (перенос кнопок, алерт),
+    // поэтому следим за всей главной областью, а не только за окном.
+    const main = document.querySelector('.mantine-AppShell-main');
+    const ro = main ? new ResizeObserver(run) : null;
+    if (main && ro) ro.observe(main);
+    return () => { window.removeEventListener('resize', run); ro?.disconnect(); };
+  }, []);
+
+  return { ref, footerRef, height: h };
+}
+
+/**
  * Считает, сколько строк помещается в свободную высоту.
  * Возвращает ref на измеряемую область и количество строк.
  */

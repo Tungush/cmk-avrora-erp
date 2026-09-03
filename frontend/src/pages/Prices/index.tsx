@@ -396,7 +396,7 @@ function PriceList({
                     return (
                       <Table.Tr key={a.id}>
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{a.articleCode}</Text>
+                          <Text size="sm" ff="monospace" fw={600}>{a.articleCode}</Text>
                           <Text size="xs" c="dimmed" lineClamp={1}>{a.name}</Text>
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
