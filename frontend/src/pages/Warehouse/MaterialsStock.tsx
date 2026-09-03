@@ -15,6 +15,7 @@ import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { MastLoader } from '../../components/Mast';
+import { Ref } from '../../components/EntityRef';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -331,7 +332,12 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
                         data-clickable
                       >
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{m.materialCode}</Text>
+                          {/* Код ведёт в общую карточку материала (движения,
+                              цены, где применяется); клик по строке остаётся
+                              историей закупок этого экрана — Ref гасит всплытие */}
+                          <Ref kind="material" id={m.id} label={m.name} tone="code" size="sm">
+                            {m.materialCode}
+                          </Ref>
                         </Table.Td>
                         <Table.Td><Text size="sm" lineClamp={1}>{m.name}</Text></Table.Td>
                         <Table.Td data-priority="3">

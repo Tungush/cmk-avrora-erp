@@ -32,19 +32,22 @@ const ratio = (a, b) => {
   return (x + 0.05) / (y + 0.05);
 };
 
+// Значения дублируют примитивы из src/styles/tokens.css. Держать их
+// здесь, а не парсить CSS, — сознательно: проверка должна падать, если
+// кто-то поменял токен и забыл про контраст.
 const P = {
-  cream: '#EAE7DC',
-  beige: '#D8C3A5',
-  warmGray: '#8E8D8A',
-  coral: '#E98074',
-  terra: '#E85A4F',
-  terraInk: '#AD3828',
-  ink: '#33312C',
-  muted: '#66625A',
+  cream: '#EAE7DC',      // --p-sand-200, холст
+  beige: '#D8C3A5',      // --p-sand-400, панель
+  warmGray: '#8E8D8A',   // --p-sand-600, только линии и иконки
+  coral: '#E98074',      // --p-terra-300
+  terra: '#E85A4F',      // --p-terra-400, заливка внимания
+  terraInk: '#9A3412',   // --p-terra-700, внимание текстом
+  ink: '#33312C',        // --p-sand-900
+  muted: '#66625A',      // --p-sand-700
   surface: '#FFFFFF',
   line: '#DCD7C9',
-  ok: '#4A5D3A',
-  okInk: '#3A4A2D',
+  ok: '#3A5F43',         // --p-moss-600
+  okInk: '#2E4B35',
 };
 
 const checks = [
@@ -56,7 +59,8 @@ const checks = [
   ['терракота-текст на кремовом', P.terraInk, P.cream, 4.5],
   ['«готово» на белом', P.ok, P.surface, 4.5],
   ['чернила на беже (панель)', P.ink, P.beige, 4.5],
-  ['белый на терракоте (кнопка)', P.surface, P.terra, 3.0],
+  ['белый на терракоте (только заливка)', P.surface, P.terra, 3.0],
+  ['внимание на тихой поверхности', P.terraInk, '#F5F2E9', 4.5],
   ['белый на чернилах (пилюля)', P.surface, P.ink, 4.5],
   ['тёплый серый на кремовом (только линии)', P.warmGray, P.cream, 1.5],
 ];

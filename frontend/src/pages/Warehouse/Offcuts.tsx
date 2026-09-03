@@ -13,6 +13,7 @@ import { formatDate } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { Ref } from '../../components/EntityRef';
 
 const num = (n: number, d = 1) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -143,7 +144,9 @@ export function Offcuts() {
                   {paged.slice.map((r) => (
                     <Table.Tr key={r.id}>
                       <Table.Td>
-                        <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material.materialCode}</Text>
+                        <Ref kind="material" id={r.material.id} label={r.material.name} tone="code" size="sm">
+                          {r.material.materialCode}
+                        </Ref>
                         <Text size="xs" c="dimmed" lineClamp={1}>{r.material.name}</Text>
                       </Table.Td>
                       <Table.Td ta="right" ff="monospace" fw={700}>{num(Number(r.lengthMm))}</Table.Td>

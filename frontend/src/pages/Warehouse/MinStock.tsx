@@ -13,6 +13,7 @@ import { formatMoney } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
+import { Ref } from '../../components/EntityRef';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
@@ -129,7 +130,9 @@ export function MinStock() {
                     {paged.slice.map((r) => (
                       <Table.Tr key={r.id}>
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.article?.articleCode}</Text>
+                          <Ref kind="article" id={r.articleId} label={r.article?.name} tone="code" size="sm">
+                            {r.article?.articleCode}
+                          </Ref>
                           <Text size="xs" c="dimmed" lineClamp={1}>{r.article?.name}</Text>
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace">{num(r.targetQty, 2)}</Table.Td>

@@ -27,6 +27,13 @@ export function PurchasesDigest({
     refetchInterval: 60_000,
   });
 
+  /**
+   * Клик по строке сводки открывает карточку ПОСТАВЩИКА, а не отфильтрованный
+   * реестр (03.09.2026): в имени и был вопрос — «кто это и сколько мы ему
+   * должны». Реестр никуда не делся: он под кнопкой действия карточки.
+   */
+  const { open: openEntity } = useEntity();
+
   const kpi = data?.kpi;
   const unpaid = data?.unpaidDocs ?? [];
   const suppliers = data?.suppliers ?? [];
@@ -55,7 +62,7 @@ export function PurchasesDigest({
           value: formatMoney(d.unpaidAmount, d.currency),
           sub: `${d.doNumber} · ${d.ageDays} дн с ${formatDate(d.doDate)}`,
           share: d.unpaidAmount / maxUnpaid,
-          onClick: () => onOpenRegistry({ unpaid: 'true' }),
+          onClick: () => openEntity({ kind: 'supplier', id: d.supplierId ?? d.supplier, label: d.supplier }),
         }))}
         emptyText="Долгов перед поставщиками нет"
         action={{ label: 'Все неоплаченные', onClick: () => onOpenRegistry({ unpaid: 'true' }) }}
@@ -77,6 +84,7 @@ export function PurchasesDigest({
           value: `${d.ageDays} дн`,
           sub: formatMoney(d.unpaidAmount, d.currency),
           share: Math.min(1, d.ageDays / 180),
+          onClick: () => openEntity({ kind: 'supplier', id: d.supplierId ?? d.supplier, label: d.supplier }),
         }))}
         emptyText="Старых долгов нет"
       />
@@ -98,7 +106,7 @@ export function PurchasesDigest({
           value: formatMoney(s.total),
           sub: `${s.docs} документов · последний ${formatDate(s.lastDate)}`,
           share: s.total / maxSupplier,
-          onClick: () => onOpenRegistry({ supplierId: s.id }),
+          onClick: () => openEntity({ kind: 'supplier', id: s.id ?? s.name, label: s.name }),
         }))}
         emptyText="Закупок за месяц не было"
         action={{ label: 'Разрезы и графики', onClick: () => onGoTab('dashboard') }}
@@ -119,7 +127,7 @@ export function PurchasesDigest({
           label: s.name,
           value: `${s.noReceipt} док.`,
           sub: `оплачено ${formatMoney(s.paid)} из ${formatMoney(s.total)}`,
-          onClick: () => onOpenRegistry({ supplierId: s.id }),
+          onClick: () => openEntity({ kind: 'supplier', id: s.id ?? s.name, label: s.name }),
         }))}
         emptyText="Всё пришло на склад"
         action={{ label: 'Очередь закупок', onClick: () => onGoTab('queue') }}

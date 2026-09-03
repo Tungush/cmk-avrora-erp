@@ -56,20 +56,20 @@ h1, h2, h3, h4, h5, h6, p {
      цвета один — здесь и в aurora.css. */
 
   /* Нейтральные: кремовый холст, тёплый уголь вместо чёрного */
-  --gray-0: #FFFFFF; --gray-1: #F5F2E9; --gray-2: #DCD7C9; --gray-3: #CFC8B7;
+  --gray-0: #FFFFFF; --gray-1: #FAF8F3; --gray-2: #DCD7C9; --gray-3: #CFC8B7;
   --gray-5: #8E8D8A; --gray-6: #66625A; --gray-7: #4A473F; --gray-9: #33312C;
 
   /* Акцент — терракота; для текста её тёмный брат */
-  --brand-6: #E85A4F; --brand-7: #AD3828; --brand-0: #FBEEEA;
+  --brand-6: #E85A4F; --brand-7: #9A3412; --brand-0: #FBEEEA;
 
   /* Маркер — коралл */
-  --mark: #E98074; --mark-ink: #AD3828;
+  --mark: #E98074; --mark-ink: #9A3412;
 
   /* Статусы в той же тёплой семье */
-  --ok-6: #4A5D3A;   --ok-0: #F1F3E9;
-  --warn-6: #AD3828; --warn-0: #FBEEEA;
-  --err-6: #E85A4F;  --err-0: #FBEAE8;
-  --info-6: #9C8A6E; --info-0: #F3EDE2;
+  --ok-6: #3A5F43;   --ok-0: #EFF3ED;
+  --warn-6: #9A3412; --warn-0: #FBEEEA;
+  --err-6: #9A3412;  --err-0: #FBEEEA;
+  --info-6: #66625A; --info-0: #F5F2E9;
 
   /* Поверхности */
   --app-bg: #EAE7DC;
@@ -79,7 +79,7 @@ h1, h2, h3, h4, h5, h6, p {
 
   /* Палитра графиков — из той же семьи */
   --chart-cat1: #D8C3A5; --chart-cat2: #E98074;
-  --chart-cat3: #4A5D3A; --chart-cat4: #8E8D8A;
+  --chart-cat3: #3A5F43; --chart-cat4: #8E8D8A;
   --chart-grid: rgba(51, 49, 44, .10);
   --chart-tick: #66625A;
 

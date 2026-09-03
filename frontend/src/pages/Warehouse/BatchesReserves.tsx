@@ -11,6 +11,7 @@ import {
 import api from '../../api/client';
 import { useAuthStore } from '../../store/auth';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
+import { Ref } from '../../components/EntityRef';
 import { Stagger, FadeSwap } from '../../components/motion';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
@@ -246,7 +247,9 @@ export function BatchesReserves() {
                     {anPaged.slice.map((a) => (
                       <Table.Tr key={a.batchId}>
                         <Table.Td>
-                          <Text size="sm" ff="monospace" fw={600} c="brand.7">{a.material.materialCode}</Text>
+                          <Ref kind="material" id={a.material.id} label={a.material.name} tone="code" size="sm">
+                            {a.material.materialCode}
+                          </Ref>
                           <Text size="xs" c="dimmed" lineClamp={1}>{a.material.name}</Text>
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace" fw={600}>{formatCurrency(a.unitPrice)}</Table.Td>
@@ -325,6 +328,9 @@ export function BatchesReserves() {
                       <Table.Tr key={r.id}>
                         <Table.Td><OrderRef id={r.order.id} number={r.order.orderNumber} focus="supply" /></Table.Td>
                         <Table.Td>
+                          {/* Ссылки на материал тут нет: /batch-reservations/expiring
+                              отдаёт только код, имя и единицу — id материала в
+                              ответе отсутствует (03.09.2026) */}
                           <Text size="sm" ff="monospace" fw={600} c="brand.7">{r.material.materialCode}</Text>
                           <Text size="xs" c="dimmed" lineClamp={1}>{r.material.name}</Text>
                         </Table.Td>

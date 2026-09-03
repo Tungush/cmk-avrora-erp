@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Group, Text, TextInput, Skeleton, Tooltip } from '@mantine/core';
 import { IconSearch, IconAntenna, IconClockExclamation, IconCircleCheck, IconCurrencyTenge } from '@tabler/icons-react';
-import { Link } from 'react-router-dom';
 import api from '../../api/client';
 import { Mast, MastLoader } from '../../components/Mast';
 import { PulseRow } from '../../components/SectionHeader';
@@ -11,6 +10,7 @@ import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
 import { formatDate, formatCompactMoney } from '../../utils/formatters';
 import { TextReveal } from '../../components/motion';
+import { Ref, useEntity } from '../../components/EntityRef';
 
 /**
  * Объекты — базовые станции (02.09.2026, просьба владельца: «объекты как
@@ -169,11 +169,30 @@ function SiteCard({ row }: { row: SiteRow }) {
   const progress = row.linesCount > 0 ? row.doneLines / row.linesCount : 0;
   const done = row.linesCount > 0 && row.doneLines >= row.linesCount;
   const overdue = row.overdueOrders > 0;
+  const { open } = useEntity();
 
+  /**
+   * Раньше карточка уводила в реестр заказов с поиском по коду площадки —
+   * человек терял сетку объектов и возвращался «назад». Теперь открывается
+   * карточка объекта шторкой поверх (03.09.2026). Не <button>: внутри есть
+   * своя ссылка на заказчика, а кнопку в кнопку вкладывать нельзя.
+   */
   return (
-    <Link
-      to={`/orders?search=${encodeURIComponent(row.site)}`}
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => open({ kind: 'site', id: row.site, label: siteTitle(row.site) })}
+      onKeyDown={(e) => {
+        // Только со самой карточки: Enter на вложенной ссылке заказчика —
+        // её дело, иначе откроются сразу две шторки
+        if (e.target !== e.currentTarget) return;
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          open({ kind: 'site', id: row.site, label: siteTitle(row.site) });
+        }
+      }}
       className="site-card glass-lit"
+      style={{ cursor: 'pointer' }}
       data-state={done ? 'done' : overdue ? 'overdue' : undefined}
     >
       <div className="site-card__mast">
@@ -184,7 +203,17 @@ function SiteCard({ row }: { row: SiteRow }) {
         <Tooltip label={row.site} openDelay={500}>
           <div className="site-card__title">{siteTitle(row.site)}</div>
         </Tooltip>
-        <div className="site-card__sub">{row.customerName || '—'}</div>
+        <div className="site-card__sub">
+          <Ref
+            kind="customer"
+            id={row.customerName || null}
+            label={row.customerName}
+            tone="text"
+            size="xs"
+          >
+            {row.customerName || '—'}
+          </Ref>
+        </div>
 
         <div className="site-card__stat">
           <b>{row.doneLines}</b><span>/{row.linesCount} изделий</span>
@@ -205,6 +234,6 @@ function SiteCard({ row }: { row: SiteRow }) {
           <span className="worklist__chip">срок не задан</span>
         )}
       </div>
-    </Link>
+    </div>
   );
 }

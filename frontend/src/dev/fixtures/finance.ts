@@ -20,8 +20,8 @@ import type { FixtureRoute } from './types';
  *     /payment-documents — только contractor, POST …/payments — ни того, ни другого.
  *
  * Данные — реестр «19.20-7п» ЦМК Аврора: 306 заказов поставщику на ≈663 млн ₸,
- * 212 не закрыты оплатой, 17 привязаны к заказу на продажу, 903 строки «что
- * заказано» (≈¼ с amountMismatch — цена за тонну при количестве в метрах).
+ * 212 не закрыты оплатой, 17 привязаны к заказу на продажу, ≈900 строк «что
+ * заказано» (≈¼ металла с amountMismatch — цена за тонну при количестве в метрах).
  * Поставщики, заказчики и БИН — из базы; размножено детерминированным
  * генератором, без Math.random и Date.now — всё считается от 2026-09-03.
  */
@@ -401,7 +401,7 @@ interface Doc {
 
 function makeLines(kind: SupKind, target: number, order: StubOrder | null): DocLine[] {
   const pool = ITEMS[kind];
-  const n = kind === 'smr' || kind === 'other' || kind === 'transport' ? int(1, 2) : kind === 'galvan' ? 1 : int(1, 6);
+  const n = kind === 'smr' || kind === 'other' || kind === 'transport' ? int(1, 2) : kind === 'galvan' ? 1 : kind === 'metal' ? int(2, 7) : int(1, 6);
   const weights = Array.from({ length: n }, () => 0.4 + rnd());
   const wsum = weights.reduce((s, w) => s + w, 0);
   const used = new Set<Item>();
@@ -470,8 +470,11 @@ function buildDocs(): Doc[] {
   push('PAID', 94); push('PARTIALLY_PAID', 55); push('EXECUTED', 7); push('UNPAID', 150);
   shuffle(statuses);
 
+  // 17 из 306 привязаны к заказу на продажу — только «заказные» виды закупа
+  const LINKABLE: readonly SupKind[] = ['metal', 'smr', 'galvan', 'components', 'transport'];
+  const candidates = kinds.map((k, i) => (LINKABLE.includes(k) ? i : -1)).filter((i) => i >= 0);
   const linked = new Set<number>();
-  while (linked.size < 17) linked.add(int(0, 305));
+  while (linked.size < 17) linked.add(pick(candidates));
 
   const drafts = kinds.map((kind, i) => {
     // дата: последние 400 дней, гуще к сегодняшнему
@@ -482,7 +485,7 @@ function buildDocs(): Doc[] {
   const docs: Doc[] = [];
   drafts.forEach((d, rank) => {
     const supplier = pick(byKind(d.kind));
-    const order = linked.has(d.i) && ['metal', 'smr', 'galvan', 'components', 'transport'].includes(d.kind) ? STUB_ORDERS[hash(String(d.i)) % STUB_ORDERS.length] : null;
+    const order = linked.has(d.i) ? STUB_ORDERS[hash(String(d.i)) % STUB_ORDERS.length] : null;
     const [lo, hi] = AMOUNT[d.kind];
     const target = lo + (hi - lo) * Math.pow(rnd(), 2);
     const lines = makeLines(d.kind, target, order);

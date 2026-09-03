@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useDebouncedValue } from '@mantine/hooks';
 import { purchasesApi } from '../../api/purchases';
 import { ReceiptRef } from '../../components/ReceiptCard/ReceiptCardProvider';
+import { Ref } from '../../components/EntityRef';
 import { formatMoney, formatDate } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
@@ -122,7 +123,11 @@ export function PurchasesRegistry({ filters, onFiltersChange }: {
                       <Table.Td><ReceiptRef id={d.id} number={d.doNumber} size="sm" /></Table.Td>
                       <Table.Td ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatDate(d.doDate)}</Table.Td>
                       <Table.Td>
-                        <Text size="sm" lineClamp={1}>{d.supplier}</Text>
+                        <Text size="sm" lineClamp={1}>
+                          <Ref kind="supplier" id={d.supplierId ?? d.supplier} label={d.supplier} tone="text" size="sm">
+                            {d.supplier}
+                          </Ref>
+                        </Text>
                         {/* Направление дублируем подстрокой: на ноутбуке колонка спрятана */}
                         {d.businessDirection && (
                           <Text size="xs" c="dimmed" lineClamp={1} hiddenFrom="lg">{d.businessDirection}</Text>

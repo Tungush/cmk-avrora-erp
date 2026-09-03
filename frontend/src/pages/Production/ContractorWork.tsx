@@ -29,6 +29,7 @@ import {
   formatCurrency, formatDate, formatNumber, ROUTING_STAGE_LABELS,
 } from '../../utils/formatters';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
+import { Ref } from '../../components/EntityRef';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
@@ -1329,7 +1330,17 @@ function RequestsTab() {
 
                         <Table.Td maw={110}>
                           {r.contractor
-                            ? <Text size="sm" lineClamp={2}>{r.contractor.name}</Text>
+                            ? (
+                              <Ref
+                                kind="contractor"
+                                id={r.contractor.id}
+                                label={r.contractor.name}
+                                tone="text"
+                                size="sm"
+                              >
+                                {r.contractor.name}
+                              </Ref>
+                            )
                             : <Text size="sm" c="dimmed">подберут в Б24</Text>}
                         </Table.Td>
 
@@ -1579,7 +1590,13 @@ function AllocatedTab() {
                 <ThemeIcon variant="light" color="warning" radius="md" size="sm">
                   <IconBuildingFactory size={14} />
                 </ThemeIcon>
-                <Text fw={700} size="sm" truncate>{c.name}</Text>
+                {/* Обёртка с truncate оставлена от прежнего заголовка: без неё
+                    длинное имя распирает карточку в сетке */}
+                <Text fw={700} size="sm" truncate>
+                  <Ref kind="contractor" id={c.id} label={c.name} tone="text" size="sm" bold>
+                    {c.name}
+                  </Ref>
+                </Text>
               </Group>
               <Group justify="space-between">
                 <Text size="xs" c="dimmed">В работе</Text>
@@ -1664,7 +1681,9 @@ function AllocatedTab() {
                         : <Text size="sm" c="dimmed">разовый</Text>}
                     </Table.Td>
                     <Table.Td>
-                      <Text size="sm">{w.contractor.name}</Text>
+                      <Ref kind="contractor" id={w.contractor.id} label={w.contractor.name} tone="text" size="sm">
+                        {w.contractor.name}
+                      </Ref>
                       {w.workLocation === 'OUR_SHOP' && (
                         <Text size="xs" c="dimmed">в нашем цеху</Text>
                       )}

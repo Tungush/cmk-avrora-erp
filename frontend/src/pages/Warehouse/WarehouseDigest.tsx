@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import api from '../../api/client';
 import { DigestCard, DigestGrid } from '../../components/Digest';
+import { useEntity } from '../../components/EntityRef';
 import { IconGauge, IconGavel, IconClockExclamation, IconScissors } from '@tabler/icons-react';
 import { formatMoney, formatDate } from '../../utils/formatters';
 
@@ -19,6 +20,9 @@ import { formatMoney, formatDate } from '../../utils/formatters';
 const num = (n: number, d = 0) => Number(n || 0).toLocaleString('ru-RU', { maximumFractionDigits: d });
 
 export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void }) {
+  // Строка сводки — это изделие или материал: по клику открывается его
+  // карточка, вкладка со списком осталась под кнопкой действия (03.09.2026)
+  const { open: openEntity } = useEntity();
   const minStock = useQuery({
     queryKey: ['min-stock'],
     queryFn: () => api.get('/min-stock-levels').then((r) => r.data),
@@ -70,6 +74,9 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
           value: `${num(r.deficitQty, 2)} шт`,
           sub: `есть ${num(r.actualQty, 2)} из ${num(r.targetQty, 2)} · готовность ${num(r.readinessPct)} %`,
           share: Number(r.deficitValue ?? 0) / maxDeficit,
+          onClick: r.articleId
+            ? () => openEntity({ kind: 'article', id: r.articleId, label: r.article?.name })
+            : undefined,
         }))}
         emptyText="Нормативы выполнены — доделывать нечего"
         action={{ label: 'Мин. остатки', onClick: () => onGoTab('minstock') }}
@@ -89,6 +96,9 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
           label: `${r.material?.materialCode ?? '—'} · ${r.material?.name ?? ''}`,
           value: `${formatMoney(r.unitPrice)} ₸`,
           sub: r.anomalyFactor ? `×${Number(r.anomalyFactor).toFixed(1)} к обычной цене · ${r.supplierName ?? 'поставщик не указан'}` : r.hint,
+          onClick: r.material?.id
+            ? () => openEntity({ kind: 'material', id: r.material.id, label: r.material.name })
+            : undefined,
         }))}
         emptyText="Все цены партий в норме"
         action={{ label: 'Партии и резервы', onClick: () => onGoTab('batches') }}
@@ -109,6 +119,10 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
           value: `${r.daysLeft} дн`,
           sub: `${num(r.qty, 2)} ${r.material?.unit ?? ''} · до ${formatDate(r.expiresAt)}`,
           share: (Number(r.qty ?? 0) * Number(r.unitPrice ?? 0)) / maxExpiring,
+          // Материал в этом ответе без id — ведём на заказ, он в строке есть
+          onClick: r.order?.id
+            ? () => openEntity({ kind: 'order', id: r.order.id, label: r.order.orderNumber })
+            : undefined,
         }))}
         emptyText="Резервы держатся"
         action={{ label: 'Партии и резервы', onClick: () => onGoTab('batches') }}
@@ -126,6 +140,9 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
           label: `${r.material?.materialCode ?? '—'} · ${r.material?.name ?? ''}`,
           value: `${num(Number(r.qty), 0)} шт`,
           sub: `${num(Number(r.lengthMm), 0)} мм${r.widthMm ? ` × ${num(Number(r.widthMm), 0)} мм` : ''}`,
+          onClick: r.material?.id
+            ? () => openEntity({ kind: 'material', id: r.material.id, label: r.material.name })
+            : undefined,
         }))}
         emptyText="Обрезков не заведено"
         action={{ label: 'Обрезки', onClick: () => onGoTab('offcuts') }}
@@ -143,6 +160,15 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
             label: r.material?.materialCode ?? r.materialCode ?? 'партия',
             value: r.requestedQty != null ? `${num(Number(r.requestedQty), 2)}` : '—',
             sub: r.reason ?? undefined,
+            // /batch-reservations/overrides отдаёт материал без id — ведём на
+            // заказ, который просит партию
+            onClick: r.requestedByOrder?.id
+              ? () => openEntity({
+                kind: 'order',
+                id: r.requestedByOrder.id,
+                label: r.requestedByOrder.orderNumber,
+              })
+              : undefined,
           }))}
           action={{ label: 'Разобрать', onClick: () => onGoTab('batches') }}
         />

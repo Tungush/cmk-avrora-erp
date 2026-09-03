@@ -4,6 +4,7 @@ import { IconClipboardList, IconUserQuestion, IconChecks, IconCoin } from '@tabl
 import api from '../../api/client';
 import { contractorRequestsApi } from '../../api/contractorRequests';
 import { DigestCard, DigestGrid } from '../../components/Digest';
+import { useEntity } from '../../components/EntityRef';
 import { formatMoney, formatCompactMoney, formatDate } from '../../utils/formatters';
 
 /**
@@ -19,6 +20,9 @@ import { formatMoney, formatCompactMoney, formatDate } from '../../utils/formatt
 const num = (n: number) => Number(n || 0).toLocaleString('ru-RU');
 
 export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }) {
+  // Строка сводки — это подрядчик или заказ; по клику открывается он сам,
+  // а не вкладка со списком, где его придётся искать снова (03.09.2026)
+  const { open: openEntity } = useEntity();
   const requests = useQuery({
     queryKey: ['contractor-requests', null, null],
     queryFn: () => contractorRequestsApi.list({}),
@@ -60,6 +64,9 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
           sub: `${r.stageLabel} · принято ${r.acceptedAt ? formatDate(r.acceptedAt) : '—'}`
             + (r.daysSinceAccepted != null ? ` · ${r.daysSinceAccepted} дн назад` : ''),
           share: Number(r.totalAmount ?? r.estimatedAmount ?? 0) / maxAlloc,
+          onClick: r.contractor?.id
+            ? () => openEntity({ kind: 'contractor', id: r.contractor.id, label: r.contractor.name })
+            : undefined,
         }))}
         emptyText="Разносить нечего"
         action={{ label: 'Разнести', onClick: () => onGoTab('requests') }}
@@ -98,6 +105,10 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
           label: `${r.order?.orderNumber ?? '—'} · ${r.contractor?.name ?? '—'}`,
           value: r.amount != null ? `${formatMoney(r.amount)} ₸` : '—',
           sub: `${r.routingStage} · ${r.workLocation === 'OUR_SHOP' ? 'у нас в цехе' : 'на площадке подрядчика'}`,
+          // Строка начинается номером заказа — туда клик и ведёт
+          onClick: r.order?.id
+            ? () => openEntity({ kind: 'order', id: r.order.id, label: r.order.orderNumber })
+            : undefined,
         }))}
         emptyText="Непринятой работы нет"
         action={{ label: 'Разнесено по заказам', onClick: () => onGoTab('allocated') }}
@@ -120,6 +131,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
             value: `${formatMoney(c.amount)} ₸`,
             sub: `принято ${num(c.accepted)} · открыто ${num(c.open)}`,
             share: Number(c.amount ?? 0) / maxContractor,
+            onClick: () => openEntity({ kind: 'contractor', id: c.id ?? c.name, label: c.name }),
           }))}
         emptyText="Подряда пока нет"
         action={{ label: 'Все работы', onClick: () => onGoTab('allocated') }}

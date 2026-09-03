@@ -9,13 +9,19 @@ import { useBom, useMaterials, useAddBomItem, useUpdateBomItem, useRemoveBomItem
 import { useAuthStore } from '../../store/auth';
 import { formatDate } from '../../utils/formatters';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { useFitRows } from '../../components/FitScreen';
 import { FadeSwap } from '../../components/motion';
 import { Ref } from '../../components/EntityRef';
 
 const num = (n: number, d = 2) => n.toLocaleString('ru-RU', { maximumFractionDigits: d });
 
-/** Строк состава на странице: больше — уже не «состав», а простыня */
-const BOM_PAGE_SIZE = 25;
+/**
+ * Высота строки состава, px (03.09.2026). Число строк на странице больше
+ * не фиксировано: показываем ровно столько, сколько влезло в панель, —
+ * иначе состав из 34 позиций прокручивался внутри редактора, а владелец
+ * просил, чтобы прокрутки не было нигде.
+ */
+const BOM_ROW_H = 56;
 
 /**
  * Строка состава: расход правится на месте, удаление — крестиком.
@@ -139,8 +145,12 @@ export function BomPanel({ articleId }: { articleId: string }) {
     [materials],
   );
 
-  const items: any[] = bom ?? [];
-  const paged = usePagedList(items, BOM_PAGE_SIZE, articleId);
+  const items: any[] = Array.isArray(bom) ? bom : [];
+  // 40 px — шапка списка внутри карточки
+  // 32 px — шапка списка; строка с двухстрочным названием выше, поэтому
+  // берём 56, а не минимальные 46: иначе последняя строка обрезается
+  const fit = useFitRows(BOM_ROW_H, 3, 40, 32);
+  const paged = usePagedList(items, fit.rows, `${articleId}|${fit.rows}`);
   const total = items.reduce(
     (s, i) => s + Number(i.qtyPerUnit) * Number(i.material?.purchasePrice ?? 0),
     0,
@@ -165,7 +175,8 @@ export function BomPanel({ articleId }: { articleId: string }) {
   if (isLoading) return <Skeleton height={280} radius="md" />;
 
   return (
-    <Card withBorder radius="md" padding="md">
+    <Card withBorder radius="md" padding="md"
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <Group justify="space-between" mb="sm" wrap="wrap" gap="xs">
         <Group gap="xs">
           <Text fw={700} size="md">Состав изделия</Text>
@@ -187,9 +198,9 @@ export function BomPanel({ articleId }: { articleId: string }) {
           {canEdit ? ' Добавьте позиции ниже.' : ''}
         </Text>
       ) : (
-        <Stack gap="xs">
-          <FadeSwap swapKey={paged.page}>
-            <div className="bom-list" data-editable={canEdit ? 'true' : undefined}>
+        <Stack gap="xs" style={{ flex: 1, minHeight: 0 }}>
+          <FadeSwap swapKey={paged.page} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div className="bom-list" data-editable={canEdit ? 'true' : undefined} ref={fit.ref}>
               <div className="bom-row bom-row--head">
                 <span>Материал</span>
                 <span>Расход</span>
@@ -203,11 +214,11 @@ export function BomPanel({ articleId }: { articleId: string }) {
               ))}
             </div>
           </FadeSwap>
-          {paged.total > BOM_PAGE_SIZE && (
+          {paged.total > fit.rows && (
             <PaginationBar
               page={paged.page}
               total={paged.total}
-              pageSize={BOM_PAGE_SIZE}
+              pageSize={fit.rows}
               onPageChange={paged.setPage}
               variant="compact"
               noun="позиций"

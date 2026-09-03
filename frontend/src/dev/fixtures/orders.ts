@@ -639,6 +639,8 @@ function listOrders(params: URLSearchParams) {
     rows = rows.filter((o) =>
       o.orderNumber.toLowerCase().includes(search)
       || o.customer.name.toLowerCase().includes(search)
+      // Объект из 1С (project_site) — по нему группируется раздел «Объекты»
+      || (o.projectSite ?? '').toLowerCase().includes(search)
       || o.lines.some((l) => (l.siteCode ?? '').toLowerCase().includes(search)));
   }
   const { page, pageSize, slice, total } = paginate(rows, params, 50);

@@ -16,6 +16,8 @@ import type { FixtureRoute } from './types';
  * common.PDate → "2026-08-25T00:00:00.000Z" или null. customer / article — полные записи
  * models.Customer / models.Article; manager — всегда null: именных учёток не заводим
  * (решение 24.08.2026), кто ведёт — текстом в managerName.
+ * shipment_date — колонка date (@db.Date): в ответе всегда полночь UTC, время отбрасывается.
+ * Ошибки — конверт common.APIError: {error:{code, message, details:null}}.
  *
  * Контрагенты (/customers) здесь не дублируются — они живут в orders.ts.
  * Данные — лист Excel «Планируемое без заявок» (396 строк, ≈₸415 млн): прогноз спроса
@@ -68,6 +70,8 @@ function uuid(): string {
 
 /** decimal.Decimal → JSON-строка без хвостовых нулей ("6371072.1") */
 const dec = (n: number): string => String(Math.round(n * 1000) / 1000);
+/** numeric(12,2)/(14,2) (deals.qty_*, amount_*, цены изделий): Postgres хранит 2 знака, Go отдаёт без хвостовых нулей */
+const dec2 = (n: number): string => String(Math.round(n * 100) / 100);
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 
 /** period_key вида «2026-W36» — ISO-неделя даты отгрузки */
@@ -148,6 +152,8 @@ const customerJSON = (c: Customer) => ({
 interface Article {
   id: string; articleCode: string; name: string; unit: string; price: number; weightKg: number;
   isMaterialResale: boolean; leadTimeDays: number; series: string | null;
+  /** У заведённых «с колёс» (resolveArticle) — сегодня; у справочных — константы ниже */
+  createdAt?: string; updatedAt?: string;
 }
 interface ArticleSeed { code: string; name: string; unit?: string; price: number; weight: number; lead?: number; series?: string }
 
@@ -191,10 +197,10 @@ const ARTICLE_UPDATED = iso(Date.UTC(2026, 8, 1, 14, 3, 5));
 /** models.Article — все decimal как строки, PDate как ISO */
 const articleJSON = (a: Article) => ({
   id: a.id, articleCode: a.articleCode, legacyCode: null, name: a.name, weightKg: dec(a.weightKg),
-  series: a.series, description: null, approvedPrice: dec(a.price), isMaterialResale: a.isMaterialResale,
-  specPrice: dec(a.isMaterialResale ? 0 : a.price * 0.63), priceDeviationPct: dec(0),
-  leadTimeDays: dec(a.leadTimeDays), palletCapacity: dec(0), isActive: true,
-  createdAt: ARTICLE_CREATED, updatedAt: ARTICLE_UPDATED,
+  series: a.series, description: null, approvedPrice: dec2(a.price), isMaterialResale: a.isMaterialResale,
+  specPrice: dec2(a.isMaterialResale ? 0 : a.price * 0.63), priceDeviationPct: dec(0),
+  leadTimeDays: dec2(a.leadTimeDays), palletCapacity: dec2(0), isActive: true,
+  createdAt: a.createdAt ?? ARTICLE_CREATED, updatedAt: a.updatedAt ?? ARTICLE_UPDATED,
 });
 
 /** Объекты телекома: код сайта + регион (как в листе «Планируемое без заявок») */
@@ -416,10 +422,10 @@ function dealJSON(d: Deal): Record<string, unknown> {
     customerId: d.customer.id,
     articleId: d.article ? d.article.id : null,
     managerId: null,
-    qtyOrdered: dec(d.qtyOrdered),
-    qtyShipped: dec(d.qtyShipped),
-    amountOrdered: dec(d.amountOrdered),
-    amountPaid: dec(d.amountPaid),
+    qtyOrdered: dec2(d.qtyOrdered),
+    qtyShipped: dec2(d.qtyShipped),
+    amountOrdered: dec2(d.amountOrdered),
+    amountPaid: dec2(d.amountPaid),
     status: d.status,
     periodKey: d.periodKey,
     shipmentDate: d.shipmentDate,
@@ -452,34 +458,46 @@ const truthy = (v: unknown): boolean => !(v === null || v === undefined || v ===
 /** num(): число, строка-число, bool → float64 */
 function num(v: unknown): number {
   if (typeof v === 'number') return v;
-  if (typeof v === 'string') return Number.parseFloat(v) || 0;
+  if (typeof v === 'string') return Number(v) || 0; // strconv.ParseFloat: «12abc» → ошибка → 0
   if (v === true) return 1;
   return 0;
 }
 const optStr = (v: unknown): string | null => (truthy(v) ? str(v) : null);
-/** parseDate(): RFC3339 / "2006-01-02T15:04:05" / "2006-01-02" → UTC-ISO как PDate; иначе null */
+/**
+ * parseDate(): RFC3339 / "2006-01-02T15:04:05" / "2006-01-02" → UTC; иначе null.
+ * shipment_date — колонка date (@db.Date): Go пишет t.UTC(), Postgres оставляет только
+ * дату, обратно читается полночь UTC — поэтому время здесь отбрасывается.
+ */
 function parseDate(v: unknown): string | null {
-  const s = str(v).trim();
+  const s = str(v);
   if (!s) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return `${s}T00:00:00.000Z`;
   const ms = Date.parse(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(s) ? `${s}Z` : s);
-  return Number.isNaN(ms) ? null : iso(ms);
+  return Number.isNaN(ms) ? null : iso(Math.floor(ms / DAY) * DAY);
 }
 
-const fail = (code: string, message: string) => ({ error: { code, message } });
+/** common.APIError — конверт {error:{code,message,details}}; у Fail() details всегда null */
+interface ApiFail { error: { code: string; message: string; details: null } }
+const fail = (code: string, message: string): ApiFail => ({ error: { code, message, details: null } });
 const notFound = (msg: string) => fail('NOT_FOUND', msg);
+const dbError = () => fail('INTERNAL_SERVER_ERROR', 'Ошибка базы данных');
 
+/** strconv.Atoi: не целое → 0 */
+const atoi = (s: string | null): number => (s !== null && /^[+-]?\d+$/.test(s) ? Number(s) : 0);
+/** Как в FindAll: page < 1 → 1, pageSize < 1 → 50 */
 function paginate<T>(rows: T[], params: URLSearchParams, defaultSize: number) {
-  const page = Math.max(1, Number(params.get('page') ?? 1) || 1);
-  const pageSize = Math.max(1, Number(params.get('pageSize') ?? defaultSize) || defaultSize);
+  let page = atoi(params.get('page'));
+  if (page < 1) page = 1;
+  let pageSize = atoi(params.get('pageSize'));
+  if (pageSize < 1) pageSize = defaultSize;
   return { page, pageSize, slice: rows.slice((page - 1) * pageSize, page * pageSize), total: rows.length };
 }
 
 /** resolveCustomer: customerId → по id; иначе customerName → найти по имени без регистра или завести (БИН = dlCode) */
-function resolveCustomer(b: Body): Customer | { error: { code: string; message: string } } {
+function resolveCustomer(b: Body): Customer | ApiFail {
   if (truthy(b.customerId)) {
     const c = CUSTOMERS.find((x) => x.id === str(b.customerId));
-    return c ?? fail('INTERNAL_SERVER_ERROR', 'Ошибка базы данных');
+    return c ?? dbError();
   }
   const name = str(b.customerName).trim();
   if (!name) return fail('INVALID_INPUT', 'Нужен заказчик: customerId или customerName');
@@ -491,10 +509,10 @@ function resolveCustomer(b: Body): Customer | { error: { code: string; message: 
 }
 
 /** resolveArticle: articleId → по id; articleName → найти или завести (код = dlCode); пусто → null */
-function resolveArticle(b: Body): Article | null | { error: { code: string; message: string } } {
+function resolveArticle(b: Body): Article | null | ApiFail {
   if (truthy(b.articleId)) {
     const a = ARTICLES.find((x) => x.id === str(b.articleId));
-    return a ?? fail('INTERNAL_SERVER_ERROR', 'Ошибка базы данных');
+    return a ?? dbError();
   }
   const name = str(b.articleName).trim();
   if (!name) return null;
@@ -503,12 +521,13 @@ function resolveArticle(b: Body): Article | null | { error: { code: string; mess
   const a: Article = {
     id: uuid(), articleCode: dlCode(name), name, unit: 'шт', price: 0, weightKg: 0,
     isMaterialResale: false, leadTimeDays: 0, series: null,
+    createdAt: iso(TODAY), updatedAt: iso(TODAY), // INSERT … updated_at = now(), created_at по умолчанию
   };
   ARTICLES.push(a);
   return a;
 }
 
-const isErr = (v: unknown): v is { error: { code: string; message: string } } =>
+const isErr = (v: unknown): v is ApiFail =>
   typeof v === 'object' && v !== null && 'error' in v;
 
 const idFromPath = (path: string): string => path.split('/')[2] ?? '';
@@ -594,19 +613,19 @@ export const routes: FixtureRoute[] = [
       const d = dealById(id);
       if (!d) return notFound(`Deal ${id} not found`);
       const b = (body ?? {}) as Body;
-      if ('source' in b) d.source = optStr(b.source) ?? '';
+      // Один UPDATE: source/customer_id NOT NULL, customer_id/article_id — FK. Нарушение → 500, ничего не меняется
+      const nextSource = 'source' in b ? optStr(b.source) : d.source;
+      const nextCustomer = 'customerId' in b ? CUSTOMERS.find((x) => x.id === optStr(b.customerId)) : d.customer;
+      const nextArticle = 'articleId' in b ? (truthy(b.articleId) ? ARTICLES.find((x) => x.id === str(b.articleId)) : null) : d.article;
+      if (nextSource === null || !nextCustomer || nextArticle === undefined) return dbError();
+      d.source = nextSource;
+      d.customer = nextCustomer;
+      d.article = nextArticle;
       if ('siteCode' in b) d.siteCode = optStr(b.siteCode);
       if ('region' in b) d.region = optStr(b.region);
       if ('managerName' in b) d.managerName = optStr(b.managerName);
       if ('plannedDispatchMonth' in b) d.plannedDispatchMonth = optStr(b.plannedDispatchMonth);
       if ('periodKey' in b) d.periodKey = optStr(b.periodKey);
-      if ('customerId' in b) {
-        const c = CUSTOMERS.find((x) => x.id === str(b.customerId));
-        if (c) d.customer = c;
-      }
-      if ('articleId' in b) {
-        d.article = truthy(b.articleId) ? (ARTICLES.find((x) => x.id === str(b.articleId)) ?? d.article) : null;
-      }
       if ('qtyOrdered' in b) d.qtyOrdered = num(b.qtyOrdered);
       if ('qtyShipped' in b) d.qtyShipped = num(b.qtyShipped);
       if ('amountOrdered' in b) d.amountOrdered = num(b.amountOrdered);
@@ -624,7 +643,7 @@ export const routes: FixtureRoute[] = [
       const id = idFromPath(path);
       const i = DEALS.findIndex((d) => d.id === id);
       // В Go несуществующий id → 500 «Ошибка базы данных» (наследие P2025)
-      if (i < 0) return fail('INTERNAL_SERVER_ERROR', 'Ошибка базы данных');
+      if (i < 0) return dbError();
       DEALS.splice(i, 1);
       return { ok: true };
     },

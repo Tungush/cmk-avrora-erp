@@ -85,6 +85,8 @@ const dec = (n: number, places = 3): string => String(Number(n.toFixed(places)))
 const round2 = (n: number): number => Math.round(n * 100) / 100;
 /** common.JsRound — Math.floor(x + 0.5) */
 const jsRound = (n: number): number => Math.floor(n + 0.5);
+/** strconv.Atoi — только целое; мусор, дробь или пусто → 0 (и дальше срабатывает значение по умолчанию, как в Go) */
+const atoi = (v: string | null): number => (v != null && /^[+-]?\d+$/.test(v) ? parseInt(v, 10) : 0);
 
 const DESIGN_USER = '00000000-0000-4000-8000-000000000001';
 
@@ -392,8 +394,11 @@ function dashboard() {
 
 /** GET /purchases/documents — порт PurchasesHandler.Documents (реестр ДО с фильтрами) */
 function documents(params: URLSearchParams) {
-  const page = Math.max(1, Number(params.get('page') ?? 1) || 1);
-  const pageSize = Math.min(200, Math.max(1, Number(params.get('pageSize') ?? 50) || 50));
+  let page = atoi(params.get('page'));
+  if (page < 1) page = 1;
+  let pageSize = atoi(params.get('pageSize'));
+  if (pageSize < 1) pageSize = 50;
+  if (pageSize > 200) pageSize = 200;
   let list = DOCS;
   const q = (params.get('search') ?? '').trim().toLowerCase();
   if (q) {
@@ -417,7 +422,8 @@ function documents(params: URLSearchParams) {
   if (params.get('control') === 'noWarehouse') list = list.filter((d) => d.warehouseName == null);
   const overdueDays = params.get('overdueDays');
   if (overdueDays) {
-    const cutoff = NOW_MS - Number(overdueDays) * DAY;
+    // strconv.ParseFloat: мусор → 0 → cutoff = «сейчас»
+    const cutoff = NOW_MS - (Number(overdueDays) || 0) * DAY;
     list = list.filter((d) => d.doDate < cutoff && d.unpaid > 0);
   }
   const total = list.length;
@@ -652,13 +658,16 @@ function materialJSON(m: Mat) {
   };
 }
 
-const notFound = (msg: string) => ({ error: { code: 'NOT_FOUND', message: msg } });
-const badRequest = (code: string, msg: string) => ({ error: { code, message: msg } });
+/** common.APIError — конверт { error: { code, message, details } }, details всегда присутствует (null) */
+const notFound = (msg: string) => ({ error: { code: 'NOT_FOUND', message: msg, details: null } });
+const badRequest = (code: string, msg: string) => ({ error: { code, message: msg, details: null } });
 
 /** GET /purchase-requests?status=&page=&pageSize= — FindAll */
 function findAllRequests(params: URLSearchParams) {
-  const page = Math.max(1, Number(params.get('page') ?? 1) || 1);
-  const pageSize = Math.max(1, Number(params.get('pageSize') ?? 100) || 100);
+  let page = atoi(params.get('page'));
+  if (page < 1) page = 1;
+  let pageSize = atoi(params.get('pageSize'));
+  if (pageSize < 1) pageSize = 100;
   const status = params.get('status');
   let list = [...REQUESTS].sort((a, b) => b.createdAt - a.createdAt);
   if (status) list = list.filter((r) => r.status === status);

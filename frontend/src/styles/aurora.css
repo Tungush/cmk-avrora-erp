@@ -1,3 +1,5 @@
+@import './tokens.css';
+
 /* ===============================================================
    ЦМК АВРОРА — визуальная система
 
@@ -22,70 +24,61 @@
    Шрифт Onest: у Urbanist из прежнего референса нет кириллицы.
    =============================================================== */
 
+/* Прежние имена переменных оставлены псевдонимами семантических токенов:
+   их зовёт вся разметка, а переписывать полторы тысячи мест ради имён
+   незачем. Новый код пишется на --s-* и --c-* из tokens.css. */
 :root {
-  /* --- Палитра владельца, ровно те hex --- */
-  --c-cream: #EAE7DC;       /* холст */
-  --c-beige: #D8C3A5;       /* большая плоская панель */
-  --c-warm-gray: #8E8D8A;   /* линии, иконки, тихие подписи */
-  --c-coral: #E98074;       /* мягкое внимание: заливки, полосы */
-  --c-terra: #E85A4F;       /* сильное внимание: просрочка, акцент */
-  --c-terra-ink: #AD3828;   /* терракота, читаемая текстом (5,6:1) */
+  --c-cream: var(--s-bg);
+  --c-beige: var(--s-panel);
+  --c-warm-gray: var(--s-text-faint);
+  --c-coral: var(--s-attention-soft);
+  --c-terra: var(--s-attention-fill);
+  --c-terra-ink: var(--s-attention);
+  --c-black: var(--s-text);
+  --c-ok: var(--s-ok);
+  --c-ok-ink: var(--p-moss-700);
+  --c-danger: var(--s-attention-fill);
+  --c-danger-ink: var(--s-attention);
+  --c-blue: var(--s-panel);
+  --c-blue-ink: var(--s-attention);
+  --c-blue-deep: var(--p-terra-800);
+  --c-blue-wash: var(--s-attention-wash);
+  --c-amber: var(--s-attention-soft);
+  --c-amber-ink: var(--s-attention);
+  --c-amber-wash: var(--s-attention-wash);
+  --c-yellow: var(--s-attention-soft);
+  --c-yellow-ink: var(--s-attention);
+  --c-gray: var(--s-bg);
 
-  /* --- Добавлено нами: чернила и «готово» --- */
-  --c-black: #33312C;       /* тёплый уголь вместо чёрного */
-  --c-ok: #4A5D3A;
-  --c-ok-ink: #3A4A2D;
-  --c-danger: var(--c-terra);
-  --c-danger-ink: var(--c-terra-ink);
+  --ref-coral: var(--s-attention);
+  --ref-coral-ink: var(--s-attention);
+  --ref-green: var(--s-ok);
+  --ref-green-ink: var(--p-moss-700);
+  --ref-amber: var(--s-attention-soft);
+  --ref-amber-ink: var(--s-attention);
+  --ref-blue: var(--s-panel);
+  --ref-blue-ink: var(--s-attention);
+  --ref-pink: var(--s-attention-fill);
+  --ref-clay: var(--s-panel);
+  --ref-ink: var(--s-text);
+  --ref-muted: var(--s-text-quiet);
+  --ref-orange: var(--s-attention-fill);
 
-  /* --- Роли (имена сохранены с прошлой системы, чтобы не ломать разметку) --- */
-  /* «Голубой» больше не голубой: это роль большой плоской панели, её
-     теперь держит беж. Имя оставлено, чтобы не переписывать всю разметку */
-  --c-blue: var(--c-beige);
-  --c-blue-ink: var(--c-terra-ink);
-  --c-blue-deep: #9C8A6E;
-  --c-blue-wash: #F3EDE2;
-  --c-amber: var(--c-coral);
-  --c-amber-ink: var(--c-terra-ink);
-  --c-amber-wash: #FBEEEA;
-  --c-yellow: var(--c-coral);
-  --c-yellow-ink: var(--c-terra-ink);
-  --c-gray: var(--c-cream);
+  --ref-canvas: var(--s-bg);
+  --ref-surface: var(--s-surface);
+  --ref-surface-sub: var(--s-surface-quiet);
+  --ref-line: var(--s-line);
 
-  --ref-coral: var(--c-terra-ink);     /* текстовый акцент: коды, ссылки */
-  --ref-coral-ink: var(--c-terra-ink);
-  --ref-green: var(--c-ok);
-  --ref-green-ink: var(--c-ok-ink);
-  --ref-amber: var(--c-coral);
-  --ref-amber-ink: var(--c-terra-ink);
-  --ref-blue: var(--c-beige);
-  --ref-blue-ink: var(--c-terra-ink);
-  --ref-pink: var(--c-terra);
-  --ref-clay: var(--c-beige);
-  --ref-ink: #33312C;
-  --ref-muted: #66625A;     /* вторичный текст, 4,7:1 на кремовом */
-  --ref-orange: var(--c-terra);
-
-  /* Поверхности: кремовый холст, белые карточки, тёплые линии */
-  --ref-canvas: #EAE7DC;
-  --ref-surface: #FFFFFF;
-  --ref-surface-sub: #F5F2E9;
-  --ref-line: #DCD7C9;
-
-  /* Подложка под сводками — бежевый уход в прозрачность */
   --wash-green: linear-gradient(160deg, rgba(216, 195, 165, 0.34) 0%, rgba(216, 195, 165, 0.10) 46%, rgba(255,255,255,0) 78%);
 
-  /* Скругления: карточка 20, плитка 16, пилюля 12 */
-  --ref-r-card: 20px;
+  --ref-r-card: var(--c-card-radius);
   --ref-r-tile: 16px;
   --ref-r-chip: 12px;
 
-  /* Тени тёплые и почти незаметные */
   --ref-sh: 0 1px 2px rgba(51, 49, 44, 0.03), 0 10px 26px -18px rgba(51, 49, 44, 0.18);
   --ref-sh-hover: 0 2px 6px rgba(51, 49, 44, 0.05), 0 20px 40px -22px rgba(51, 49, 44, 0.24);
   --ref-sh-pill: 0 6px 16px -8px rgba(51, 49, 44, 0.34);
 
-  /* Позиция курсора — пишет один обработчик, React не перерисовывается */
   --mx: 50%;
   --my: 40%;
 }
@@ -654,7 +647,7 @@ a:hover > .mantine-Card-root,
   font-family: var(--ff-num);
   font-weight: 700;
   font-size: 14px;
-  color: var(--ref-coral-ink);
+  color: var(--s-text);
   white-space: nowrap;
 }
 .worklist__name {
@@ -728,6 +721,10 @@ a:hover > .mantine-Card-root,
   padding-top: 8px;
   container-type: inline-size;
 }
+/* Обёртка FadeSwap должна тянуться на всю высоту, иначе панель состава
+   меряет себя по свёрнутому контейнеру и показывает три строки вместо
+   двенадцати (03.09.2026) */
+.specs-editor__body > div { height: 100%; }
 
 /* Переделы (резка · сборка · покраска) — рядом, без единой прокрутки.
    auto-fit: на широком мониторе три колонки, на ноутбуке две, на планшете
@@ -949,7 +946,14 @@ a:hover > .mantine-Card-root,
 .cost-strip__item[data-strong='true'] { color: var(--ref-coral-ink); }
 
 /* Состав изделия: строки тянутся по ширине панели, вбок не уезжают */
-.bom-list { border: 1px solid var(--ref-line); border-radius: var(--ref-r-tile); overflow: hidden; }
+/* Список занимает остаток панели: строк ровно столько, сколько влезло */
+.bom-list {
+  border: 1px solid var(--ref-line);
+  border-radius: var(--ref-r-tile);
+  overflow: hidden;
+  flex: 1;
+  min-height: 0;
+}
 .bom-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 92px 44px 92px 104px;
@@ -1443,15 +1447,17 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   text-overflow: ellipsis;
   transition: color .14s var(--ease-out), border-color .14s var(--ease-out);
 }
-/* Код (артикул, материал, номер) — цветом акцента */
-.ent-ref--code { color: var(--c-blue-ink); }
-.ent-ref--code:hover { color: var(--c-blue-deep); }
-/* Имя — обычный текст с пунктиром: видно, что можно нажать, но не пестрит */
+/* Идентификаторы НЕ красятся (03.09.2026). Единственный акцентный тон в
+   системе означает «сюда смотреть» — просрочка, дефицит, долг. Если им же
+   красить каждый артикул и номер, экран становится пёстрым, а внимание
+   перестаёт работать. Ссылку показывает моноширинный набор и пунктир. */
+.ent-ref--code { color: var(--s-text); border-bottom: 1px dashed var(--s-line-strong); }
+.ent-ref--code:hover { color: var(--s-attention); border-bottom-color: var(--s-attention); }
 .ent-ref--text {
   color: inherit;
-  border-bottom: 1px dashed var(--ref-line);
+  border-bottom: 1px dashed var(--s-line);
 }
-.ent-ref--text:hover { color: var(--c-blue-ink); border-bottom-color: var(--c-blue); }
+.ent-ref--text:hover { color: var(--s-attention); border-bottom-color: var(--s-attention); }
 .ent-ref:focus-visible {
   outline: 2px solid var(--c-blue);
   outline-offset: 2px;

@@ -18,6 +18,7 @@ import { PulseRow } from '../../components/SectionHeader';
 import { FitScreen, useFitRows, usePageKeys, ROW_H } from '../../components/FitScreen';
 import { MastLoader } from '../../components/Mast';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
+import { Ref } from '../../components/EntityRef';
 import { formatDate } from '../../utils/formatters';
 import type { ShopFloorOrder, ShopFloorResponse, ProductRow, MarkVars } from './shopfloor/types';
 import { DetailsSheet } from './shopfloor/DetailsSheet';
@@ -299,10 +300,28 @@ function WorkRowView({
     <div className="worklist__row" data-done={done ? 'true' : undefined}>
       <div className="worklist__main">
         <span className="worklist__qty">{p.qty.toLocaleString('ru-RU')} {p.unit}</span>
-        <span className="worklist__code">{p.articleCode}</span>
-        <span className="worklist__name" title={p.articleName}>{p.articleName}</span>
+        {/* Код и имя ведут в карточку изделия: мастеру из строки нужен состав
+            и нормы, а не поиск по справочнику (03.09.2026) */}
+        <span className="worklist__code">
+          <Ref kind="article" id={p.articleId} label={p.articleName} tone="code" size="sm">
+            {p.articleCode}
+          </Ref>
+        </span>
+        <span className="worklist__name" title={p.articleName}>
+          {/* Размеры повторяют рейку строки: 15 px имя, 11 px чип, 13 px мета —
+              иначе ссылка «съедет» с типографики цеха */}
+          <Ref kind="article" id={p.articleId} label={p.articleName} tone="text" size="15px">
+            {p.articleName}
+          </Ref>
+        </span>
         {p.isDuplicateCode && <span className="worklist__chip">поз. {p.lineNo}</span>}
-        {p.siteCode && <span className="worklist__chip" data-tone="info">{p.siteCode}</span>}
+        {p.siteCode && (
+          <span className="worklist__chip" data-tone="info">
+            <Ref kind="site" id={p.siteCode} label={p.siteCode} tone="text" size="11px" bold>
+              {p.siteCode}
+            </Ref>
+          </span>
+        )}
         {p.contractors.length > 0 && (
           <span className="worklist__chip" data-tone="warn"><IconTruck size={11} /> подряд</span>
         )}
@@ -314,7 +333,16 @@ function WorkRowView({
       <div className="worklist__meta">
         <OrderRef id={p.order.id} number={p.order.orderNumber} size="sm" focus="stages" />
         <span className="worklist__meta-hide" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {p.order.customerName ?? '—'}
+          {/* Заказчик приходит из 1С только именем — по нему панель и ищет */}
+          <Ref
+            kind="customer"
+            id={p.order.customerName}
+            label={p.order.customerName ?? undefined}
+            tone="text"
+            size="13px"
+          >
+            {p.order.customerName ?? '—'}
+          </Ref>
         </span>
         <span style={{ fontFamily: 'var(--ff-num)', color: overdue ? 'var(--ref-coral-ink)' : undefined }}>
           {formatDate(p.order.plannedShipmentDate)}

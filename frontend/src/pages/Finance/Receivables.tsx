@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import {
   Card, Stack, Group, Text, Badge, SimpleGrid, Skeleton, Table, Alert,
 } from '@mantine/core';
@@ -14,6 +13,7 @@ import { PaginationBar, usePagedList, usePageSize } from '../../components/Pagin
 import { FadeSwap } from '../../components/motion';
 import { DigestCard, DigestGrid } from '../../components/Digest';
 import { ViewSwitch } from '../../components/ViewSwitch';
+import { Ref, useEntity } from '../../components/EntityRef';
 
 interface CustomerDebtRow {
   customerId: string;
@@ -45,7 +45,7 @@ interface CustomerDebtsResponse {
  * «оплата неизвестна», чтобы долг был занижен честно, а не завышен молча.
  */
 export function Receivables() {
-  const navigate = useNavigate();
+  const { open: openEntity } = useEntity();
   // Экран открывается сводкой, а не таблицей: список — за переключателем
   const [view, setView] = useState<'digest' | 'list'>('digest');
   const { data, isLoading } = useQuery({
@@ -83,7 +83,9 @@ export function Receivables() {
       value: formatCurrency(c[key]),
       sub: key === 'unknownAmount' ? `${c.unknownOrders} зак. без данных 1С` : `${c.orders} зак.`,
       share: c[key] / max,
-      onClick: () => navigate(`/orders?search=${encodeURIComponent(c.customerName)}`),
+      // Карточка заказчика вместо ухода в реестр: долг, оплата и его заказы
+      // видны разом, и человек не теряет сводку (03.09.2026)
+      onClick: () => openEntity({ kind: 'customer', id: c.customerId, label: c.customerName }),
     }));
   };
 
@@ -170,7 +172,9 @@ export function Receivables() {
                 {slice.map((c) => (
                   <Table.Tr key={c.customerId}>
                     <Table.Td>
-                      <Text size="sm" fw={600}>{c.customerName}</Text>
+                      <Ref kind="customer" id={c.customerId} label={c.customerName} tone="text" size="sm" bold>
+                        {c.customerName}
+                      </Ref>
                       {/* Число заказов дублируем подстрокой: на ноутбуке колонка спрятана */}
                       <Text size="xs" c="dimmed">{c.orders} зак.</Text>
                     </Table.Td>

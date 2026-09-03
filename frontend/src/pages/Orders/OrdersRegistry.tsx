@@ -14,6 +14,7 @@ import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS } from '../../utils/formatters';
 import { useSavedViews, useCreateSavedView, useDeleteSavedView } from '../../hooks/useSavedViews';
 import { OrderRef, useOrderCard } from '../../components/OrderCard/OrderCardProvider';
+import { Ref } from '../../components/EntityRef';
 import { useQueries } from '@tanstack/react-query';
 import { ordersApi } from '../../api/orders';
 import { PulseRow } from '../../components/SectionHeader';
@@ -50,7 +51,21 @@ const colNumber: ColumnDef = {
 };
 const colCustomer: ColumnDef = {
   key: 'customer', label: 'Заказчик',
-  render: (o) => <Text size="sm" lineClamp={1}>{o.customer?.name ?? '—'}</Text>,
+  // Имя ведёт в карточку заказчика, клик по строке — по-прежнему в заказ:
+  // Ref гасит всплытие, поэтому оба клика не спорят (03.09.2026)
+  render: (o) => (
+    <Text size="sm" lineClamp={1}>
+      <Ref
+        kind="customer"
+        id={o.customer?.id ?? o.customerId}
+        label={o.customer?.name}
+        tone="text"
+        size="sm"
+      >
+        {o.customer?.name ?? '—'}
+      </Ref>
+    </Text>
+  ),
 };
 const colStatus: ColumnDef = {
   key: 'status', label: 'Статус',
@@ -442,7 +457,16 @@ export function OrdersRegistry() {
                         <StatusBadge status={o.status} />
                       </Group>
                       <Text size="sm" c="dimmed" lineClamp={1}>
-                        {o.customer?.name ?? '—'}{o.region ? ` · ${o.region}` : ''}
+                        <Ref
+                          kind="customer"
+                          id={o.customer?.id ?? o.customerId}
+                          label={o.customer?.name}
+                          tone="text"
+                          size="sm"
+                        >
+                          {o.customer?.name ?? '—'}
+                        </Ref>
+                        {o.region ? ` · ${o.region}` : ''}
                       </Text>
                       <Divider my={8} />
                       <Group justify="space-between" wrap="nowrap">

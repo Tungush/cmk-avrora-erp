@@ -7,6 +7,7 @@ import { IconAlertTriangle, IconInfoCircle } from '@tabler/icons-react';
 import { useQuery } from '@tanstack/react-query';
 import { purchasesApi } from '../../api/purchases';
 import { ReceiptRef } from '../../components/ReceiptCard/ReceiptCardProvider';
+import { Ref } from '../../components/EntityRef';
 import { formatMoney } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
@@ -220,7 +221,13 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
                       <Table.Td ta="right" ff="monospace" c={d.ageDays > 90 ? 'danger.7' : undefined}>
                         {d.ageDays}
                       </Table.Td>
-                      <Table.Td><Text size="sm" lineClamp={1}>{d.supplier}</Text></Table.Td>
+                      <Table.Td>
+                        <Text size="sm" lineClamp={1}>
+                          <Ref kind="supplier" id={d.supplierId ?? d.supplier} label={d.supplier} tone="text" size="sm">
+                            {d.supplier}
+                          </Ref>
+                        </Text>
+                      </Table.Td>
                       <Table.Td ta="right" ff="monospace" fw={600} style={{ whiteSpace: 'nowrap' }}>
                         {formatMoney(d.unpaidAmount, d.currency)}
                       </Table.Td>
@@ -269,14 +276,21 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
                   {suppliersPaged.slice.map((s) => (
                     <Table.Tr key={s.id}>
                       <Table.Td>
-                        <Anchor size="sm" onClick={() => onOpenRegistry({ supplierId: s.id })} lineClamp={1}>
+                        {/* Имя ведёт в карточку поставщика, а число ДО — в реестр
+                            его документов: раньше на имени висело второе, и
+                            «кто это» узнать было негде (03.09.2026) */}
+                        <Ref kind="supplier" id={s.id ?? s.name} label={s.name} tone="text" size="sm">
                           {s.name}
-                        </Anchor>
+                        </Ref>
                         {s.noReceipt > 0 && (
                           <Text size="xs" c="dimmed">{s.noReceipt} без прихода</Text>
                         )}
                       </Table.Td>
-                      <Table.Td ta="right" ff="monospace">{s.docs}</Table.Td>
+                      <Table.Td ta="right" ff="monospace">
+                        <Anchor size="sm" ff="monospace" onClick={() => onOpenRegistry({ supplierId: s.id })}>
+                          {s.docs}
+                        </Anchor>
+                      </Table.Td>
                       <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>{formatMoney(s.total)}</Table.Td>
                       <Table.Td ta="right" ff="monospace" c={s.unpaid > 0 ? 'danger.7' : undefined} style={{ whiteSpace: 'nowrap' }}>
                         {formatMoney(s.unpaid)}
