@@ -86,6 +86,34 @@ export const designAdapter: AxiosAdapter = async (config: InternalAxiosRequestCo
     console.info(`[design] нет фикстуры: ${method} ${path}`);
   }
 
+  // Отказы по требованию: ?design=1&fail=offcuts или &fail=* (04.09.2026).
+  //
+  // Состояние ошибки — такой же экран, как и все остальные, и его тоже
+  // надо уметь посмотреть без бэкенда. Раньше адаптер всегда отвечал
+  // 200, поэтому проверить сообщение об отказе можно было только на
+  // живом сервере — то есть почти никогда.
+  //
+  // Код задаётся через &failStatus (по умолчанию 500); GET не трогаем,
+  // иначе разделы просто не наполнятся.
+  const fail = new URLSearchParams(window.location.search).get('fail');
+  if (fail && method !== 'GET' && (fail === '*' || path.includes(fail))) {
+    const status = Number(new URLSearchParams(window.location.search).get('failStatus')) || 500;
+    const err = new Error(`[design] запрошен отказ ${status} на ${method} ${path}`) as Error & {
+      response?: AxiosResponse; config?: InternalAxiosRequestConfig; isAxiosError?: boolean;
+    };
+    err.isAxiosError = true;
+    err.config = config;
+    err.response = {
+      data: status === 500 ? {} : { error: { message: 'Партия уже зарезервирована другим заказом' } },
+      status,
+      statusText: 'Error',
+      headers: {},
+      config,
+      request: {},
+    };
+    throw err;
+  }
+
   const res: AxiosResponse = {
     data,
     status: 200,

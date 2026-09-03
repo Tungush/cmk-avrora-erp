@@ -67,8 +67,25 @@ export function DigestCard({
     ? <AnimatedNumber value={value} format={format} />
     : value;
 
+  /**
+   * Тёмную плитку надо ЗАРАБОТАТЬ (04.09.2026).
+   *
+   * Замысел плитки: в разделе одна карточка — точка входа, и на ней же
+   * главное действие раздела. Но раздел просил тон `brand` намертво, в
+   * коде, независимо от данных. В итоге на «Заказах» самым громким
+   * элементом экрана оказывалась карточка «Новые из 1С» со счётчиком 0 и
+   * подписью «Новых заказов нет»: сигнал кричал, не имея что сказать.
+   *
+   * Теперь `brand` — это просьба, а не приказ. Она удовлетворяется,
+   * только если в карточке есть работа: счётчик не ноль или в списке
+   * есть строки. Иначе карточка становится обычной, и раздел, где
+   * решать нечего, выглядит спокойным — это тоже ответ.
+   */
+  const hasWork = typeof value === 'number' ? value > 0 : list.length > 0;
+  const effectiveTone: DigestTone = tone === 'brand' && !hasWork ? 'neutral' : tone;
+
   return (
-    <section className="digest-card glass-lit" data-tone={tone}>
+    <section className="digest-card glass-lit" data-tone={effectiveTone}>
       <header className="digest-card__head">
         {icon && <span className="kpi-icon">{icon}</span>}
         <div style={{ minWidth: 0 }}>

@@ -63,7 +63,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
           пункта теперь тянется от высоты окна — clamp в nav.css */}
       <Stack gap={0} style={{ minHeight: 0, flex: '1 1 auto' }} className="nav-top">
         <Box pb={6} mb={2} style={{ display: 'flex', justifyContent: collapsed ? 'center' : 'flex-start' }}>
-          {collapsed ? <LogoMark size={26} /> : <LogoLockup />}
+          {collapsed ? <LogoMark size={30} /> : <LogoLockup />}
         </Box>
 
         <Divider my={6} />
@@ -117,7 +117,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                   />
                 )}
                 <Group gap="sm" wrap="nowrap" style={{ position: 'relative', zIndex: 1 }}>
-                  <Icon size={20}
+                  <Icon size={24}
                     style={{ color: isActive ? 'var(--s-text-on-dark)' : 'var(--s-text-quiet)', flexShrink: 0 }} />
                   {!collapsed && (
                     <Text size="md" fw={isActive ? 700 : 500}
