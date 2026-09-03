@@ -75,7 +75,7 @@ const colOverdue: ColumnDef = {
   key: 'overdue', label: 'Просрочка', align: 'right',
   render: (o) => o.overdueDays > 0
     ? (
-      <Badge color="danger" variant="light" radius="xl" size="sm" leftSection={<IconAlertTriangle size={12} />}>
+      <Badge color="danger" variant="light" radius="xl" size="sm" leftSection={<IconAlertTriangle aria-hidden size={16} />}>
         {o.overdueDays} дн
       </Badge>
     )
@@ -272,7 +272,7 @@ export function OrdersRegistry() {
           <DigestCard
             title="Просрочено"
             tone="danger"
-            icon={<IconClockExclamation size={19} />}
+            icon={<IconClockExclamation aria-hidden size={20} />}
             value={counts.overdue ?? 0}
             format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="заказов, у которых плановая дата вывоза уже прошла"
@@ -291,7 +291,7 @@ export function OrdersRegistry() {
           <DigestCard
             title="Новые из 1С"
             tone="brand"
-            icon={<IconInbox size={19} />}
+            icon={<IconInbox aria-hidden size={20} />}
             value={counts.fresh ?? 0}
             format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="ждут приёма в производство — пока не приняты, цех их не видит"
@@ -310,7 +310,7 @@ export function OrdersRegistry() {
           <DigestCard
             title="К отгрузке"
             tone="ok"
-            icon={<IconTruckDelivery size={19} />}
+            icon={<IconTruckDelivery aria-hidden size={20} />}
             value={counts.ready ?? 0}
             format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="изготовлены полностью — можно вывозить"
@@ -327,7 +327,7 @@ export function OrdersRegistry() {
 
           <DigestCard
             title="Всего в реестре"
-            icon={<IconLayoutGrid size={19} />}
+            icon={<IconLayoutGrid aria-hidden size={20} />}
             value={total}
             format={(v) => Math.round(v).toLocaleString('ru-RU')}
             caption="активных заказов после приёма из 1С"
@@ -342,22 +342,22 @@ export function OrdersRegistry() {
         items={[
           {
             key: 'all', label: 'Всего в реестре', value: fmt(meta ? total : null),
-            hint: 'все заказы', icon: <IconLayoutGrid size={17} />,
+            hint: 'все заказы', icon: <IconLayoutGrid aria-hidden size={16} />,
             onClick: () => applySlice('all'), active: isAll,
           },
           {
             key: 'overdue', label: 'Просрочено', value: fmt(counts.overdue),
-            hint: 'план вывоза прошёл', tone: 'danger', icon: <IconClockExclamation size={17} />,
+            hint: 'план вывоза прошёл', tone: 'danger', icon: <IconClockExclamation aria-hidden size={16} />,
             onClick: () => applySlice('overdue'), active: overdueOnly,
           },
           {
             key: 'new', label: 'Новые из 1С', value: fmt(counts.fresh),
-            hint: 'ждут приёма в производство', tone: 'brand', icon: <IconInbox size={17} />,
+            hint: 'ждут приёма в производство', tone: 'brand', icon: <IconInbox aria-hidden size={16} />,
             onClick: () => applySlice('new'), active: status === 'NEW',
           },
           {
             key: 'ready', label: 'К отгрузке', value: fmt(counts.ready),
-            hint: 'изготовлены полностью', tone: 'ok', icon: <IconTruckDelivery size={17} />,
+            hint: 'изготовлены полностью', tone: 'ok', icon: <IconTruckDelivery aria-hidden size={16} />,
             onClick: () => applySlice('ready'), active: status === 'READY_TO_SHIP',
           },
         ]}
@@ -368,7 +368,7 @@ export function OrdersRegistry() {
           <Group gap="sm" wrap="wrap">
             <TextInput
               placeholder="№ заказа, заказчик или БС..."
-              leftSection={<IconSearch size={16} />}
+              leftSection={<IconSearch aria-hidden size={16} />}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               w={260}
@@ -391,7 +391,7 @@ export function OrdersRegistry() {
             {/* Сохраняемые представления (§2.1): фильтры + пресет под именем */}
             <Menu shadow="md" width={260} position="bottom-end">
               <Menu.Target>
-                <Button variant="default" size="md" leftSection={<IconBookmark size={16} />}>
+                <Button variant="default" size="md" leftSection={<IconBookmark aria-hidden size={16} />}>
                   Виды{savedViews && savedViews.length > 0 ? ` (${savedViews.length})` : ''}
                 </Button>
               </Menu.Target>
@@ -407,8 +407,9 @@ export function OrdersRegistry() {
                         color="gray"
                         size="sm"
                         onClick={(e) => { e.stopPropagation(); deleteView.mutate(v.id); }}
+                        aria-label="Удалить сохранённый вид"
                       >
-                        <IconTrash size={14} />
+                        <IconTrash aria-hidden size={16} />
                       </ActionIcon>
                     }
                   >
@@ -419,7 +420,7 @@ export function OrdersRegistry() {
                   <Menu.Label>Сохранённых видов нет</Menu.Label>
                 )}
                 <Menu.Divider />
-                <Menu.Item leftSection={<IconBookmarkPlus size={16} />} onClick={() => setSaveViewOpened(true)}>
+                <Menu.Item leftSection={<IconBookmarkPlus aria-hidden size={16} />} onClick={() => setSaveViewOpened(true)}>
                   Сохранить текущий вид
                 </Menu.Item>
               </Menu.Dropdown>

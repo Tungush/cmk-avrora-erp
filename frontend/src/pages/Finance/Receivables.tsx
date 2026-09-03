@@ -105,7 +105,7 @@ export function Receivables() {
           <DigestCard
             title="Должны нам"
             tone="danger"
-            icon={<IconCoin size={19} />}
+            icon={<IconCoin aria-hidden size={20} />}
             value={totals.debt}
             format={(v) => formatCompactMoney(v)}
             caption={`оплачено ${formatCurrency(totals.paid)} из ${formatCurrency(totals.contracted)} · ${paidPct} %`}
@@ -117,7 +117,7 @@ export function Receivables() {
           <DigestCard
             title="Законтрактовано"
             tone="brand"
-            icon={<IconWallet size={19} />}
+            icon={<IconWallet aria-hidden size={20} />}
             value={totals.contracted}
             format={(v) => formatCompactMoney(v)}
             caption={`${totals.orders} активных заказов у ${totals.customers} заказчиков`}
@@ -128,7 +128,7 @@ export function Receivables() {
           <DigestCard
             title="Оплата неизвестна"
             tone="warn"
-            icon={<IconHelpCircle size={19} />}
+            icon={<IconHelpCircle aria-hidden size={20} />}
             value={totals.unknownAmount}
             format={(v) => formatCompactMoney(v)}
             caption={`${totals.unknownOrders} заказов, по которым 1С не прислала оплату`}
@@ -145,7 +145,7 @@ export function Receivables() {
             <Badge variant="light" color="gray" radius="xl" size="lg">{withDebt.length}</Badge>
           </Group>
           <Button
-            size="compact-sm" variant="light" leftSection={<IconDownload size={14} />}
+            size="compact-sm" variant="light" leftSection={<IconDownload aria-hidden size={16} />}
             onClick={() => exportCsv(
               'нам-должны',
               ['Заказчик', 'Заказов', 'Законтрактовано', 'Оплачено', 'Должны нам', 'Оплата неизвестна, ₸', 'Заказов без данных'],

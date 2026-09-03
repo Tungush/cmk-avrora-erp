@@ -27,8 +27,8 @@ export function OrdersList() {
 
       <Tabs value={tab} onChange={(v) => setTab(v ?? 'registry')} radius="md">
         <Tabs.List>
-          <Tabs.Tab value="registry" leftSection={<IconTable size={16} />}>Реестр</Tabs.Tab>
-          <Tabs.Tab value="dashboard" leftSection={<IconChartBar size={16} />}>Дашборд</Tabs.Tab>
+          <Tabs.Tab value="registry" leftSection={<IconTable aria-hidden size={16} />}>Реестр</Tabs.Tab>
+          <Tabs.Tab value="dashboard" leftSection={<IconChartBar aria-hidden size={16} />}>Дашборд</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 

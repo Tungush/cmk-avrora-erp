@@ -42,8 +42,15 @@ export const REQUEST_STATUS_LABELS: Record<ContractorRequestStatus, string> = {
   CANCELLED: 'отменена',
 };
 
+/**
+ * Только цвета, объявленные в теме (03.09.2026): 'orange' и 'blue' в ней
+ * нет, и Mantine подставляла свою дефолтную палитру — на тёплом холсте
+ * синяя пилюля «в Б24» выглядела из другой системы.
+ * DRAFT/SENT — рабочие состояния, они нейтральные; акцент оставлен
+ * приёмке акта, зелень — разнесённой заявке.
+ */
 export const REQUEST_STATUS_COLORS: Record<ContractorRequestStatus, string> = {
-  DRAFT: 'orange', SENT: 'blue', ACCEPTED: 'warning', ALLOCATED: 'success', CANCELLED: 'gray',
+  DRAFT: 'gray', SENT: 'ink', ACCEPTED: 'warning', ALLOCATED: 'success', CANCELLED: 'gray',
 };
 
 export interface ContractorRef {

@@ -105,7 +105,7 @@ export function Pipeline() {
         </Text>
         <Badge variant="light" color="gray" radius="xl" size="lg">{total}</Badge>
       </Group>
-      <Button leftSection={<IconPlus size={16} />} onClick={() => setFormOpen(true)}>
+      <Button leftSection={<IconPlus size={16} aria-hidden />} onClick={() => setFormOpen(true)}>
         Добавить строку
       </Button>
     </Group>
@@ -170,7 +170,7 @@ export function Pipeline() {
                       </Table.Td>
                       <Table.Td>
                         <ActionIcon variant="subtle" color="danger" size="lg" aria-label="Удалить" onClick={() => remove.mutate(d.id)}>
-                          <IconTrash size={16} />
+                          <IconTrash size={16} aria-hidden />
                         </ActionIcon>
                       </Table.Td>
                     </Table.Tr>
@@ -187,7 +187,7 @@ export function Pipeline() {
       <Modal
         opened={formOpen}
         onClose={() => setFormOpen(false)}
-        title={<Group gap="xs"><IconTarget size={16} /><Text fw={700}>Новая строка прогноза</Text></Group>}
+        title={<Group gap="xs"><IconTarget size={16} aria-hidden /><Text fw={700}>Новая строка прогноза</Text></Group>}
         radius="md" size="lg" centered
       >
         <Group gap="sm" wrap="wrap" align="flex-end">
@@ -210,7 +210,7 @@ export function Pipeline() {
             onChange={(e) => setForm({ ...form, plannedDispatchMonth: e.target.value })} w={130} />
           <Checkbox size="md" label="Заявка уже подана" checked={form.hasFormalRequest}
             onChange={(e) => setForm({ ...form, hasFormalRequest: e.target.checked })} mb={10} />
-          <Button leftSection={<IconPlus size={16} />} onClick={() => create.mutate()}
+          <Button leftSection={<IconPlus size={16} aria-hidden />} onClick={() => create.mutate()}
             loading={create.isPending} disabled={!canSubmit} mb={2}>
             Добавить
           </Button>

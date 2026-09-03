@@ -27,11 +27,11 @@ import { ROLE_LABELS } from '../utils/roles';
 const SHARED_LOGIN_ROLE_THRESHOLD = 3;
 
 const HUB_TASKS = [
-  { to: '/production/kanban', icon: IconHammer, color: 'orange', title: 'Отметить изготовление', subtitle: 'Что готово по изделиям заказа' },
-  { to: '/orders/inbox', icon: IconInbox, color: 'blue', title: 'Заказы из 1С', subtitle: 'Принять новые в производство' },
-  { to: '/production/contractors', icon: IconTruck, color: 'grape', title: 'Подряд', subtitle: 'Заявки в Б24, разнесение по заказам' },
+  { to: '/production/kanban', icon: IconHammer, color: 'warning', title: 'Отметить изготовление', subtitle: 'Что готово по изделиям заказа' },
+  { to: '/orders/inbox', icon: IconInbox, color: 'brand', title: 'Заказы из 1С', subtitle: 'Принять новые в производство' },
+  { to: '/production/contractors', icon: IconTruck, color: 'brand', title: 'Подряд', subtitle: 'Заявки в Б24, разнесение по заказам' },
   { to: '/sales/pipeline', icon: IconTarget, color: 'success', title: 'Прогноз спроса', subtitle: 'Объекты и сделки до формального заказа' },
-  { to: '/warehouse?tab=batches', icon: IconPackage, color: 'yellow', title: 'Партии и резервы', subtitle: 'Карантин цен, истекающие резервы' },
+  { to: '/warehouse?tab=batches', icon: IconPackage, color: 'warning', title: 'Партии и резервы', subtitle: 'Карантин цен, истекающие резервы' },
   { to: '/production', icon: IconCalendarClock, color: 'gray', title: 'План по неделям', subtitle: 'Загрузка цеха вперёд' },
 ];
 
@@ -53,7 +53,7 @@ function UnallocatedContractorAlert() {
   if (!u || u.requests === 0) return null;
   return (
     <Anchor component={Link} to="/production/contractors" underline="never" c="inherit">
-      <Alert color="danger" variant="light" radius="md" icon={<IconAlertTriangle size={18} />}>
+      <Alert color="danger" variant="light" radius="md" icon={<IconAlertTriangle size={18} aria-hidden />}>
         <Text size="sm" fw={600}>
           Подряд не разнесён: {u.requests}{' '}
           {plural(u.requests, 'заявка', 'заявки', 'заявок')}
@@ -148,7 +148,7 @@ export function MyWork() {
         <Stack gap="xs">
           <Group gap="sm">
             <ThemeIcon variant="light" color="warning" radius="md" size="sm">
-              <IconTruck size={14} />
+              <IconTruck size={14} aria-hidden />
             </ThemeIcon>
             <Text fw={700} size="lg">Подряд</Text>
           </Group>
@@ -159,7 +159,7 @@ export function MyWork() {
           <Anchor component={Link} to="/production" underline="never">
             <Card withBorder radius="md" padding="md">
               <Group gap="sm">
-                <ThemeIcon variant="light" radius="md"><IconCalendarClock size={16} /></ThemeIcon>
+                <ThemeIcon variant="light" radius="md"><IconCalendarClock size={16} aria-hidden /></ThemeIcon>
                 <Text size="sm" fw={600}>План производства по неделям</Text>
               </Group>
             </Card>
@@ -167,7 +167,7 @@ export function MyWork() {
           <Anchor component={Link} to="/production/kanban" underline="never">
             <Card withBorder radius="md" padding="md">
               <Group gap="sm">
-                <ThemeIcon variant="light" radius="md"><IconClipboardList size={16} /></ThemeIcon>
+                <ThemeIcon variant="light" radius="md"><IconClipboardList size={16} aria-hidden /></ThemeIcon>
                 <Text size="sm" fw={600}>Очередь цеха</Text>
               </Group>
             </Card>
@@ -175,7 +175,7 @@ export function MyWork() {
           <Anchor component={Link} to="/sales/pipeline" underline="never">
             <Card withBorder radius="md" padding="md">
               <Group gap="sm">
-                <ThemeIcon variant="light" color="success" radius="md"><IconTarget size={16} /></ThemeIcon>
+                <ThemeIcon variant="light" color="success" radius="md"><IconTarget size={16} aria-hidden /></ThemeIcon>
                 <Text size="sm" fw={600}>Прогноз спроса</Text>
               </Group>
             </Card>

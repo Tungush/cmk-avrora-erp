@@ -67,7 +67,7 @@ export function PlanMatrix() {
         title: res.cleared ? 'План снят' : 'План сохранён',
         message: `${res.articleCode} · ${res.periodKey}${res.cleared ? '' : ` — ${num(res.qty)}`}`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       setEditCell(null); setAddOpen(false); setNewArticle(null); setQty('');
     },
@@ -104,7 +104,7 @@ export function PlanMatrix() {
             size="sm"
           />
           {canEdit && (
-            <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => setAddOpen(true)}>
+            <Button size="sm" leftSection={<IconPlus aria-hidden size={16} />} onClick={() => setAddOpen(true)}>
               Добавить изделие в план
             </Button>
           )}
@@ -112,7 +112,7 @@ export function PlanMatrix() {
       </div>
 
       {rows.length === 0 && !isLoading && (
-        <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />} radius="md">
+        <Alert color="gray" variant="light" icon={<IconInfoCircle aria-hidden size={16} />} radius="md">
           <Text size="sm">
             План на {year} год пока пуст. Добавьте изделие и проставьте месяцы —
             факт выпуска и потребность заказов подтянутся сами.
@@ -155,10 +155,14 @@ export function PlanMatrix() {
                             onClick={canEdit ? () => { setEditCell({ row: r, month: m }); setQty(c.plan || ''); } : undefined}
                             style={{
                               cursor: canEdit ? 'pointer' : undefined,
+                              // 03.09.2026: подложки ячеек брали бирюзу и жёлтый
+                              // Mantine (их нет в теме) плюс сырые rgba в тёмной
+                              // ветке. Схема одна, светлая, — берём готовые
+                              // washes палитры
                               background: empty ? undefined
                                 : c.plan > 0 && c.fact >= c.plan
-                                  ? 'light-dark(var(--mantine-color-teal-0), rgba(32,201,151,0.08))'
-                                  : behind ? 'light-dark(var(--mantine-color-yellow-0), rgba(250,176,5,0.08))'
+                                  ? 'var(--s-ok-wash)'
+                                  : behind ? 'var(--s-attention-wash)'
                                     : undefined,
                             }}
                           >
@@ -168,7 +172,7 @@ export function PlanMatrix() {
                               <Tooltip label={`план ${num(c.plan)} · факт ${num(c.fact)} · заказы ${num(c.demand)}`}>
                                 <Stack gap={0}>
                                   <Text size="sm" ff="monospace" fw={700}>{c.plan ? num(c.plan) : '—'}</Text>
-                                  <Text size="xs" ff="monospace" c={behind ? 'yellow.8' : 'teal.7'}>
+                                  <Text size="xs" ff="monospace" c={behind ? 'warning.7' : 'success.7'}>
                                     {c.fact ? num(c.fact) : ''}
                                   </Text>
                                   {c.demand > 0 && (

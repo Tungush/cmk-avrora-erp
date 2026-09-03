@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, Text, Group, Stack, ThemeIcon } from '@mantine/core';
 import { IconTrendingUp, IconTrendingDown } from '@tabler/icons-react';
+import { Icon } from './Icon';
 import { AnimatedNumber } from './motion';
 
 interface KpiCardProps {
@@ -67,7 +68,7 @@ export function KpiCard({ title, value, subtitle, icon, trend }: KpiCardProps) {
               px="xs"
               style={{ width: 'auto', gap: 4, flexShrink: 0 }}
             >
-              {isPositive ? <IconTrendingUp size={14} /> : <IconTrendingDown size={14} />}
+              {isPositive ? <Icon icon={IconTrendingUp} size={16} /> : <Icon icon={IconTrendingDown} size={16} />}
               <Text size="xs" fw={800} component="span">
                 {isPositive ? '+' : ''}{trend.value}%
               </Text>

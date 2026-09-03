@@ -107,7 +107,7 @@ export function ArticleListPane({
     >
       <TextInput
         placeholder="Поиск артикула..."
-        leftSection={<IconSearch size={16} />}
+        leftSection={<IconSearch aria-hidden size={16} />}
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         mb="sm"

@@ -58,7 +58,7 @@ export function UsersAdmin() {
   });
   const done = (title: string) => {
     qc.invalidateQueries({ queryKey: ['users'] });
-    notifications.show({ title, message: '', color: 'success', icon: <IconCheck size={16} /> });
+    notifications.show({ title, message: '', color: 'success', icon: <IconCheck size={16} aria-hidden /> });
     setModal(null); setTarget(null); setEmail(''); setPassword(''); setRoles([]);
   };
 
@@ -102,7 +102,7 @@ export function UsersAdmin() {
           Учёток: <Text span fw={700} ff="monospace">{rows.length}</Text>
           {' '}· активных: <Text span fw={700} ff="monospace">{rows.filter((u) => u.isActive).length}</Text>
         </Text>
-        <Button size="sm" leftSection={<IconPlus size={16} />} onClick={() => { setModal('create'); setRoles([]); }}>
+        <Button size="sm" leftSection={<IconPlus size={16} aria-hidden />} onClick={() => { setModal('create'); setRoles([]); }}>
           Завести пользователя
         </Button>
       </Group>
@@ -136,7 +136,7 @@ export function UsersAdmin() {
                         <Group gap={4}>
                           {u.roles.map((r) => (
                             <Badge key={r.code} variant="light"
-                              color={r.code === 'admin' ? 'red' : 'gray'}>
+                              color={r.code === 'admin' ? 'danger' : 'gray'}>
                               {r.name}
                             </Badge>
                           ))}
@@ -159,13 +159,13 @@ export function UsersAdmin() {
                           <Tooltip label="Роли">
                             <ActionIcon variant="subtle" size="lg" aria-label="Роли"
                               onClick={() => { setTarget(u); setRoles(u.roles.map((r) => r.code)); setModal('edit'); }}>
-                              <IconPencil size={16} />
+                              <IconPencil size={16} aria-hidden />
                             </ActionIcon>
                           </Tooltip>
                           <Tooltip label="Новый пароль">
                             <ActionIcon variant="subtle" size="lg" color="gray" aria-label="Новый пароль"
                               onClick={() => { setTarget(u); setPassword(''); setModal('password'); }}>
-                              <IconKey size={16} />
+                              <IconKey size={16} aria-hidden />
                             </ActionIcon>
                           </Tooltip>
                         </Group>

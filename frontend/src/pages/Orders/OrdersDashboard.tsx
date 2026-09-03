@@ -130,7 +130,7 @@ export function OrdersDashboard() {
 
         <FadeSwap swapKey={dim}>
           {degenerate ? (
-            <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />}>
+            <Alert color="gray" variant="light" icon={<IconInfoCircle aria-hidden size={16} />}>
               <Text size="sm">
                 «{rows[0]?.key ?? 'не заполнено'}» — все {rows[0]?.orders ?? 0} заказов.
                 Разрез не работает: в 1С у всех заказов здесь одно значение.
@@ -243,7 +243,7 @@ export function OrdersDashboard() {
           <Stack gap={8}>
             {data.ageBuckets.map((b: any) => (
               <Group key={b.label} justify="space-between">
-                <Text size="sm" c={b.label.includes('180') ? 'orange.7' : undefined}>{b.label}</Text>
+                <Text size="sm" c={b.label.includes('180') ? 'warning.7' : undefined}>{b.label}</Text>
                 <Group gap="md">
                   <Text size="sm" ff="monospace" fw={700}>{b.orders}</Text>
                   <Text size="sm" ff="monospace" c="dimmed" style={{ minWidth: 130, textAlign: 'right' }}>
@@ -264,7 +264,7 @@ export function OrdersDashboard() {
       {/* Блок Г. Честно о пробелах */}
       <Card withBorder radius="md" padding="md">
         <Group gap="xs" mb="xs">
-          <IconAlertTriangle size={16} style={{ color: 'var(--mantine-color-orange-6)' }} />
+          <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--s-attention)' }} />
           <Text fw={700} size="sm">Маржу по заказам показать нечем</Text>
         </Group>
         <Stack gap={4}>

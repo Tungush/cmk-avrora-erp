@@ -259,8 +259,9 @@ table td, table th,
 }
 
 .input-field:focus {
-  border-color: var(--mantine-color-blue-6, #0057ff);
-  box-shadow: 0 0 0 3px rgba(0, 87, 255, 0.14);
+  /* Фокус — цветом внимания; синева осталась от прежней темы (03.09.2026) */
+  border-color: var(--s-focus);
+  box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.18);
 }
 
 .input-field:disabled {
@@ -298,11 +299,11 @@ textarea.input-field {
 }
 
 .btn-primary {
-  background-color: var(--mantine-color-blue-6, #0057ff);
-  color: #fff;
+  background-color: var(--s-action);
+  color: var(--s-text-on-dark);
 }
 .btn-primary:not(:disabled):hover {
-  background-color: var(--mantine-color-blue-7, #0047d4);
+  background-color: var(--s-action-hover);
 }
 
 .btn-secondary {

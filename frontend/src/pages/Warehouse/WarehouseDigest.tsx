@@ -86,7 +86,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
       key: 'overrides',
       title: 'Перехваты резерва',
       tone: 'danger',
-      icon: <IconGavel size={19} />,
+      icon: <IconGavel size={19} aria-hidden />,
       value: overrideRows.length,
       caption: 'ждут решения директора: чей заказ получит партию',
       items: overrideRows.slice(0, 4).map((r: any) => ({
@@ -112,7 +112,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
     key: 'min',
     title: 'Ниже норматива',
     tone: deficits.length > 0 ? 'danger' : 'ok',
-    icon: <IconGauge size={19} />,
+    icon: <IconGauge size={19} aria-hidden />,
     value: deficits.length,
     caption: deficits.length > 0
       ? `изделий не хватает на складе ГП · ${formatMoney(deficitValue)}`
@@ -136,7 +136,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
     key: 'quarantine',
     title: 'Цена в карантине',
     tone: anomalyRows.length > 0 ? 'warn' : 'ok',
-    icon: <IconGavel size={19} />,
+    icon: <IconGavel size={19} aria-hidden />,
     value: anomalyRows.length,
     caption: anomalyRows.length > 0
       ? 'партий с подозрительной ценой — себестоимость по ним под вопросом'
@@ -159,7 +159,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
     key: 'expiring',
     title: 'Резервы сгорают',
     tone: expiringRows.length > 0 ? 'warn' : 'ok',
-    icon: <IconClockExclamation size={19} />,
+    icon: <IconClockExclamation size={19} aria-hidden />,
     value: expiringRows.length,
     caption: expiringRows.length > 0
       ? `резервов истекают в 3 дня · ${formatMoney(expiringValue)} вернётся в общий остаток`
@@ -184,7 +184,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
     key: 'offcuts',
     title: 'Обрезки в дело',
     tone: 'brand',
-    icon: <IconScissors size={19} />,
+    icon: <IconScissors size={19} aria-hidden />,
     value: offcutRows.length,
     caption: 'деловой отход: длины, которые можно не резать заново',
     loading: offcuts.isLoading,

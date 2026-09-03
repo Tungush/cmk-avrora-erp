@@ -39,7 +39,7 @@ export function MaterialReceipts() {
       {/* Приход руками здесь не заводится (решение 23.08.2026): сырьё
           приезжает из «Заказа поставщику» 1С вместе с фактической ценой.
           Второй способ создать ту же партию — это расхождение склада с 1С. */}
-      <Alert color="gray" variant="light" radius="md" icon={<IconTruckDelivery size={17} />}>
+      <Alert color="gray" variant="light" radius="md" icon={<IconTruckDelivery aria-hidden size={16} />}>
         <Text size="sm">
           Приход не заносится руками — он приезжает из «Заказа поставщику» 1С вместе
           с фактической ценой, и из него сразу рождается партия материала.
@@ -50,7 +50,7 @@ export function MaterialReceipts() {
         <Group justify="space-between" wrap="wrap" gap="sm">
           <TextInput
             placeholder="Материал, поставщик, документ…"
-            leftSection={<IconSearch size={16} />}
+            leftSection={<IconSearch aria-hidden size={16} />}
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1); }}
             w={320}

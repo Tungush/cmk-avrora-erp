@@ -55,7 +55,7 @@ export function PurchasesRegistry({ filters, onFiltersChange }: {
           <Group gap="sm" wrap="wrap">
             <TextInput
               placeholder="№ ДО, поставщик, номер поставщика..."
-              leftSection={<IconSearch size={16} />}
+              leftSection={<IconSearch aria-hidden size={16} />}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               w={320}

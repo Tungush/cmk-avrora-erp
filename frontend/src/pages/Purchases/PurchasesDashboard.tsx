@@ -109,7 +109,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
         <Kpi
           label="ДО без прихода на склад"
           value={`${kpi.noReceipt.docs} из ${kpi.noReceipt.totalDocs}`}
-          tone="orange.7"
+          tone="warning.7"
           hint={<>{kpi.noReceipt.paidDocs} из них уже оплачены на {formatMoney(kpi.noReceipt.paidAmount)}</>}
         />
       </SimpleGrid>
@@ -122,7 +122,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
         </Group>
 
         {degenerate ? (
-          <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />}>
+          <Alert color="gray" variant="light" icon={<IconInfoCircle aria-hidden size={16} />}>
             <Text size="sm">
               «{rows[0]?.key ?? 'не заполнено'}» — все {rows[0]?.docs ?? 0} документов.
               Разрез не работает: в 1С у всех заказов поставщику здесь одно значение.
@@ -315,7 +315,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
       {/* Блок Г. Контроль */}
       <Card withBorder radius="md" padding="md">
         <Group gap="xs" mb="xs">
-          <IconAlertTriangle size={16} style={{ color: 'var(--mantine-color-orange-6)' }} />
+          <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--s-attention)' }} />
           <Text fw={700} size="sm">Где закуп прошёл мимо процедуры</Text>
         </Group>
         <Stack gap={6}>

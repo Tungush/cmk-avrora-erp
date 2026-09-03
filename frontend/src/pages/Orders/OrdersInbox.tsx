@@ -57,7 +57,7 @@ export function OrdersInbox({ embedded = false }: { embedded?: boolean } = {}) {
       notifications.show({
         title: 'Заказ принят в производство',
         message: `${order?.orderNumber ?? ''} — статус «Подтверждён», можно планировать этапы`,
-        color: 'teal',
+        color: 'success',
       });
       qc.invalidateQueries({ queryKey: ['orders'] });
     },
@@ -65,7 +65,7 @@ export function OrdersInbox({ embedded = false }: { embedded?: boolean } = {}) {
       notifications.show({
         title: 'Не принят',
         message: e?.response?.data?.message ?? 'Ошибка при приёме заказа',
-        color: 'red',
+        color: 'danger',
       });
     },
   });
@@ -95,7 +95,7 @@ export function OrdersInbox({ embedded = false }: { embedded?: boolean } = {}) {
         )}
       </Group>
       <Button
-        variant="light" leftSection={<IconRefresh size={16} />}
+        variant="light" leftSection={<IconRefresh size={16} aria-hidden />}
         loading={isFetching} onClick={() => refetch()}
       >
         Обновить
@@ -110,7 +110,7 @@ export function OrdersInbox({ embedded = false }: { embedded?: boolean } = {}) {
   ) : orders.length === 0 ? (
     <Stack align="center" gap="sm" py="xl">
       <ThemeIcon size={56} radius="xl" variant="light" color="success">
-        <IconInbox size={28} />
+        <IconInbox size={28} aria-hidden />
       </ThemeIcon>
       <Text fw={700}>Инбокс пуст</Text>
       <Text size="sm" c="dimmed" ta="center">
@@ -210,8 +210,8 @@ function InboxRow({
         >
           <Button
             size="sm"
-            leftSection={o.canAccept ? <IconCircleCheck size={17} /> : <IconAlertTriangle size={17} />}
-            rightSection={<IconArrowRight size={15} />}
+            leftSection={o.canAccept ? <IconCircleCheck size={17} aria-hidden /> : <IconAlertTriangle size={17} aria-hidden />}
+            rightSection={<IconArrowRight size={15} aria-hidden />}
             disabled={!o.canAccept}
             loading={busy}
             onClick={onAccept}

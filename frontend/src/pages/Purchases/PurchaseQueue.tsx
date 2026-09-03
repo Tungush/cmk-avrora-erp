@@ -19,8 +19,9 @@ import { formatMoney, formatDate } from '../../utils/formatters';
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: 'накоплено', APPROVED: 'отправлено в Б24', ORDERED: 'заказ создан', REJECTED: 'отклонено',
 };
+/** Только цвета темы: 'orange'/'blue'/'teal' в ней нет (03.09.2026) */
 const STATUS_COLORS: Record<string, string> = {
-  DRAFT: 'orange', APPROVED: 'blue', ORDERED: 'teal', REJECTED: 'gray',
+  DRAFT: 'warning', APPROVED: 'ink', ORDERED: 'success', REJECTED: 'gray',
 };
 
 /** Разворачиваем маленькие группы сразу; 43 строки — только по клику */
@@ -140,7 +141,7 @@ export function PurchaseQueue() {
   return (
     <Stack gap="md">
       {drafts.length === 0 && (
-        <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />}>
+        <Alert color="gray" variant="light" icon={<IconInfoCircle aria-hidden size={16} />}>
           <Text size="sm">
             Накопленных заявок нет. Дефицит попадает сюда из цеха: на карточке заказа
             «не хватает N позиций» → «В заявку на закуп».
@@ -167,7 +168,7 @@ export function PurchaseQueue() {
                 }
               />
               <Button
-                leftSection={<IconSend size={16} />}
+                leftSection={<IconSend aria-hidden size={16} />}
                 disabled={selected.size === 0}
                 loading={send.isPending}
                 onClick={() => send.mutate([...selected])}
@@ -215,7 +216,7 @@ export function PurchaseQueue() {
                         />
                       ) : (
                         <ThemeIcon variant="light" color="gray" radius="xl" size="md">
-                          <IconPackage size={14} />
+                          <IconPackage aria-hidden size={16} />
                         </ThemeIcon>
                       )}
                       <div style={{ minWidth: 0 }} onClick={(e) => e.stopPropagation()}>
@@ -252,7 +253,7 @@ export function PurchaseQueue() {
                         component="div"
                         aria-label={open ? 'Свернуть' : 'Развернуть'}
                       >
-                        {open ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                        {open ? <IconChevronDown aria-hidden size={16} /> : <IconChevronRight aria-hidden size={16} />}
                       </ActionIcon>
                     </Group>
                   </Group>
@@ -305,7 +306,7 @@ export function PurchaseQueue() {
                     </TableScroll>
                     {noPrice > 0 && (
                       <Group gap={6} px="md" py={8} wrap="nowrap">
-                        <IconAlertTriangle size={14} style={{ color: 'var(--mantine-color-orange-6)', flexShrink: 0 }} />
+                        <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--s-attention)', flexShrink: 0 }} />
                         <Text size="xs" c="dimmed">
                           У {noPrice} позиций нет закупочной цены — оценка заказа занижена
                         </Text>

@@ -94,7 +94,7 @@ export function Reconciliation() {
         </Card>
         <Card withBorder radius="md" padding="md" style={{ minWidth: 0 }}>
           <Group gap="xs" mb={4}>
-            <IconFileOff size={15} style={{ color: 'var(--warn-6, #FF9500)' }} />
+            <IconFileOff aria-hidden size={16} style={{ color: 'var(--s-attention)' }} />
             <Text size="xs" c="dimmed" fw={600} tt="uppercase">Пробелы данных</Text>
           </Group>
           <Text size="sm">
@@ -108,7 +108,7 @@ export function Reconciliation() {
 
       <Card withBorder radius="md" padding={0}>
         <Group gap="xs" p="md" pb="sm" wrap="wrap">
-          <IconScale size={17} style={{ color: 'var(--brand-6, #0057FF)' }} />
+          <IconScale aria-hidden size={20} style={{ color: 'var(--s-text-faint)' }} />
           <Text fw={700} size="sm">Встречные долги по контрагентам</Text>
           <Text size="xs" c="dimmed">
             — «+» они должны нам больше, «−» мы им. Компании группы бывают
@@ -155,7 +155,7 @@ export function Reconciliation() {
                             color={c.discrepancy > 0 ? 'success' : 'warning'}
                             variant="light"
                             radius="xl"
-                            leftSection={<IconAlertTriangle size={11} />}
+                            leftSection={<IconAlertTriangle aria-hidden size={16} />}
                           >
                             {c.discrepancy > 0 ? '+' : ''}{num(c.discrepancy)} ₸
                           </Badge>
@@ -190,7 +190,7 @@ export function Reconciliation() {
       </Card>
 
       {orders.length === 0 ? (
-        <Alert color="gray" variant="light" radius="md" icon={<IconFileOff size={16} />}>
+        <Alert color="gray" variant="light" radius="md" icon={<IconFileOff aria-hidden size={16} />}>
           <Text size="sm" fw={600} mb={4}>Закуп под конкретный заказ пока не виден</Text>
           <Text size="sm">
             Все {totals.docsWithoutOrder.toLocaleString('ru-RU')} договоров-оснований пришли
@@ -202,7 +202,7 @@ export function Reconciliation() {
       ) : (
       <Card withBorder radius="md" padding={0}>
         <Group gap="xs" p="md" pb="sm" wrap="wrap">
-          <IconScale size={17} style={{ color: 'var(--warn-6, #FF9500)' }} />
+          <IconScale aria-hidden size={20} style={{ color: 'var(--s-text-faint)' }} />
           <Text fw={700} size="sm">Закуп под заказы</Text>
           <Text size="xs" c="dimmed">— ДО из «19.20-7п», привязанные к заказу на продажу</Text>
         </Group>

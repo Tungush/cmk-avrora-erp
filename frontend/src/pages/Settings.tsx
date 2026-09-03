@@ -45,10 +45,10 @@ export function Settings() {
         keepMounted={false}
       >
         <Tabs.List>
-          <Tabs.Tab value="integration" leftSection={<IconPlugConnected size={15} />}>Обмен с 1С</Tabs.Tab>
-          <Tabs.Tab value="costing" leftSection={<IconCalculator size={15} />}>Маржа и себестоимость</Tabs.Tab>
-          <Tabs.Tab value="users" leftSection={<IconUsers size={15} />}>Пользователи</Tabs.Tab>
-          <Tabs.Tab value="audit" leftSection={<IconShieldLock size={15} />}>Аудит</Tabs.Tab>
+          <Tabs.Tab value="integration" leftSection={<IconPlugConnected size={15} aria-hidden />}>Обмен с 1С</Tabs.Tab>
+          <Tabs.Tab value="costing" leftSection={<IconCalculator size={15} aria-hidden />}>Маржа и себестоимость</Tabs.Tab>
+          <Tabs.Tab value="users" leftSection={<IconUsers size={15} aria-hidden />}>Пользователи</Tabs.Tab>
+          <Tabs.Tab value="audit" leftSection={<IconShieldLock size={15} aria-hidden />}>Аудит</Tabs.Tab>
         </Tabs.List>
       </Tabs>
 

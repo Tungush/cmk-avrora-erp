@@ -30,7 +30,7 @@ import type { Article } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { TextReveal } from '../../components/motion';
 
-const STAGE_ICONS: Record<RoutingStageCode, React.ComponentType<{ size?: number }>> = {
+const STAGE_ICONS: Record<RoutingStageCode, React.ComponentType<{ size?: number; 'aria-hidden'?: boolean }>> = {
   CUTTING: IconScissors,
   ASSEMBLY: IconFlame,
   PAINTING: IconBrush,
@@ -69,7 +69,7 @@ function ImpactPreviewModal({
       onClose={onCancel}
       title={
         <Group gap="xs">
-          <IconAlertTriangle size={18} style={{ color: 'var(--mantine-color-warning-6)' }} />
+          <IconAlertTriangle aria-hidden size={20} style={{ color: 'var(--mantine-color-warning-6)' }} />
           <Text fw={700}>Изменение затронет связанные данные</Text>
         </Group>
       }
@@ -116,11 +116,12 @@ function ImpactPreviewModal({
           </Text>
         </Group>
 
+        {/* Тёмная ветка фона была сырым rgba(229,72,77) из старой темы (03.09.2026) */}
         {affected.negativeMarginCount > 0 && (
-          <Card padding="sm" radius="md" bg="light-dark(var(--mantine-color-danger-0), rgba(229, 72, 77, 0.12))" withBorder
+          <Card padding="sm" radius="md" bg="var(--s-attention-wash)" withBorder
             style={{ border: '1px solid var(--mantine-color-danger-3)' }}>
             <Group gap="xs" mb={6}>
-              <IconAlertTriangle size={15} style={{ color: 'var(--mantine-color-danger-6)' }} />
+              <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--mantine-color-danger-6)' }} />
               <Text size="sm" fw={600} c="danger.7">
                 У {affected.negativeMarginCount} заказ(ов) цена продажи станет ниже себестоимости
               </Text>
@@ -222,13 +223,15 @@ function StageRow({
   const stageCost = Math.round(manHours * rate * 100) / 100;
 
   const dirty = w !== row.workers || h !== row.hoursPerUnit || (workCenterId ?? null) !== (row.workCenter?.id ?? null);
-  const Icon = STAGE_ICONS[row.stage];
+  // Имя StageIcon, а не Icon: общий <Icon> из components/Icon.tsx
+  // теперь занят системной обёрткой (03.09.2026)
+  const StageIcon = STAGE_ICONS[row.stage];
 
   const applyNorm = async () => {
     try {
       await saveNorm.mutateAsync({ stage: row.stage, workers: w, hoursPerUnit: h, workCenterId: workCenterId ?? undefined });
       setPreview(null);
-      notifications.show({ title: 'Норма сохранена', message: `${row.label}: ${w} чел × ${h} ч`, color: 'success', icon: <IconCheck size={16} /> });
+      notifications.show({ title: 'Норма сохранена', message: `${row.label}: ${w} чел × ${h} ч`, color: 'success', icon: <IconCheck aria-hidden size={16} /> });
     } catch {
       notifications.show({ title: 'Ошибка', message: 'Не удалось сохранить норму', color: 'danger' });
     }
@@ -251,7 +254,7 @@ function StageRow({
     try {
       await saveActual.mutateAsync({ stage: row.stage, actualWorkers: Number(actualWorkers), actualHours: Number(actualHours) });
       setFactOpen(false);
-      notifications.show({ title: 'Факт зафиксирован', message: row.label, color: 'success', icon: <IconCheck size={16} /> });
+      notifications.show({ title: 'Факт зафиксирован', message: row.label, color: 'success', icon: <IconCheck aria-hidden size={16} /> });
     } catch {
       notifications.show({ title: 'Ошибка', message: 'Не удалось сохранить факт', color: 'danger' });
     }
@@ -262,11 +265,11 @@ function StageRow({
   return (
     <div className="stage-cell">
       <div className="stage-cell__head">
-        <Icon size={17} />
+        <StageIcon size={16} aria-hidden />
         <Text size="sm" fw={700} lh={1.2} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>{row.label}</Text>
         {!row.exists && (
           <Tooltip label="Норма не задана — себестоимость труда встанет в ноль">
-            <IconAlertTriangle size={15} style={{ color: 'var(--ref-amber-ink)', flexShrink: 0 }} />
+            <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--ref-amber-ink)', flexShrink: 0 }} />
           </Tooltip>
         )}
       </div>
@@ -326,7 +329,7 @@ function StageRow({
                 <Text size="xs" c="dimmed">Вносит цех — у вашей роли только просмотр</Text>
               )}
               {canNorm && row.actualWorkers != null && dev !== 0 && (
-                <Button size="xs" variant="subtle" leftSection={<IconArrowUp size={14} />}
+                <Button size="xs" variant="subtle" leftSection={<IconArrowUp aria-hidden size={16} />}
                   onClick={() => promote.mutate(row.stage)} loading={promote.isPending}>
                   Принять как норму
                 </Button>
@@ -431,7 +434,7 @@ function CostingPanel({ articleId }: { articleId: string }) {
         title: 'Заявка создана',
         message: `Пересмотр цены ${review.article.articleCode} отправлен директору`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
     } catch (e: any) {
       const err = e?.response?.data?.error;
@@ -447,7 +450,7 @@ function CostingPanel({ articleId }: { articleId: string }) {
     return (
       <Card withBorder radius="md" padding="md">
         <Group gap="xs">
-          <IconLock size={16} style={{ color: 'var(--mantine-color-gray-5)' }} />
+          <IconLock aria-hidden size={16} style={{ color: 'var(--mantine-color-gray-5)' }} />
           <Text size="sm" c="dimmed">Калькуляция недоступна для вашей роли</Text>
         </Group>
       </Card>
@@ -470,7 +473,7 @@ function CostingPanel({ articleId }: { articleId: string }) {
       <Group justify="space-between" mb={6}>
         <Text fw={700} size="sm">Влияние на себестоимость</Text>
         <Tooltip label="Формулы листа «Спецификации 2022»: труд = Σ(чел × часы × ставка); логистика 3 % и энергия 1 % от материалов; маржа 10 %" multiline w={320}>
-          <ActionIcon variant="subtle" color="gray" size="md"><IconHelpCircle size={18} /></ActionIcon>
+          <ActionIcon variant="subtle" color="gray" size="md" aria-label="Как считается себестоимость"><IconHelpCircle aria-hidden size={20} /></ActionIcon>
         </Tooltip>
       </Group>
 
@@ -527,10 +530,20 @@ function CostingPanel({ articleId }: { articleId: string }) {
               <Text size="sm" fw={600}>
                 Прайс: {formatCurrency(explain.priceCheck.approvedPrice)}
               </Text>
+              {/* 03.09.2026: здесь стоял символ ⚠ прямо в тексте — он рисуется
+                  шрифтом ОС, лезет в поток чтения экранного диктора и в
+                  системе, где всё остальное — tabler, выглядит чужим */}
               <Text size="xs" c={explain.priceCheck.belowCost ? 'danger.7' : 'dimmed'}>
-                {explain.priceCheck.belowCost
-                  ? `⚠ Утверждённая цена ниже себестоимости (${num(explain.priceCheck.deviationPct, 1)} % к расчётной)`
-                  : `Отклонение от расчётной цены: ${num(explain.priceCheck.deviationPct, 1)} %`}
+                {explain.priceCheck.belowCost ? (
+                  <Group component="span" gap={4} wrap="nowrap" display="inline-flex" style={{ verticalAlign: 'middle' }}>
+                    <IconAlertTriangle size={16} aria-hidden style={{ flexShrink: 0 }} />
+                    <span>
+                      Утверждённая цена ниже себестоимости ({num(explain.priceCheck.deviationPct, 1)} % к расчётной)
+                    </span>
+                  </Group>
+                ) : (
+                  `Отклонение от расчётной цены: ${num(explain.priceCheck.deviationPct, 1)} %`
+                )}
               </Text>
             </Stack>
             {explain.priceCheck.belowCost && (
@@ -616,7 +629,7 @@ function UsagePanel({ articleId }: { articleId: string }) {
                 size="sm"
                 mt={6}
                 px={6}
-                leftSection={expanded ? <IconChevronUp size={15} /> : <IconChevronDown size={15} />}
+                leftSection={expanded ? <IconChevronUp aria-hidden size={16} /> : <IconChevronDown aria-hidden size={16} />}
                 onClick={() => setExpanded((v) => !v)}
               >
                 {expanded ? 'Свернуть' : `… и ещё ${hiddenCount}`}
@@ -825,11 +838,11 @@ export function Specifications() {
       </Group>
       <Group gap="xs" wrap="nowrap">
         <NomenclatureRequestsButton />
-        <Button variant="default" size="sm" leftSection={<IconHistory size={16} />}
+        <Button variant="default" size="sm" leftSection={<IconHistory aria-hidden size={16} />}
           onClick={() => setHistoryOpened(true)} disabled={!activeId}>
           История
         </Button>
-        <Button variant="light" size="sm" leftSection={<IconRefresh size={16} />} onClick={() => refetch()}>
+        <Button variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />} onClick={() => refetch()}>
           Пересчитать
         </Button>
       </Group>

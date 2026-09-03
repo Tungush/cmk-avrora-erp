@@ -51,7 +51,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
       <DigestCard
         title="Не разнесено по заказам"
         tone={unallocated.requests > 0 ? 'danger' : 'ok'}
-        icon={<IconClipboardList size={19} />}
+        icon={<IconClipboardList aria-hidden size={20} />}
         value={Number(unallocated.requests) || 0}
         caption={unallocated.requests > 0
           ? `заявок на ${formatMoney(unallocated.amount)} висят партией — себестоимость заказов занижена`
@@ -75,7 +75,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
       <DigestCard
         title="Без подрядчика"
         tone={noContractor.length > 0 ? 'warn' : 'ok'}
-        icon={<IconUserQuestion size={19} />}
+        icon={<IconUserQuestion aria-hidden size={20} />}
         value={noContractor.length}
         caption={noContractor.length > 0
           ? 'заявок заведено, но исполнитель не выбран — в Битрикс их не отправить'
@@ -94,7 +94,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
       <DigestCard
         title="Ждут приёмки"
         tone={pendingAccept.length > 0 ? 'warn' : 'ok'}
-        icon={<IconChecks size={19} />}
+        icon={<IconChecks aria-hidden size={20} />}
         value={pendingAccept.length}
         caption={pendingAccept.length > 0
           ? `строк на ${formatMoney(pendingAmount)} — пока не приняты, платить не за что`
@@ -117,7 +117,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
       <DigestCard
         title="Отдано на сторону"
         tone="brand"
-        icon={<IconCoin size={19} />}
+        icon={<IconCoin aria-hidden size={20} />}
         value={byContractor.reduce((sum, c) => sum + Number(c.amount ?? 0), 0)}
         format={(v) => formatCompactMoney(v)}
         caption={`по ${num(byContractor.length)} подрядчикам`}

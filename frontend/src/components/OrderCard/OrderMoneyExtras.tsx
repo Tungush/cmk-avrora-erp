@@ -4,6 +4,7 @@ import {
   ActionIcon, Tooltip, Badge, Divider, Checkbox,
 } from '@mantine/core';
 import { IconPlus, IconTrash, IconFileInvoice, IconCheck } from '@tabler/icons-react';
+import { Icon } from '../Icon';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { notifications } from '@mantine/notifications';
 import api from '../../api/client';
@@ -57,7 +58,7 @@ export function CustomerPaymentsBlock({ orderId }: { orderId: string }) {
         title: 'Оплата записана',
         message: `${formatCurrency(res.amount)} · всего оплачено ${formatCurrency(res.orderPaidTotal)}`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <Icon icon={IconCheck} size={16} />,
       });
       setOpen(false); setAmount(''); setReference(''); setNote('');
     },
@@ -89,7 +90,7 @@ export function CustomerPaymentsBlock({ orderId }: { orderId: string }) {
       <Group justify="space-between">
         <Text size="xs" fw={600} c="dimmed" tt="uppercase">Платежи</Text>
         {canAdd && (
-          <Button size="compact-sm" variant="light" leftSection={<IconPlus size={14} />} onClick={() => setOpen(true)}>
+          <Button size="compact-sm" variant="light" leftSection={<Icon icon={IconPlus} size={16} />} onClick={() => setOpen(true)}>
             Внести оплату
           </Button>
         )}
@@ -105,7 +106,8 @@ export function CustomerPaymentsBlock({ orderId }: { orderId: string }) {
                 <Group key={p.id} justify="space-between" wrap="nowrap" gap="sm">
                   <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
                     <Text size="sm" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatDate(p.paidAt)}</Text>
-                    <Badge size="md" fz={12} variant="light" color={p.source === 'MANUAL' ? 'orange' : 'gray'}>
+                    {/* 'orange' в теме не объявлен — Mantine брала свой оранжевый (03.09.2026) */}
+                    <Badge size="md" fz={12} variant="light" color={p.source === 'MANUAL' ? 'warning' : 'gray'}>
                       {p.source === 'MANUAL' ? 'вручную' : '1С'}
                     </Badge>
                     {p.reference && <Text size="xs" c="dimmed" lineClamp={1}>п/п {p.reference}</Text>}
@@ -120,8 +122,9 @@ export function CustomerPaymentsBlock({ orderId }: { orderId: string }) {
                           size="md" variant="subtle" color="gray"
                           loading={remove.isPending && remove.variables === p.id}
                           onClick={() => remove.mutate(p.id)}
+                          aria-label="Удалить платёж"
                         >
-                          <IconTrash size={15} />
+                          <Icon icon={IconTrash} size={16} />
                         </ActionIcon>
                       </Tooltip>
                     )}
@@ -221,7 +224,7 @@ export function AcceptanceActsBlock({ orderId, lines }: {
         title: `Акт ${res.appNumber} оформлен`,
         message: `${res.lines.length} позиций на ${formatCurrency(res.totalAmount)} — «отгружено» по позициям обновлено`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <Icon icon={IconCheck} size={16} />,
         autoClose: 7000,
       });
       setOpen(false);
@@ -244,7 +247,7 @@ export function AcceptanceActsBlock({ orderId, lines }: {
       <Group justify="space-between">
         <Text size="xs" fw={600} c="dimmed" tt="uppercase">Акты приёмки-передачи</Text>
         {canCreate && lines.length > 0 && (
-          <Button size="compact-sm" variant="light" leftSection={<IconFileInvoice size={14} />} onClick={openModal}>
+          <Button size="compact-sm" variant="light" leftSection={<Icon icon={IconFileInvoice} size={16} />} onClick={openModal}>
             Оформить акт
           </Button>
         )}

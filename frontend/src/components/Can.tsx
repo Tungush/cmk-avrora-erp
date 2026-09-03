@@ -1,6 +1,7 @@
 import React from 'react';
 import { Tooltip, Box } from '@mantine/core';
 import { IconLock } from '@tabler/icons-react';
+import { Icon } from './Icon';
 import { useAuthStore } from '../store/auth';
 
 interface CanProps {
@@ -66,7 +67,7 @@ export function LockedField({ label, value, reason = 'Недоступно дл�
           }}
         >
           <span>{value === undefined ? '•••' : value}</span>
-          <IconLock size={14} style={{ flexShrink: 0, color: 'var(--mantine-color-gray-5)' }} />
+          <Icon icon={IconLock} size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-gray-5)' }} />
         </Box>
       </Tooltip>
       <Box fz={11} c="dimmed" mt={2}>

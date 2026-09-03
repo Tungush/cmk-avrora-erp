@@ -98,7 +98,7 @@ export function BatchesReserves() {
           ? 'Резерв переходит запросившему заказу'
           : 'Резерв остаётся за прежним заказом',
         color: v.approve ? 'success' : 'gray',
-        icon: v.approve ? <IconCheck size={16} /> : <IconX size={16} />,
+        icon: v.approve ? <IconCheck aria-hidden size={16} /> : <IconX aria-hidden size={16} />,
       });
       setDeciding(null);
       setComment('');
@@ -119,7 +119,7 @@ export function BatchesReserves() {
         title: 'Цена подтверждена',
         message: 'Партия возвращена в автоподбор',
         color: 'success',
-        icon: <IconShieldCheck size={16} />,
+        icon: <IconShieldCheck aria-hidden size={16} />,
       });
     },
     onError: (e: any) => notifications.show({
@@ -151,7 +151,7 @@ export function BatchesReserves() {
       {/* ===== Перехваты: решает директор ===== */}
       <Card withBorder radius="md" padding="md" id="overrides">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="danger" radius="md" size="md"><IconGavel size={16} /></ThemeIcon>
+          <ThemeIcon variant="light" color="danger" radius="md" size="md"><IconGavel aria-hidden size={16} /></ThemeIcon>
           <Text fw={700} size="md">Перехваты резервов</Text>
           {ov.length > 0 && <Badge color="danger" variant="filled" radius="xl" size="md">{ov.length}</Badge>}
         </Group>
@@ -219,7 +219,7 @@ export function BatchesReserves() {
       {/* ===== Карантин цен: подтверждает снабжение ===== */}
       <Card withBorder radius="md" padding="md" id="quarantine">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="warning" radius="md" size="md"><IconFlask size={16} /></ThemeIcon>
+          <ThemeIcon variant="light" color="warning" radius="md" size="md"><IconFlask aria-hidden size={16} /></ThemeIcon>
           <Text fw={700} size="md">Карантин цен</Text>
           {an.length > 0 && <Badge color="warning" variant="filled" radius="xl" size="md">{an.length}</Badge>}
         </Group>
@@ -300,7 +300,7 @@ export function BatchesReserves() {
       {/* ===== Истекающие резервы ===== */}
       <Card withBorder radius="md" padding="md" id="expiring">
         <Group gap="xs" mb="sm">
-          <ThemeIcon variant="light" color="warning" radius="md" size="md"><IconClockExclamation size={16} /></ThemeIcon>
+          <ThemeIcon variant="light" color="warning" radius="md" size="md"><IconClockExclamation aria-hidden size={16} /></ThemeIcon>
           <Text fw={700} size="md">Резервы истекают</Text>
           {ex.length > 0 && <Badge color="warning" variant="filled" radius="xl" size="md">{ex.length}</Badge>}
         </Group>
@@ -336,7 +336,9 @@ export function BatchesReserves() {
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace">{r.qty} {r.material.unit}</Table.Td>
                         <Table.Td ta="right">
-                          <Badge color={r.daysLeft <= 1 ? 'red' : 'orange'} variant="light" radius="xl" size="sm">
+                          {/* 'red'/'orange' темой не объявлены. Внимание оставлено
+                              последнему дню — иначе акцент горит на всей колонке */}
+                          <Badge color={r.daysLeft <= 1 ? 'danger' : 'gray'} variant="light" radius="xl" size="sm">
                             {r.daysLeft === 0 ? 'сегодня' : `${r.daysLeft} дн`}
                           </Badge>
                         </Table.Td>

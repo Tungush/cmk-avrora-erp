@@ -442,14 +442,16 @@ a:hover > .mantine-Card-root,
 .login-hero {
   position: relative;
   overflow: hidden;
-  background: var(--c-blue);
-  color: #fff;
+  background: var(--s-panel);
+  /* Панель светлая (беж) — текст по ней чернильный: белый давал 1,71:1
+     и заголовок с числами завода читались с трудом (03.09.2026) */
+  color: var(--s-text-on-panel);
   display: flex;
   align-items: flex-end;
   padding: 48px;
 }
 .login-hero::after {
-  /* Мягкий уход в жёлтый снизу — приём референса на баннерах */
+  /* Мягкий уход в тон внимания снизу — приём референса на баннерах */
   content: '';
   position: absolute;
   inset: auto -10% -25% -20%;

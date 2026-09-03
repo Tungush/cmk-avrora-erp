@@ -40,7 +40,7 @@ export function CreditLines() {
 
   return (
     <Stack gap="md">
-      <Alert color="gray" variant="light" radius="md" icon={<IconInfoCircle size={16} />}>
+      <Alert color="gray" variant="light" radius="md" icon={<IconInfoCircle aria-hidden size={16} />}>
         <Text size="sm">
           Не из 1С — данные заносятся вручную из выгрузки личного кабинета банка.
           Лимит и остаток верны на дату последнего импорта, не на сейчас.

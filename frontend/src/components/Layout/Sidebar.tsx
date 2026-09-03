@@ -117,7 +117,7 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
                   />
                 )}
                 <Group gap="sm" wrap="nowrap" style={{ position: 'relative', zIndex: 1 }}>
-                  <Icon size={collapsed ? 22 : 20} stroke={1.8}
+                  <Icon size={20}
                     style={{ color: isActive ? '#fff' : 'var(--gray-6)', flexShrink: 0 }} />
                   {!collapsed && (
                     <Text size="md" fw={isActive ? 700 : 500}
@@ -146,14 +146,14 @@ export function Sidebar({ onNavigate, collapsed = false }: SidebarProps) {
           <Tooltip label={`${displayName} · ${roleLabel}`} position="right" withArrow>
             <Group justify="center" p={2}>
               <Avatar size={32} radius="xl" color="dark.9">
-                <Text fw={700} c="white" size="sm">{initials}</Text>
+                <Text fw={700} c="var(--s-text-on-dark)" size="sm">{initials}</Text>
               </Avatar>
             </Group>
           </Tooltip>
         ) : (
           <Group gap="sm" wrap="nowrap" p={6}>
             <Avatar size={34} radius="xl" color="dark.9">
-              <Text fw={700} c="white" size="sm">{initials}</Text>
+              <Text fw={700} c="var(--s-text-on-dark)" size="sm">{initials}</Text>
             </Avatar>
             <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
               <Text size="sm" fw={700} lineClamp={1}>

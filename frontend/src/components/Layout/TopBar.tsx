@@ -41,7 +41,7 @@ export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: To
           display={{ base: 'inline-flex', sm: 'none' }}
           aria-label="Открыть меню"
         >
-          <IconMenu2 size={20} />
+          <IconMenu2 size={20} aria-hidden />
         </ActionIcon>
         {/* Свернуть меню в рейку иконок — на ноутбуке это +184 px таблицам */}
         {onToggleNav && (
@@ -56,8 +56,8 @@ export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: To
               aria-pressed={navCollapsed}
             >
               {navCollapsed
-                ? <IconLayoutSidebarLeftExpand size={20} stroke={1.8} />
-                : <IconLayoutSidebarLeftCollapse size={20} stroke={1.8} />}
+                ? <IconLayoutSidebarLeftExpand size={20} aria-hidden />
+                : <IconLayoutSidebarLeftCollapse size={20} aria-hidden />}
             </ActionIcon>
           </Tooltip>
         )}
@@ -78,7 +78,7 @@ export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: To
               background: 'var(--mantine-color-default-hover)',
             }}
           >
-            <IconSearch size={16} stroke={1.8} style={{ color: 'var(--mantine-color-dimmed)' }} />
+            <IconSearch size={16} style={{ color: 'var(--mantine-color-dimmed)' }} aria-hidden />
             <Text size="sm" c="dimmed" style={{ flex: 1 }} lineClamp={1}>
               Заказ, заказчик, объект, материал…
             </Text>
@@ -104,7 +104,7 @@ export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: To
             color: 'gray',
           })}
         >
-          <IconBell size={20} />
+          <IconBell size={20} aria-hidden />
         </ActionIcon>
         <ActionIcon
           variant="subtle"
@@ -113,7 +113,7 @@ export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: To
           onClick={handleLogout}
           aria-label="Выйти"
         >
-          <IconLogout size={20} />
+          <IconLogout size={20} aria-hidden />
         </ActionIcon>
       </Group>
     </Group>

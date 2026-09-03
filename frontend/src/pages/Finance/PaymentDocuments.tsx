@@ -43,7 +43,7 @@ export function PaymentDocuments() {
         <Group justify="space-between" wrap="wrap" gap="sm">
           <TextInput
             placeholder="Номер ДО, контрагент…"
-            leftSection={<IconSearch size={16} />}
+            leftSection={<IconSearch aria-hidden size={16} />}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             w={320}
@@ -54,7 +54,7 @@ export function PaymentDocuments() {
               Всего ДО: <Text span fw={700} ff="monospace">{total.toLocaleString('ru-RU')}</Text>
             </Text>
             <Button
-              size="compact-sm" variant="light" leftSection={<IconDownload size={14} />}
+              size="compact-sm" variant="light" leftSection={<IconDownload aria-hidden size={16} />}
               onClick={() => exportCsv(
                 'договоры-основания',
                 ['№ ДО', 'Дата', 'Контрагент', 'Сумма', 'Оплачено', 'Остаток'],

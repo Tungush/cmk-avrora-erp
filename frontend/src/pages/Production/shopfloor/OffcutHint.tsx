@@ -36,7 +36,7 @@ export function OffcutHint({ orderId, orderNumber }: { orderId: string; orderNum
         title: 'Обрезки записаны на заказ',
         message: `${orderNumber}: ${res.recorded} строк. Склад обрезков уменьшен, факт уйдёт в 1С вместе с изготовлением`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
     },
     onError: (e: any) => notifications.show({
@@ -56,13 +56,15 @@ export function OffcutHint({ orderId, orderNumber }: { orderId: string; orderNum
   if (materials.length === 0 && usedBefore.length === 0) return null;
 
   return (
+    // 03.09.2026: рамка и значок брали жёлтый Mantine, которого нет в теме, —
+    // на кремовом это был чужой лимон. Теперь тон внимания
     <Card withBorder radius="md" padding="md"
-      style={{ borderColor: 'var(--mantine-color-yellow-4)' }}>
+      style={{ borderColor: 'var(--s-attention-soft)' }}>
       <Stack gap="sm">
         {materials.length > 0 && (
           <>
             <Group gap={8} wrap="nowrap">
-              <IconRuler2 size={18} style={{ color: 'var(--mantine-color-yellow-7)' }} />
+              <IconRuler2 aria-hidden size={20} style={{ color: 'var(--s-attention)' }} />
               <Text size="md" fw={700}>Есть обрезки материалов этого заказа</Text>
             </Group>
             {materials.map((m) => (

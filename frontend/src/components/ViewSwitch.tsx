@@ -1,5 +1,6 @@
 import React from 'react';
 import { IconLayoutGrid, IconList } from '@tabler/icons-react';
+import { Icon } from './Icon';
 
 /**
  * Переключатель «сводка ↔ список» (02.09.2026).
@@ -24,14 +25,14 @@ export function ViewSwitch({
         data-active={value === 'digest' ? 'true' : undefined}
         onClick={() => onChange('digest')}
       >
-        <IconLayoutGrid size={15} /> {digestLabel}
+        <Icon icon={IconLayoutGrid} size={16} /> {digestLabel}
       </button>
       <button
         type="button" role="tab" aria-selected={value === 'list'}
         data-active={value === 'list' ? 'true' : undefined}
         onClick={() => onChange('list')}
       >
-        <IconList size={15} /> {listLabel}
+        <Icon icon={IconList} size={16} /> {listLabel}
       </button>
     </div>
   );

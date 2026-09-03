@@ -97,7 +97,7 @@ function BalanceExplain({ docs }: { docs: any[] }) {
     <Popover width={300} position="bottom-end" shadow="md" radius="md">
       <Popover.Target>
         <ActionIcon variant="subtle" color="gray" size="xs" aria-label="Разбор формулы">
-          <IconHelpCircle size={14} />
+          <IconHelpCircle aria-hidden size={16} />
         </ActionIcon>
       </Popover.Target>
       <Popover.Dropdown>
@@ -184,7 +184,7 @@ function LockedSection({ title, roleName }: { title: string; roleName: string })
   return (
     <Card withBorder radius="md" padding="md" bg="var(--mantine-color-default-hover)">
       <Group gap="xs">
-        <IconLock size={15} style={{ color: 'var(--mantine-color-gray-5)' }} />
+        <IconLock aria-hidden size={16} style={{ color: 'var(--mantine-color-gray-5)' }} />
         <Text fw={600} size="sm" c="dimmed">{title} — нет доступа</Text>
       </Group>
       <Text size="xs" c="dimmed" mt={4}>Данные существуют, но закрыты для роли «{roleName}»</Text>
@@ -239,7 +239,7 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
       extra={steps.length > 0 ? (
         <Group gap="xs">
           <Progress value={(doneCount / steps.length) * 100} w={80} size="sm" radius="xl"
-            color={doneCount === steps.length ? 'teal' : 'brand'} />
+            color={doneCount === steps.length ? 'success' : 'brand'} />
           <Text size="xs" ff="monospace" c="dimmed">{doneCount}/{steps.length}</Text>
         </Group>
       ) : undefined}
@@ -262,11 +262,11 @@ function StagesSection({ stages, lines }: { stages: any[]; lines: any[] }) {
                       <Text size="sm" fw={s.status === 'IN_PROGRESS' ? 700 : 500} lineClamp={1}>{s.name}</Text>
                     </Group>
                   }
-                  color={s.status === 'DONE' ? 'teal' : s.status === 'IN_PROGRESS' ? 'brand' : 'gray'}
+                  color={s.status === 'DONE' ? 'success' : s.status === 'IN_PROGRESS' ? 'brand' : 'gray'}
                   bullet={
-                    s.status === 'DONE' ? <IconCheck size={12} />
-                      : s.status === 'IN_PROGRESS' ? <IconPlayerPlay size={12} />
-                        : <IconCircle size={10} />
+                    s.status === 'DONE' ? <IconCheck aria-hidden size={16} />
+                      : s.status === 'IN_PROGRESS' ? <IconPlayerPlay aria-hidden size={16} />
+                        : <IconCircle aria-hidden size={16} />
                   }
                 >
                   <Group gap="sm">
@@ -350,14 +350,14 @@ function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNum
         message: `${res.qty} ${res.unit} из ${chosen?.number ?? 'заявки'}.`
           + ` Штат по «${res.stageLabel}» пересчитан — пересчитайте себестоимость`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
     },
     onError: (e: any) => notifications.show({
       title: 'Не записано',
       message: e?.response?.data?.error?.message ?? 'Ошибка',
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -406,7 +406,7 @@ function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNum
                       )}
                     </Table.Td>
                     <Table.Td ta="right" ff="monospace">{r.normHours} ч</Table.Td>
-                    <Table.Td ta="right" ff="monospace" c={r.contractorSharePct > 0 ? 'orange.7' : 'dimmed'}>
+                    <Table.Td ta="right" ff="monospace" c={r.contractorSharePct > 0 ? 'warning.7' : 'dimmed'}>
                       {r.contractorSharePct > 0
                         ? `−${r.contractorHours} ч (${r.contractorSharePct} %)`
                         : '—'}
@@ -606,7 +606,7 @@ export function OrderDetail({
       onClose();
     } catch (e: any) {
       const msg = e?.response?.data?.error?.message ?? 'Ошибка при смене статуса';
-      notifications.show({ title: 'Переход отклонён', message: msg, color: 'danger', icon: <IconAlertTriangle size={16} /> });
+      notifications.show({ title: 'Переход отклонён', message: msg, color: 'danger', icon: <IconAlertTriangle aria-hidden size={16} /> });
     }
   };
 
@@ -624,7 +624,7 @@ export function OrderDetail({
           {o.isArchived && <ArchivedHint />}
         </Group>
         {order.overdueDays > 0 && (
-          <Badge color="danger" variant="light" radius="xl" size="lg" leftSection={<IconAlertTriangle size={13} />}>
+          <Badge color="danger" variant="light" radius="xl" size="lg" leftSection={<IconAlertTriangle aria-hidden size={16} />}>
             Просрочка {order.overdueDays} дн
           </Badge>
         )}
@@ -754,7 +754,7 @@ export function OrderDetail({
                   <Text size="sm" c="dimmed">Остаток</Text>
                   <BalanceExplain docs={docs} />
                 </Group>
-                <Text size="sm" fw={700} ff="monospace" c={unpaid > 0 ? 'orange.7' : undefined}>
+                <Text size="sm" fw={700} ff="monospace" c={unpaid > 0 ? 'warning.7' : undefined}>
                   {formatCurrency(unpaid)}
                 </Text>
               </Group>
@@ -828,7 +828,7 @@ export function OrderDetail({
             {derivedNext.map((status) => (
               <Group key={status} gap="xs" wrap="nowrap" px="xs" py={6}
                 style={{ border: '1px dashed var(--mantine-color-default-border)', borderRadius: 8 }}>
-                <IconWand size={15} style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0 }} />
+                <IconWand aria-hidden size={16} style={{ color: 'var(--mantine-color-dimmed)', flexShrink: 0 }} />
                 <Text size="sm" c="dimmed">
                   «{ORDER_STATUS_LABELS[status] ?? status}» ставится сам, когда цех отметит этапы
                 </Text>
@@ -844,7 +844,7 @@ export function OrderDetail({
                   disabled={!isAllowed || isPending}
                   onClick={() => handleTransition(status)}
                   justify="flex-start"
-                  rightSection={!isAllowed ? <IconLock size={14} /> : undefined}
+                  rightSection={!isAllowed ? <IconLock aria-hidden size={16} /> : undefined}
                   title={!isAllowed ? 'Нет прав для перехода' : undefined}
                 >
                   {ORDER_STATUS_LABELS[status] ?? status}

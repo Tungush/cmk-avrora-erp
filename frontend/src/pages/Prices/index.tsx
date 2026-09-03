@@ -81,7 +81,7 @@ export function Prices() {
         title: 'Заявка на пересмотр подана',
         message: `${res.article.articleCode} — решает директор`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck size={16} aria-hidden />,
       });
       setReviewFor(null); setReason('');
     },
@@ -117,7 +117,7 @@ export function Prices() {
             />
             <TextInput
               placeholder="Код, название или старый код…"
-              leftSection={<IconSearch size={16} />}
+              leftSection={<IconSearch size={16} aria-hidden />}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               size="sm"
@@ -129,11 +129,11 @@ export function Prices() {
 
       <Tabs value={view} onChange={(v) => setView((v ?? 'digest') as View)} radius="md">
         <Tabs.List>
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} />}>Что с ценами</Tabs.Tab>
+          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} aria-hidden />}>Что с ценами</Tabs.Tab>
           {canApprove && (
             <Tabs.Tab
               value="reviews"
-              leftSection={<IconGavel size={15} />}
+              leftSection={<IconGavel size={15} aria-hidden />}
               rightSection={pendingCount > 0
                 ? <Badge size="xs" circle variant="filled" color="warning">{pendingCount}</Badge>
                 : undefined}
@@ -141,7 +141,7 @@ export function Prices() {
               Пересмотр цен
             </Tabs.Tab>
           )}
-          <Tabs.Tab value="list" leftSection={<IconList size={15} />}>Весь прайс</Tabs.Tab>
+          <Tabs.Tab value="list" leftSection={<IconList size={15} aria-hidden />}>Весь прайс</Tabs.Tab>
         </Tabs.List>
       </Tabs>
     </Stack>
@@ -257,7 +257,7 @@ function PriceDigest({
       key: 'priced',
       title: 'В прайсе',
       tone: 'brand',
-      icon: <IconCoin size={19} />,
+      icon: <IconCoin size={19} aria-hidden />,
       value: priced,
       format: (v) => Math.round(v).toLocaleString('ru-RU'),
       caption: `изделий с утверждённой ценой из ${n(total)} · ${pricedPct} % каталога`,
@@ -269,7 +269,7 @@ function PriceDigest({
       key: 'comparable',
       title: 'Не с чем сравнить',
       tone: comparable === 0 ? 'warn' : 'ok',
-      icon: <IconScale size={19} />,
+      icon: <IconScale size={19} aria-hidden />,
       value: comparable,
       format: (v) => Math.round(v).toLocaleString('ru-RU'),
       caption: comparable === 0
@@ -288,7 +288,7 @@ function PriceDigest({
       key: 'below',
       title: 'Ниже себестоимости',
       tone: (data?.belowCost ?? 0) > 0 ? 'danger' : 'ok',
-      icon: <IconAlertTriangle size={19} />,
+      icon: <IconAlertTriangle size={19} aria-hidden />,
       value: data?.belowCost ?? 0,
       format: (v) => Math.round(v).toLocaleString('ru-RU'),
       caption: (data?.belowCost ?? 0) > 0
@@ -301,7 +301,7 @@ function PriceDigest({
       key: 'nocost',
       title: 'Нечего считать',
       tone: noCost > 0 ? 'warn' : 'ok',
-      icon: <IconRuler2 size={19} />,
+      icon: <IconRuler2 size={19} aria-hidden />,
       value: noCost,
       format: (v) => Math.round(v).toLocaleString('ru-RU'),
       caption: 'изделий без спецификации и норм — себестоимость по ним нулевая, цену обосновать нечем',
@@ -416,7 +416,7 @@ function PriceList({
                             // Цена ниже расчёта — продаём дешевле себестоимости с маржой
                             <Badge
                               variant="light" radius="xl"
-                              color={dev < 0 ? 'danger' : Math.abs(dev) > 15 ? 'warning' : 'teal'}
+                              color={dev < 0 ? 'danger' : Math.abs(dev) > 15 ? 'warning' : 'success'}
                             >
                               {dev > 0 ? '+' : ''}{dev.toLocaleString('ru-RU')} %
                             </Badge>
@@ -427,7 +427,7 @@ function PriceList({
                             <Button
                               size="compact-sm"
                               variant="light"
-                              leftSection={<IconCoin size={14} />}
+                              leftSection={<IconCoin size={14} aria-hidden />}
                               onClick={() => onReview(a)}
                             >
                               Пересмотр цены

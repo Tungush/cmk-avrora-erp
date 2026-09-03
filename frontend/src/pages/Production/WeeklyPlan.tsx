@@ -38,11 +38,14 @@ export function WeeklyPlan() {
 
   return (
     <Stack gap="md">
+      {/* 03.09.2026: тёмная ветка фона была сырым оранжевым rgba(232,147,12)
+          из старой темы. Схема у нас одна, светлая, но и фолбэк должен
+          быть из палитры */}
       {data.noDate && data.noDate.ordersCount > 0 && (
-        <Card withBorder radius="md" padding="md" bg="light-dark(var(--mantine-color-warning-0), rgba(232, 147, 12, 0.12))"
+        <Card withBorder radius="md" padding="md" bg="light-dark(var(--mantine-color-warning-0), color-mix(in srgb, var(--s-attention-fill) 12%, transparent))"
           style={{ border: '1px solid var(--mantine-color-warning-3)' }}>
           <Group gap="xs">
-            <IconAlertTriangle size={17} style={{ color: 'var(--warn-6, #FF9500)' }} />
+            <IconAlertTriangle aria-hidden size={20} style={{ color: 'var(--s-attention)' }} />
             <Text size="sm" fw={600}>
               {data.noDate.ordersCount.toLocaleString('ru-RU')} активных заказов без плановой даты отгрузки
             </Text>
@@ -55,7 +58,7 @@ export function WeeklyPlan() {
 
       <Card withBorder radius="md" padding={0}>
         <Group gap="xs" p="md" pb="sm">
-          <IconCalendarWeek size={17} style={{ color: 'var(--brand-6, #0057FF)' }} />
+          <IconCalendarWeek aria-hidden size={20} style={{ color: 'var(--s-text-faint)' }} />
           <Text fw={700} size="sm">К изготовлению по неделям</Text>
           <Text size="xs" c="dimmed">— активные заказы по неделе плановой отгрузки</Text>
         </Group>

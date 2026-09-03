@@ -6,6 +6,7 @@ import {
 } from '@mantine/core';
 import { useDebouncedValue, useHotkeys } from '@mantine/hooks';
 import { IconSearch, IconPackage, IconRuler2, IconBox } from '@tabler/icons-react';
+import { Icon } from './Icon';
 import api from '../api/client';
 import { useOrderCard } from './OrderCard/OrderCardProvider';
 import { StatusBadge } from './StatusBadge';
@@ -58,7 +59,7 @@ export function GlobalSearch({ opened, onClose }: { opened: boolean; onClose: ()
       <Box p="sm" style={{ borderBottom: '1px solid var(--mantine-color-default-border)' }}>
         <TextInput
           placeholder="Номер заказа, заказчик, объект, материал…"
-          leftSection={isFetching ? <Loader size={16} /> : <IconSearch size={16} />}
+          leftSection={isFetching ? <Loader size={16} /> : <Icon icon={IconSearch} size={16} />}
           value={q}
           onChange={(e) => setQ(e.currentTarget.value)}
           variant="unstyled"
@@ -89,7 +90,7 @@ export function GlobalSearch({ opened, onClose }: { opened: boolean; onClose: ()
               >
                 <Group justify="space-between" wrap="nowrap">
                   <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-                    <IconPackage size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
+                    <Icon icon={IconPackage} size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
                     <Box style={{ minWidth: 0 }}>
                       <Group gap={6} wrap="nowrap">
                         <Text size="sm" fw={700} ff="monospace" c="brand.7">{o.orderNumber}</Text>
@@ -114,7 +115,7 @@ export function GlobalSearch({ opened, onClose }: { opened: boolean; onClose: ()
               <UnstyledButton key={a.id} onClick={() => goto('/specs')} p="xs"
                 style={{ borderRadius: 8 }} className="search-row">
                 <Group gap="sm" wrap="nowrap">
-                  <IconRuler2 size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
+                  <Icon icon={IconRuler2} size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
                   <Box style={{ minWidth: 0 }}>
                     <Text size="sm" ff="monospace">{a.articleCode}</Text>
                     <Text size="xs" c="dimmed" lineClamp={1}>{a.name}</Text>
@@ -132,7 +133,7 @@ export function GlobalSearch({ opened, onClose }: { opened: boolean; onClose: ()
               <UnstyledButton key={m.id} onClick={() => goto('/warehouse')} p="xs"
                 style={{ borderRadius: 8 }} className="search-row">
                 <Group gap="sm" wrap="nowrap">
-                  <IconBox size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
+                  <Icon icon={IconBox} size={16} style={{ flexShrink: 0, color: 'var(--mantine-color-dimmed)' }} />
                   <Box style={{ minWidth: 0 }}>
                     <Text size="sm" ff="monospace">{m.materialCode}</Text>
                     <Text size="xs" c="dimmed" lineClamp={1}>

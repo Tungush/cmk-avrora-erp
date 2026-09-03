@@ -61,7 +61,7 @@ export function Offcuts() {
   });
   const done = (title: string) => {
     qc.invalidateQueries({ queryKey: ['offcuts'] });
-    notifications.show({ title, message: '', color: 'success', icon: <IconCheck size={16} /> });
+    notifications.show({ title, message: '', color: 'success', icon: <IconCheck aria-hidden size={16} /> });
     setModalOpen(false); setEditing(null);
     setMaterialId(null); setLengthMm(''); setWidthMm(''); setQty(''); setNote('');
   };
@@ -102,7 +102,7 @@ export function Offcuts() {
           <Group gap="lg" wrap="wrap">
             <TextInput
               placeholder="Код или наименование материала…"
-              leftSection={<IconSearch size={16} />}
+              leftSection={<IconSearch aria-hidden size={16} />}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               w={320}
@@ -115,7 +115,7 @@ export function Offcuts() {
             </Text>
           </Group>
           {canEdit && (
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
+            <Button leftSection={<IconPlus aria-hidden size={16} />} onClick={() => setModalOpen(true)}>
               Записать обрезок
             </Button>
           )}
@@ -162,13 +162,13 @@ export function Offcuts() {
                             <Tooltip label="Изменить количество">
                               <ActionIcon variant="subtle" size="md" aria-label="Изменить количество"
                                 onClick={() => { setEditing(r); setQty(Number(r.qty)); setNote(r.note ?? ''); }}>
-                                <IconPencil size={16} />
+                                <IconPencil aria-hidden size={16} />
                               </ActionIcon>
                             </Tooltip>
                             <Tooltip label="Убрать строку">
                               <ActionIcon variant="subtle" color="danger" size="md" aria-label="Убрать строку"
                                 onClick={() => remove.mutate(r.id)}>
-                                <IconTrash size={16} />
+                                <IconTrash aria-hidden size={16} />
                               </ActionIcon>
                             </Tooltip>
                           </Group>

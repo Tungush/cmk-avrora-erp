@@ -107,7 +107,7 @@ export function DigestCard({
       {action && (
         <button type="button" className="digest-card__action" onClick={action.onClick}>
           {action.label}
-          <IconArrowRight size={15} />
+          <IconArrowRight size={16} aria-hidden />
         </button>
       )}
     </section>

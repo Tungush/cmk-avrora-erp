@@ -128,7 +128,7 @@ function MessagesTable({ rows, onRetry }: { rows: Message[]; onRetry: (id: strin
                       {(m.status === 'FAILED' || m.status === 'DEAD') && (
                         <Tooltip label="Повторить доставку">
                           <ActionIcon variant="subtle" size="lg" aria-label="Повторить доставку" onClick={() => onRetry(m.id)}>
-                            <IconRefresh size={16} />
+                            <IconRefresh aria-hidden size={16} />
                           </ActionIcon>
                         </Tooltip>
                       )}
@@ -230,7 +230,7 @@ export function Integration() {
       </Stack>
 
       {!status?.configured && (
-        <Alert color="warning" radius="md" variant="light" icon={<IconPlugConnected size={17} />}>
+        <Alert color="warning" radius="md" variant="light" icon={<IconPlugConnected aria-hidden size={16} />}>
           <Text size="sm" fw={600}>Адрес 1С не задан</Text>
           <Text size="sm">
             Исходящие сообщения копятся со статусом «Ждёт» и уйдут сразу после настройки
@@ -246,7 +246,7 @@ export function Integration() {
 
       <Group gap="sm" wrap="wrap">
         <Button
-          leftSection={<IconArrowUp size={16} />}
+          leftSection={<IconArrowUp aria-hidden size={16} />}
           onClick={() => flush.mutate()}
           loading={flush.isPending}
         >
@@ -254,7 +254,7 @@ export function Integration() {
         </Button>
         <Button
           variant="default"
-          leftSection={<IconArrowDown size={16} />}
+          leftSection={<IconArrowDown aria-hidden size={16} />}
           onClick={() => process.mutate()}
           loading={process.isPending}
         >
@@ -265,10 +265,10 @@ export function Integration() {
       <Card withBorder radius="md" padding="md">
         <Tabs value={tab} onChange={(v) => setTab(v ?? 'out')} radius="md" keepMounted={false}>
           <Tabs.List mb="md">
-            <Tabs.Tab value="out" leftSection={<IconArrowUp size={15} />}>
+            <Tabs.Tab value="out" leftSection={<IconArrowUp aria-hidden size={16} />}>
               Исходящие{messages?.outbox.length ? ` (${messages.outbox.length})` : ''}
             </Tabs.Tab>
-            <Tabs.Tab value="in" leftSection={<IconArrowDown size={15} />}>
+            <Tabs.Tab value="in" leftSection={<IconArrowDown aria-hidden size={16} />}>
               Входящие{messages?.inbox.length ? ` (${messages.inbox.length})` : ''}
             </Tabs.Tab>
           </Tabs.List>
@@ -285,7 +285,7 @@ export function Integration() {
 
       <Card withBorder radius="md" padding="md">
         <Group gap="xs" mb="xs">
-          <IconAlertTriangle size={16} style={{ color: 'var(--warn-6)' }} />
+          <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--warn-6)' }} />
           <Text fw={700} size="sm">Как подключить 1С</Text>
         </Group>
         <Stack gap={4}>

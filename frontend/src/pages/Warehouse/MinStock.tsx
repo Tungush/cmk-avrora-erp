@@ -44,7 +44,7 @@ export function MinStock() {
       api.patch(`/min-stock-levels/${input.articleId}`, { targetQty: input.targetQty }).then((r) => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['min-stock'] });
-      notifications.show({ title: 'Норматив сохранён', message: '', color: 'success', icon: <IconCheck size={16} /> });
+      notifications.show({ title: 'Норматив сохранён', message: '', color: 'success', icon: <IconCheck aria-hidden size={16} /> });
       setOpen(false); setEditing(null); setArticleId(null); setTarget('');
     },
     onError: (e: any) => notifications.show({
@@ -91,7 +91,7 @@ export function MinStock() {
             </Text>
           </Group>
           {canEdit && (
-            <Button leftSection={<IconPlus size={16} />} onClick={() => { setEditing(null); setArticleId(null); setTarget(''); setOpen(true); }}>
+            <Button leftSection={<IconPlus aria-hidden size={16} />} onClick={() => { setEditing(null); setArticleId(null); setTarget(''); setOpen(true); }}>
               Задать норматив
             </Button>
           )}
@@ -99,7 +99,7 @@ export function MinStock() {
       </div>
 
       {rows.length === 0 && !isLoading && (
-        <Alert color="gray" variant="light" icon={<IconInfoCircle size={16} />} radius="md">
+        <Alert color="gray" variant="light" icon={<IconInfoCircle aria-hidden size={16} />} radius="md">
           <Text size="sm">
             Нормативов пока нет. Норматив — это «сколько изделий держать на складе
             всегда»: система сверит его с живым остатком ГП и покажет, что пора
@@ -149,7 +149,10 @@ export function MinStock() {
                             <Progress
                               value={r.readinessPct}
                               size="md" radius="xl" style={{ flex: 1, minWidth: 80 }}
-                              color={r.readinessPct >= 100 ? 'teal' : r.readinessPct >= 50 ? 'yellow' : 'red'}
+                              /* 'teal'/'yellow'/'red' темой не объявлены (03.09.2026).
+                                 Середину увели в нейтраль: warning и danger в нашей
+                                 палитре — одна терракота, полоса ими не различалась */
+                              color={r.readinessPct >= 100 ? 'success' : r.readinessPct >= 50 ? 'gray' : 'danger'}
                             />
                             <Text size="xs" ff="monospace" c="dimmed" w={44} ta="right">
                               {num(r.readinessPct, 0)} %
@@ -174,7 +177,7 @@ export function MinStock() {
                                 loading={remove.isPending && remove.variables === r.articleId}
                                 onClick={() => remove.mutate(r.articleId)}
                               >
-                                <IconTrash size={15} />
+                                <IconTrash aria-hidden size={16} />
                               </Button>
                             </Group>
                           </Table.Td>

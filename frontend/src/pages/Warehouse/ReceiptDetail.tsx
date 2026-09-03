@@ -139,7 +139,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
               {formatMoney(unpaid, cur)}
             </Text>
           </Group>
-          <Progress value={paidPct} size="md" radius="xl" mt={4} color={paidPct >= 100 ? 'teal' : 'brand'} />
+          <Progress value={paidPct} size="md" radius="xl" mt={4} color={paidPct >= 100 ? 'success' : 'brand'} />
           {payments.length > 0 && (
             <Stack gap={4} mt="xs">
               <Text size="xs" c="dimmed" fw={600}>Платежи ({payments.length})</Text>
@@ -187,7 +187,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         <Row label="Номер по данным поставщика" value={d.supplierDocNumber} mono />
         <Row label="Дата по данным поставщика" value={formatDate(d.supplierDocDate)} />
         {backdatedDays != null && backdatedDays > 0 && (
-          <Alert color="warning" variant="light" p="xs" icon={<IconInfoCircle size={15} />}>
+          <Alert color="warning" variant="light" p="xs" icon={<IconInfoCircle aria-hidden size={16} />}>
             <Text size="sm">
               Документ поставщика датирован на {backdatedDays} дн. раньше нашего заказа —
               закуп оформлен задним числом.
@@ -218,7 +218,7 @@ export function ReceiptDetail({ id }: { id: string; onClose?: () => void }) {
         ) : (
           <>
             {mismatchCount > 0 && (
-              <Alert color="gray" variant="light" p="xs" mb="xs" icon={<IconInfoCircle size={15} />}>
+              <Alert color="gray" variant="light" p="xs" mb="xs" icon={<IconInfoCircle aria-hidden size={16} />}>
                 <Text size="sm">
                   В {mismatchCount} строках количество × цена ≠ сумма — цена, скорее всего,
                   за тонну при количестве в штуках. Итоги считаем по колонке «Сумма».

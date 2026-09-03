@@ -103,7 +103,7 @@ export function DetailsSheet({
             + (a.recalculatedRows > 1 ? ` Пересчитано разнесение по ${a.recalculatedRows} заказам.` : '')
           : product?.articleName ?? '',
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
         autoClose: a ? 9000 : 4000,
       });
       onClose();
@@ -114,7 +114,7 @@ export function DetailsSheet({
       title: 'Не сохранено',
       message: e?.response?.data?.error?.message ?? e?.message ?? 'Ошибка',
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -144,7 +144,7 @@ export function DetailsSheet({
 
         <Button
           size="xl"
-          leftSection={<IconCheck size={22} />}
+          leftSection={<IconCheck aria-hidden size={24} />}
           loading={save.isPending}
           onClick={() => save.mutate()}
           fullWidth

@@ -17,6 +17,16 @@ import { Mast } from '../components/Mast';
 // пользователя): у каждого человека личный email+пароль, заводит и
 // меняет роли Settings → Пользователи (users.controller.ts).
 
+/**
+ * Тихий текст на бежевой панели входа (03.09.2026).
+ *
+ * `--s-text-quiet` рассчитан на кремовый холст и на беже даёт всего
+ * 3,55:1. Разбавленные чернила на 80 % дают 4,80:1 — то же ощущение
+ * «тише основного», но читаемо. Белого здесь быть не может: панель
+ * светлая, и белым текстом на ней было 1,43–1,71:1.
+ */
+const HERO_QUIET = 'color-mix(in srgb, var(--s-text-on-panel) 80%, transparent)';
+
 /** Настоящие числа завода, а не витринные «1200+» и «24/7» */
 const STATS = [
   { value: '2 160', label: 'изделий в каталоге' },
@@ -61,7 +71,7 @@ export function Login() {
         title: 'Добро пожаловать',
         message: `Вход выполнен: ${email}`,
         color: 'success',
-        icon: <IconCheck size={18} />,
+        icon: <IconCheck aria-hidden size={20} />,
       });
       navigate('/'); // Моя работа — единственный экран, с которого начинается день
     } catch (err: any) {
@@ -99,13 +109,17 @@ export function Login() {
           <div className="login-hero__text">
             <motion.div {...rise(0)}>
                 <Group gap={14} wrap="nowrap" mb={40}>
-                  <LogoMark size={44} color="#DDFD2C" />
+                  {/* 03.09.2026: знак был кислотно-жёлтым #DDFD2C из старой
+                      палитры — на беже это 1,48:1, пятно без формы. Белый
+                      текст рядом давал 1,71:1. Панель бежевая, значит текст
+                      на ней чернильный: 7,6:1 */}
+                  <LogoMark size={44} color="var(--s-attention)" />
                   <Stack gap={2}>
-                    <Text fw={700} size="lg" lh={1} style={{ letterSpacing: '0.02em', color: '#fff' }}>
+                    <Text fw={700} size="lg" lh={1} style={{ letterSpacing: '0.02em', color: 'var(--s-text-on-panel)' }}>
                       АВРОРА
                     </Text>
                     <Text size="xs" fw={600} lh={1}
-                      style={{ letterSpacing: '0.3em', color: 'rgba(255,255,255,0.65)' }}>
+                      style={{ letterSpacing: '0.3em', color: HERO_QUIET }}>
                       ЦМК·ERP
                     </Text>
                   </Stack>
@@ -123,14 +137,14 @@ export function Login() {
                   component="h1"
                   className="login-title"
                   fw={300}
-                  style={{ fontSize: 'clamp(30px, 3.2vw, 44px)', lineHeight: 1.12, margin: '10px 0 0', color: '#fff' }}
+                  style={{ fontSize: 'clamp(30px, 3.2vw, 44px)', lineHeight: 1.12, margin: '10px 0 0', color: 'var(--s-text-on-panel)' }}
                 >
                   Заказ, цех и себестоимость —<br />в одном окне
                 </Text>
               </motion.div>
 
               <motion.div {...rise(0.16)}>
-                <Text mt={24} size="lg" lh={1.65} style={{ color: 'rgba(255,255,255,0.82)', maxWidth: 460 }}>
+                <Text mt={24} size="lg" lh={1.65} style={{ color: HERO_QUIET, maxWidth: 460 }}>
                   Заказы приходят из 1С, цех отмечает работы, цена считается
                   по партиям металла. Таблица на 44 листа больше не нужна.
                 </Text>
@@ -140,10 +154,10 @@ export function Login() {
                 <Group gap={30} mt={44} wrap="nowrap">
                   {STATS.map((s) => (
                     <Stack gap={4} key={s.label}>
-                      <Text fw={300} c="white" style={{ fontSize: 28, letterSpacing: '-0.03em', whiteSpace: 'nowrap' }}>
+                      <Text fw={300} style={{ fontSize: 28, letterSpacing: '-0.03em', whiteSpace: 'nowrap', color: 'var(--s-text-on-panel)' }}>
                         {s.value}
                       </Text>
-                      <Text size="xs" style={{ color: 'rgba(255,255,255,0.7)' }}>{s.label}</Text>
+                      <Text size="xs" style={{ color: HERO_QUIET }}>{s.label}</Text>
                     </Stack>
                   ))}
                 </Group>
@@ -168,7 +182,7 @@ export function Login() {
                   <Box p={{ base: 24, sm: 36 }}>
                     <Stack gap="xl">
                       <Group gap={12} hiddenFrom="md">
-                        <LogoMark size={34} color="#000000" />
+                        <LogoMark size={34} color="var(--s-text)" />
                         <Text fw={700} size="lg">АВРОРА</Text>
                       </Group>
 
@@ -176,10 +190,10 @@ export function Login() {
                         <Badge
                           variant="light"
                           radius="xl"
-                          leftSection={<IconShieldLock size={13} />}
+                          leftSection={<IconShieldLock aria-hidden size={16} />}
                           style={{
                             background: 'var(--c-yellow)',
-                            color: '#000',
+                            color: 'var(--s-text)',
                             border: 'none',
                             width: 'fit-content',
                           }}
@@ -224,7 +238,7 @@ export function Login() {
                             h={52}
                             fullWidth
                             loading={loading}
-                            rightSection={<IconArrowRight size={18} />}
+                            rightSection={<IconArrowRight aria-hidden size={20} />}
                             loaderProps={{ type: 'dots' }}
                             mt="sm"
                           >

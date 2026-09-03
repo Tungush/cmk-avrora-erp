@@ -1,6 +1,7 @@
 import React from 'react';
 import { TextInput, Tooltip, Group } from '@mantine/core';
 import { IconLock } from '@tabler/icons-react';
+import { Icon } from './Icon';
 
 interface CalculatedFieldProps {
   label?: string;
@@ -20,7 +21,7 @@ export function CalculatedField({ label, value, className }: CalculatedFieldProp
         size="md"
         rightSection={
           <Group gap="xs" pr="sm">
-            <IconLock size={14} stroke={1.6} />
+            <Icon icon={IconLock} size={16} />
           </Group>
         }
         rightSectionPointerEvents="none"

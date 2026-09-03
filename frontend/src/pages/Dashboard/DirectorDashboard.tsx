@@ -21,7 +21,9 @@ import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import './Dashboard.css';
 
 const HEALTH_COLORS: Record<string, string> = {
-  OK: 'teal', WARN: 'yellow', CRITICAL: 'red', NO_COSTING: 'gray',
+  // Только цвета из темы: teal/yellow/red в ней не объявлены и падали
+  // на дефолтную палитру Mantine (03.09.2026)
+  OK: 'success', WARN: 'warning', CRITICAL: 'danger', NO_COSTING: 'gray',
 };
 const HEALTH_LABELS: Record<string, string> = {
   OK: 'в норме', WARN: 'ниже цели', CRITICAL: 'критично', NO_COSTING: 'нет калькуляции',
@@ -79,12 +81,12 @@ export function DirectorDashboard() {
 
   const { margin, needsDecision, money } = data;
   const decisions: Array<{ icon: React.ReactNode; label: string; count: number; to: string; color: string }> = [
-    { icon: <IconGavel size={18} />, label: 'Перехваты партий ждут решения', count: needsDecision.batchOverrides, to: '/warehouse?tab=batches', color: 'red' },
-    { icon: <IconReceipt size={18} />, label: 'Заявки на пересмотр цены', count: needsDecision.priceReviews, to: '/prices', color: 'orange' },
-    { icon: <IconClockExclamation size={18} />, label: 'Заявки на номенклатуру просрочили SLA', count: needsDecision.nomenclatureStuck, to: '/settings', color: 'orange' },
-    { icon: <IconFlask size={18} />, label: 'Партии в карантине цен', count: needsDecision.quarantineBatches, to: '/warehouse?tab=batches', color: 'yellow' },
-    { icon: <IconClockExclamation size={18} />, label: 'Резервы истекают в 3 дня', count: needsDecision.expiringReservations, to: '/warehouse?tab=batches', color: 'yellow' },
-    { icon: <IconInbox size={18} />, label: 'Новые заказы из 1С ждут приёма', count: needsDecision.inboxOrders, to: '/orders/inbox', color: 'blue' },
+    { icon: <IconGavel size={18} aria-hidden />, label: 'Перехваты партий ждут решения', count: needsDecision.batchOverrides, to: '/warehouse?tab=batches', color: 'danger' },
+    { icon: <IconReceipt size={18} aria-hidden />, label: 'Заявки на пересмотр цены', count: needsDecision.priceReviews, to: '/prices', color: 'warning' },
+    { icon: <IconClockExclamation size={18} aria-hidden />, label: 'Заявки на номенклатуру просрочили SLA', count: needsDecision.nomenclatureStuck, to: '/settings', color: 'warning' },
+    { icon: <IconFlask size={18} aria-hidden />, label: 'Партии в карантине цен', count: needsDecision.quarantineBatches, to: '/warehouse?tab=batches', color: 'warning' },
+    { icon: <IconClockExclamation size={18} aria-hidden />, label: 'Резервы истекают в 3 дня', count: needsDecision.expiringReservations, to: '/warehouse?tab=batches', color: 'warning' },
+    { icon: <IconInbox size={18} aria-hidden />, label: 'Новые заказы из 1С ждут приёма', count: needsDecision.inboxOrders, to: '/orders/inbox', color: 'brand' },
   ].filter((d) => d.count > 0);
 
   const paidPct = money.totalContracted > 0 ? (money.totalPaid / money.totalContracted) * 100 : 0;
@@ -112,7 +114,7 @@ export function DirectorDashboard() {
             key: 'decisions', label: 'Требует решения',
             value: decisionsTotal.toLocaleString('ru-RU'),
             hint: 'перехваты · цены · заявки', tone: 'danger',
-            icon: <IconAlertTriangle size={17} />,
+            icon: <IconAlertTriangle size={17} aria-hidden />,
             onClick: () => setTile('decisions'), active: tile === 'decisions',
           },
           {
@@ -120,21 +122,21 @@ export function DirectorDashboard() {
             value: margin.actualPct !== null ? `${margin.actualPct}%` : '—',
             hint: `цель ${margin.targetPct}% от цены · ${formatCompactMoney(margin.totalMargin)}`,
             tone: margin.actualPct !== null && margin.actualPct >= margin.targetPct ? 'ok' : 'warn',
-            icon: <IconScale size={17} />,
+            icon: <IconScale size={17} aria-hidden />,
             onClick: () => setTile('margin'), active: tile === 'margin',
           },
           {
             key: 'supplier', label: 'Мы должны поставщикам',
             value: formatCompactMoney(money.totalUnpaid),
             hint: `из ${formatCompactMoney(money.totalContracted)} по ДО закупа`,
-            tone: 'brand', icon: <IconReceipt size={17} />,
+            tone: 'brand', icon: <IconReceipt size={17} aria-hidden />,
             onClick: () => setTile('supplier'), active: tile === 'supplier',
           },
           {
             key: 'customer', label: 'Заказчики нам должны',
             value: cash ? formatCompactMoney(cash.receivables.owed) : '…',
             hint: 'по активным заказам, данные 1С',
-            icon: <IconBuildingBank size={17} />,
+            icon: <IconBuildingBank size={17} aria-hidden />,
             onClick: () => setTile('customer'), active: tile === 'customer',
           },
         ]}
@@ -193,7 +195,7 @@ export function DirectorDashboard() {
             {/* Заказчики нам должны (запрос «сам прогнозировал», 24.08.2026) */}
             <Card padding="md" radius="lg">
               <Group gap="xs" mb="sm">
-                <ThemeIcon variant="light" color="brand" radius="md"><IconBuildingBank size={18} /></ThemeIcon>
+                <ThemeIcon variant="light" color="brand" radius="md"><IconBuildingBank size={18} aria-hidden /></ThemeIcon>
                 <Text fw={800} size="lg">Заказчики (нам должны)</Text>
               </Group>
               {!cash ? (
@@ -214,7 +216,7 @@ export function DirectorDashboard() {
                   </Group>
                   {cash.receivables.ordersWithoutPaymentData > 0 && (
                     <Group gap={6} wrap="nowrap" align="flex-start">
-                      <IconInfoCircle size={14} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} />
+                      <IconInfoCircle size={14} style={{ marginTop: 2, flexShrink: 0, opacity: 0.6 }} aria-hidden />
                       <Text size="xs" c="dimmed">
                         По {cash.receivables.ordersWithoutPaymentData} из {cash.receivables.activeOrders} активных
                         заказов 1С не прислала данных об оплате — «должны нам» может быть занижено.

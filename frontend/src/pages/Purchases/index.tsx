@@ -55,10 +55,10 @@ export function Purchases() {
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       >
         <Tabs.List mb="sm">
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} />}>Что требует решения</Tabs.Tab>
-          <Tabs.Tab value="dashboard" leftSection={<IconChartBar size={15} />}>Разрезы</Tabs.Tab>
-          <Tabs.Tab value="registry" leftSection={<IconFileInvoice size={15} />}>Все заказы поставщику</Tabs.Tab>
-          <Tabs.Tab value="queue" leftSection={<IconShoppingCartPlus size={15} />}>На закуп</Tabs.Tab>
+          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid aria-hidden size={16} />}>Что требует решения</Tabs.Tab>
+          <Tabs.Tab value="dashboard" leftSection={<IconChartBar aria-hidden size={16} />}>Разрезы</Tabs.Tab>
+          <Tabs.Tab value="registry" leftSection={<IconFileInvoice aria-hidden size={16} />}>Все заказы поставщику</Tabs.Tab>
+          <Tabs.Tab value="queue" leftSection={<IconShoppingCartPlus aria-hidden size={16} />}>На закуп</Tabs.Tab>
         </Tabs.List>
 
         {/* Сводка влезает в экран целиком; разрезы и реестры длиннее —

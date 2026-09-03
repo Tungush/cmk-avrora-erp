@@ -25,9 +25,14 @@ const MOVEMENT_LABELS: Record<string, string> = {
   TO_PRODUCTION: 'в производство',
   CORRECTION: 'коррекция',
 };
+/**
+ * Пять чужих оттенков (teal / cyan / blue / orange) свелись к знаку
+ * движения (03.09.2026): в теме их нет, Mantine рисовала дефолтные.
+ * Приход — зелёным, расход — чернилами, коррекция — тихо.
+ */
 const MOVEMENT_COLORS: Record<string, string> = {
-  RECEIPT: 'teal', FROM_PRODUCTION: 'teal', RETURN: 'cyan',
-  SHIPMENT: 'blue', EXPENSE: 'orange', TO_PRODUCTION: 'orange', CORRECTION: 'gray',
+  RECEIPT: 'success', FROM_PRODUCTION: 'success', RETURN: 'success',
+  SHIPMENT: 'ink', EXPENSE: 'ink', TO_PRODUCTION: 'ink', CORRECTION: 'gray',
 };
 
 /**
@@ -85,7 +90,7 @@ function MovementModal({ opened, onClose }: { opened: boolean; onClose: () => vo
         message: `${res.article?.articleCode ?? ''} — ${num(Number(res.qty), 3)}`
           + (res.order?.orderNumber ? ` · заказ ${res.order.orderNumber}` : ''),
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       onClose();
       setQty(''); setOrderNumber('');
@@ -288,7 +293,7 @@ export function FinishedGoodsStock() {
             </Text>
           </Group>
           {canEdit && (
-            <Button leftSection={<IconPlus size={16} />} onClick={() => setModalOpen(true)}>
+            <Button leftSection={<IconPlus aria-hidden size={16} />} onClick={() => setModalOpen(true)}>
               Принять / отгрузить
             </Button>
           )}

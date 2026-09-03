@@ -3,6 +3,7 @@ import {
   Card, Stack, Group, Text, Badge, Button, NumberInput, TextInput, Skeleton,
 } from '@mantine/core';
 import { IconCheck, IconX, IconCoin } from '@tabler/icons-react';
+import { Icon } from './Icon';
 import { notifications } from '@mantine/notifications';
 import { usePriceReviews, useDecidePriceReview } from '../hooks/useRouting';
 import { useAuthStore } from '../store/auth';
@@ -29,7 +30,7 @@ function ReviewRow({ review }: { review: PriceReview }) {
           ? `${review.article.articleCode}: новый прайс ${formatCurrency(Number(newPrice))}`
           : `${review.article.articleCode}: прайс остаётся ${formatCurrency(Number(review.approvedPrice))}`,
         color: decision === 'approve' ? 'success' : 'gray',
-        icon: decision === 'approve' ? <IconCheck size={16} /> : <IconX size={16} />,
+        icon: decision === 'approve' ? <Icon icon={IconCheck} size={16} /> : <Icon icon={IconX} size={16} />,
       });
     } catch (e: any) {
       notifications.show({
@@ -90,7 +91,7 @@ function ReviewRow({ review }: { review: PriceReview }) {
             onClick={() => handle('approve')}
             loading={decide.isPending}
             disabled={!(Number(newPrice) > 0)}
-            leftSection={<IconCheck size={13} />}
+            leftSection={<Icon icon={IconCheck} size={16} />}
           >
             Утвердить
           </Button>
@@ -100,7 +101,7 @@ function ReviewRow({ review }: { review: PriceReview }) {
             color="gray"
             onClick={() => handle('reject')}
             loading={decide.isPending}
-            leftSection={<IconX size={13} />}
+            leftSection={<Icon icon={IconX} size={16} />}
           >
             Отклонить
           </Button>
@@ -129,7 +130,7 @@ export function PriceReviewsPanel() {
   return (
     <Card withBorder radius="md" padding="md">
       <Group gap="xs" mb="sm">
-        <IconCoin size={18} style={{ color: 'var(--mantine-color-warning-6)' }} />
+        <Icon icon={IconCoin} size={20} style={{ color: 'var(--mantine-color-warning-6)' }} />
         <Text fw={700} size="sm">Пересмотр цен — ждут решения</Text>
         <Badge variant="light" color="warning" radius="xl">{reviews.length}</Badge>
       </Group>

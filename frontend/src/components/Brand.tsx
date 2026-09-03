@@ -42,8 +42,10 @@ export function LogoMark({
 export function LogoLockup({
   onDark = false, markSize = 38,
 }: { onDark?: boolean; markSize?: number }) {
-  const primary = onDark ? '#FFFFFF' : 'var(--gray-9)';
-  const accent = onDark ? '#E16323' : 'var(--brand-6)';
+  // 03.09.2026: тёмная версия жила на сырых hex — белом и оранжевом
+  // #E16323, которого нет в палитре. Теперь оба тона — токены.
+  const primary = onDark ? 'var(--s-text-on-dark)' : 'var(--gray-9)';
+  const accent = onDark ? 'var(--s-attention-soft)' : 'var(--brand-6)';
   return (
     <Group gap={12} wrap="nowrap" align="center">
       <LogoMark size={markSize} color={accent} />
@@ -60,7 +62,13 @@ export function LogoLockup({
           size="xs"
           fw={600}
           lh={1}
-          style={{ letterSpacing: '0.3em', fontSize: 11, color: onDark ? 'rgba(255,255,255,0.55)' : 'var(--gray-5)' }}
+          style={{
+            letterSpacing: '0.3em',
+            fontSize: 11,
+            color: onDark
+              ? 'color-mix(in srgb, var(--s-text-on-dark) 60%, transparent)'
+              : 'var(--gray-5)',
+          }}
         >
           ЦМК·ERP
         </Text>

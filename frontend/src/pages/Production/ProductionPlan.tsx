@@ -25,8 +25,8 @@ export function ProductionPlan() {
 
       <Tabs value={tab} onChange={(v) => setTab(v ?? 'matrix')} radius="md">
         <Tabs.List mb="md">
-          <Tabs.Tab value="matrix" leftSection={<IconTable size={15} />}>По изделиям</Tabs.Tab>
-          <Tabs.Tab value="weekly" leftSection={<IconCalendarWeek size={15} />}>По неделям</Tabs.Tab>
+          <Tabs.Tab value="matrix" leftSection={<IconTable aria-hidden size={16} />}>По изделиям</Tabs.Tab>
+          <Tabs.Tab value="weekly" leftSection={<IconCalendarWeek aria-hidden size={16} />}>По неделям</Tabs.Tab>
         </Tabs.List>
         {/* Одна панель на текущую вкладку: содержимое сменяется растворением,
             а не мигает — и aria-связь вкладки с панелью сохраняется */}

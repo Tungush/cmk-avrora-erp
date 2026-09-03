@@ -76,7 +76,7 @@ function IssueModal({ opened, onClose, material }: { opened: boolean; onClose: (
         message: `${res.material?.materialCode ?? ''} — ${Number(res.qty)}`
           + (res.warehouse?.name ? ` · ${res.warehouse.name}` : ''),
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       onClose(); setQty(''); setOrderNumber('');
     },
@@ -272,7 +272,7 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
           <Group gap="sm" wrap="wrap">
             <TextInput
               placeholder="Код или наименование…"
-              leftSection={<IconSearch size={16} />}
+              leftSection={<IconSearch aria-hidden size={16} />}
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               w={300}
@@ -369,7 +369,7 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
                             <Button
                               size="compact-sm"
                               variant="light"
-                              leftSection={<IconArrowBarToDown size={14} />}
+                              leftSection={<IconArrowBarToDown aria-hidden size={16} />}
                               onClick={(e) => { e.stopPropagation(); setIssueFor(m); }}
                             >
                               Списать
@@ -411,7 +411,7 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
         padding="md"
         title={
           <Group gap="xs">
-            <IconHistory size={17} />
+            <IconHistory aria-hidden size={16} />
             <Text fw={700}>{selected?.materialCode} · {selected?.name}</Text>
           </Group>
         }

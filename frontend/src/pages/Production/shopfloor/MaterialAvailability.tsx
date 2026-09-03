@@ -62,7 +62,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
   }
   if (data.ok) {
     return (
-      <Badge size="lg" color="success" variant="light" radius="xl" leftSection={<IconCheck size={13} />}>
+      <Badge size="lg" color="success" variant="light" radius="xl" leftSection={<IconCheck aria-hidden size={16} />}>
         сырья хватает
       </Badge>
     );
@@ -78,7 +78,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
   return (
     <>
       <Group gap="sm" wrap="wrap">
-        <Badge size="lg" color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle size={13} />}>
+        <Badge size="lg" color="danger" variant="light" radius="xl" leftSection={<IconAlertTriangle aria-hidden size={16} />}>
           не хватает {shortages.length} позиций
         </Badge>
         <Button

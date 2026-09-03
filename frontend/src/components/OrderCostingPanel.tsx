@@ -4,6 +4,7 @@ import {
   Card, Stack, Group, Text, Badge, Table, Skeleton, Select, Tooltip, Progress, Button,
 } from '@mantine/core';
 import { IconFlask, IconCalculator, IconAlertTriangle } from '@tabler/icons-react';
+import { Icon } from './Icon';
 import { notifications } from '@mantine/notifications';
 import { costingsApi } from '../api/costings';
 import { ordersApi } from '../api/orders';
@@ -25,10 +26,11 @@ const PRICE_STATE_HINTS: Record<string, string> = {
   ORDERED: 'Цена из «Заказа поставщику» в 1С — заказано, но ещё не приехало.',
   ACTUAL: 'Цена из фактического прихода на склад — это то, что реально заплачено.',
 };
+/** Только цвета темы: 'cyan' и 'teal' в ней нет (03.09.2026) */
 const PRICE_STATE_COLORS: Record<string, string> = {
   ESTIMATE: 'gray',
-  ORDERED: 'cyan',
-  ACTUAL: 'teal',
+  ORDERED: 'ink',
+  ACTUAL: 'success',
 };
 
 /**
@@ -71,14 +73,14 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
         title: `Версия ${d.version} посчитана`,
         message: `Себестоимость ${formatCurrency(d.totalCost)} · цена ${formatCurrency(d.price)}`,
         color: 'success',
-        icon: <IconCalculator size={16} />,
+        icon: <Icon icon={IconCalculator} size={16} />,
       });
     },
     onError: (e: any) => notifications.show({
       title: 'Не посчиталось',
       message: e?.response?.data?.error?.message ?? e?.message ?? 'Ошибка расчёта',
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <Icon icon={IconAlertTriangle} size={16} />,
     }),
   });
 
@@ -91,7 +93,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
           Ещё не считалась. Расчёт возьмёт состав изделия, нормы труда и заведённый подряд.
         </Text>
         <Button
-          leftSection={<IconCalculator size={16} />}
+          leftSection={<Icon icon={IconCalculator} size={16} />}
           loading={build.isPending}
           onClick={() => build.mutate()}
         >
@@ -132,7 +134,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
             <Button
               size="compact-xs"
               variant="light"
-              leftSection={<IconCalculator size={13} />}
+              leftSection={<Icon icon={IconCalculator} size={16} />}
               loading={build.isPending}
               onClick={() => build.mutate()}
             >
@@ -169,7 +171,11 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
               </Stack>
               <Stack gap={0}>
                 <Text size="xs" c="dimmed">Маржа</Text>
-                <Text fw={700} ff="monospace" c={marginPctDisplay >= 30 ? 'teal.7' : marginPctDisplay >= 25 ? 'yellow.7' : 'red.7'}>
+                {/* Три тона свелись к двум плюс нейтральный: 'yellow' и
+                    'red' темой не объявлены, а warning с danger в нашей
+                    палитре — почти одна терракота. Норма — зелёным,
+                    допустимо — чернилами, ниже порога — вниманием */}
+                <Text fw={700} ff="monospace" c={marginPctDisplay >= 30 ? 'success.7' : marginPctDisplay >= 25 ? undefined : 'danger.7'}>
                   {marginPctDisplay.toFixed(1)}%
                 </Text>
               </Stack>
@@ -304,7 +310,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
       {hasReconciliation && (
         <Card withBorder radius="md" padding="md">
           <Group gap="xs" mb="xs">
-            <IconFlask size={16} />
+            <Icon icon={IconFlask} size={16} />
             <Text fw={700} size="sm">Подряд: журнал работ и сверка с актами 1С</Text>
           </Group>
           <Stack gap="sm">
@@ -315,7 +321,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                   <Group justify="space-between" mb={6} wrap="nowrap" gap="xs">
                     <Text size="sm" fw={600} truncate style={{ minWidth: 0, flex: 1 }}>{r.name}</Text>
                     <Badge
-                      color={r.status === 'MATCHED' ? 'teal' : r.status === 'WAITING_ACT' ? 'gray' : 'red'}
+                      color={r.status === 'MATCHED' ? 'success' : r.status === 'WAITING_ACT' ? 'gray' : 'danger'}
                       variant="light" radius="xl" style={{ flexShrink: 0 }}
                     >
                       {r.status === 'MATCHED' ? 'сходится' : r.status === 'WAITING_ACT' ? 'ждём акт' : `расхождение ${formatCurrency(Math.abs(r.delta))}`}
@@ -329,7 +335,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                     <Text size="xs" c="dimmed">Акт из 1С</Text>
                     <Text size="xs" ff="monospace">{r.acted > 0 ? formatCurrency(r.acted) : 'ещё нет'}</Text>
                   </Group>
-                  {r.acted > 0 && <Progress value={pct} size="sm" radius="xl" color={r.status === 'MATCHED' ? 'teal' : 'red'} />}
+                  {r.acted > 0 && <Progress value={pct} size="sm" radius="xl" color={r.status === 'MATCHED' ? 'success' : 'danger'} />}
                 </Card>
               );
             })}

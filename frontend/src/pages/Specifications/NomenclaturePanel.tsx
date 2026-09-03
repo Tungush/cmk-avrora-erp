@@ -57,7 +57,7 @@ export function RequestNomenclatureModal({
         title: 'Заявка отправлена',
         message: 'После одобрения номенклатуре будет присвоен артикул',
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       setReason('');
       onClose();
@@ -133,7 +133,7 @@ export function NomenclatureRequestsModal({
           ? `Присвоен артикул ${res?.article?.articleCode ?? '—'}`
           : 'Прайс и справочник не изменены',
         color: decision === 'approve' ? 'success' : 'gray',
-        icon: decision === 'approve' ? <IconCheck size={16} /> : <IconX size={16} />,
+        icon: decision === 'approve' ? <IconCheck aria-hidden size={16} /> : <IconX aria-hidden size={16} />,
       });
     } catch (e: any) {
       notifications.show({
@@ -178,7 +178,7 @@ export function NomenclatureRequestsModal({
                           <Group gap="xs" wrap="nowrap">
                             <Button
                               color="success"
-                              leftSection={<IconCheck size={15} />}
+                              leftSection={<IconCheck aria-hidden size={16} />}
                               onClick={() => handle(r.id, 'approve')}
                               loading={decide.isPending}
                             >
@@ -187,7 +187,7 @@ export function NomenclatureRequestsModal({
                             <Button
                               variant="light"
                               color="gray"
-                              leftSection={<IconX size={15} />}
+                              leftSection={<IconX aria-hidden size={16} />}
                               onClick={() => handle(r.id, 'reject')}
                               loading={decide.isPending}
                             >
@@ -228,7 +228,7 @@ export function NomenclatureRequestsButton() {
     <>
       <Button
         variant="default"
-        leftSection={<IconClipboardPlus size={16} />}
+        leftSection={<IconClipboardPlus aria-hidden size={16} />}
         onClick={() => setOpened(true)}
       >
         Заявки{pending > 0 ? ` (${pending})` : ''}

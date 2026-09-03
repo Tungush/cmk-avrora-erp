@@ -94,7 +94,7 @@ function BomRow({
           w={92}
           aria-label="Расход на единицу"
           styles={{ input: { textAlign: 'right', fontFamily: 'var(--ff-num)' } }}
-          rightSection={dirty ? <IconCheck size={14} style={{ color: 'var(--ok-6)' }} /> : undefined}
+          rightSection={dirty ? <IconCheck aria-hidden size={16} style={{ color: 'var(--ok-6)' }} /> : undefined}
         />
       ) : (
         <span className="bom-row__num">{num(Number(item.qtyPerUnit), 4)}</span>
@@ -110,9 +110,9 @@ function BomRow({
 
       {canEdit && (
         <Tooltip label="Убрать из состава">
-          <ActionIcon variant="subtle" color="danger" size={28}
+          <ActionIcon variant="subtle" color="danger" size={28} aria-label="Убрать из состава"
             onClick={() => remove.mutate(item.id)} loading={remove.isPending}>
-            <IconTrash size={15} />
+            <IconTrash aria-hidden size={16} />
           </ActionIcon>
         </Tooltip>
       )}
@@ -162,7 +162,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
       await addItem.mutateAsync({ materialId: newMaterialId, qtyPerUnit: Number(newQty), operationType: newOp });
       setNewMaterialId(null);
       setNewQty('');
-      notifications.show({ title: 'Позиция добавлена', message: 'Себестоимость пересчитана', color: 'success', icon: <IconCheck size={16} /> });
+      notifications.show({ title: 'Позиция добавлена', message: 'Себестоимость пересчитана', color: 'success', icon: <IconCheck aria-hidden size={16} /> });
     } catch (e: any) {
       notifications.show({
         title: 'Ошибка',
@@ -186,7 +186,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
           <Text size="md" ff="monospace" fw={700}>Материалы: {num(total)} ₸/ед.</Text>
           <Tooltip label="Учётная цена — средневзвешенная по приходам со склада. Приходы приезжают из заказов поставщику в 1С" multiline w={260}>
             <ActionIcon variant="subtle" color="gray" size="md" aria-label="Что такое учётная цена">
-              <IconInfoCircle size={18} />
+              <IconInfoCircle aria-hidden size={20} />
             </ActionIcon>
           </Tooltip>
         </Group>
@@ -252,7 +252,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
           />
           <Button
             size="md"
-            leftSection={<IconPlus size={16} />}
+            leftSection={<IconPlus aria-hidden size={16} />}
             onClick={handleAdd}
             disabled={!newMaterialId || !(Number(newQty) > 0)}
             loading={addItem.isPending}
@@ -262,7 +262,7 @@ export function BomPanel({ articleId }: { articleId: string }) {
         </Group>
       ) : (
         <Group gap="xs" mt="sm">
-          <IconLock size={14} style={{ color: 'var(--gray-5)' }} />
+          <IconLock aria-hidden size={16} style={{ color: 'var(--gray-5)' }} />
           <Text size="xs" c="dimmed">Состав меняет инженер (право bom:write)</Text>
         </Group>
       )}

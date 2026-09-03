@@ -85,14 +85,14 @@ export function ShopFloor() {
           title: 'Заказ изготовлен полностью',
           message: 'Все изделия готовы — заказ к отгрузке, сигнал в 1С поставлен в очередь',
           color: 'success',
-          icon: <IconCheck size={16} />,
+          icon: <IconCheck aria-hidden size={16} />,
         });
       } else {
         notifications.show({
           title: v.done ? 'Изготовлено' : 'Отметка снята',
           message: '',
           color: v.done ? 'success' : 'warning',
-          icon: v.done ? <IconCheck size={16} /> : <IconArrowBackUp size={16} />,
+          icon: v.done ? <IconCheck aria-hidden size={16} /> : <IconArrowBackUp aria-hidden size={16} />,
         });
       }
     },
@@ -156,7 +156,7 @@ export function ShopFloor() {
       value: groups.todo.length.toLocaleString('ru-RU'),
       hint: 'можно отметить прямо сейчас',
       tone: 'brand' as const,
-      icon: <IconTool size={16} />,
+      icon: <IconTool aria-hidden size={16} />,
       onClick: () => setSlice('todo'),
       active: slice === 'todo',
     },
@@ -166,7 +166,7 @@ export function ShopFloor() {
       value: groups.overdue.length.toLocaleString('ru-RU'),
       hint: 'срок вывоза уже прошёл',
       tone: 'danger' as const,
-      icon: <IconClock size={16} />,
+      icon: <IconClock aria-hidden size={16} />,
       onClick: () => setSlice('overdue'),
       active: slice === 'overdue',
     },
@@ -176,7 +176,7 @@ export function ShopFloor() {
       value: groups.blocked.length.toLocaleString('ru-RU'),
       hint: 'нет состава или норм труда',
       tone: 'warn' as const,
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
       onClick: () => setSlice('blocked'),
       active: slice === 'blocked',
     },
@@ -186,7 +186,7 @@ export function ShopFloor() {
       value: groups.done.length.toLocaleString('ru-RU'),
       hint: 'отметку можно снять',
       tone: 'ok' as const,
-      icon: <IconChecks size={16} />,
+      icon: <IconChecks aria-hidden size={16} />,
       onClick: () => setSlice('done'),
       active: slice === 'done',
     },
@@ -204,7 +204,7 @@ export function ShopFloor() {
       <Group gap="sm" wrap="nowrap">
         <TextInput
           placeholder="Изделие, № заказа или заказчик..."
-          leftSection={<IconSearch size={17} />}
+          leftSection={<IconSearch aria-hidden size={16} />}
           rightSection={isFetching && search ? <Loader size="xs" /> : undefined}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -324,7 +324,7 @@ function WorkRowView({
           </span>
         )}
         {p.contractors.length > 0 && (
-          <span className="worklist__chip" data-tone="warn"><IconTruck size={11} /> подряд</span>
+          <span className="worklist__chip" data-tone="warn"><IconTruck aria-hidden size={16} /> подряд</span>
         )}
         {blocked && !done && (
           <span className="worklist__chip" data-tone="danger">нет {specMissing}</span>
@@ -352,25 +352,25 @@ function WorkRowView({
 
         {canEdit && (done ? (
           <Button size="compact-sm" variant="default" h={44}
-            leftSection={<IconArrowBackUp size={15} />}
+            leftSection={<IconArrowBackUp aria-hidden size={16} />}
             loading={busy} onClick={() => onMark(false)}>
             Снять
           </Button>
         ) : blocked ? (
           <Button size="compact-sm" variant="light" color="danger" h={44}
             component={Link} to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
-            leftSection={<IconRuler2 size={15} />}>
+            leftSection={<IconRuler2 aria-hidden size={16} />}>
             Спецификация
           </Button>
         ) : (
           <Group gap={6} wrap="nowrap">
-            <Button size="compact-sm" h={44} leftSection={<IconCheck size={15} />}
+            <Button size="compact-sm" h={44} leftSection={<IconCheck aria-hidden size={16} />}
               loading={busy} onClick={() => onMark(true)}>
               Изготовлено
             </Button>
             <Tooltip label="Часы, подряд, обеспеченность" openDelay={400}>
               <ActionIcon variant="default" size={44} aria-label="Подробности" onClick={onDetails}>
-                <IconDots size={16} />
+                <IconDots aria-hidden size={16} />
               </ActionIcon>
             </Tooltip>
           </Group>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Table, Stack, Text, ThemeIcon, ScrollArea, Paper } from '@mantine/core';
 import { IconInbox } from '@tabler/icons-react';
+import { Icon } from './Icon';
 
 interface Column<T> {
   key: string;
@@ -54,7 +55,7 @@ export function DataTable<T>({
               <Table.Td colSpan={columns.length} p={48}>
                 <Stack align="center" gap="md">
                   <ThemeIcon variant="light" color="gray" size={56} radius="lg">
-                    <IconInbox size={28} stroke={1.5} />
+                    <Icon icon={IconInbox} size={24} />
                   </ThemeIcon>
                   <Text size="sm" c="dimmed" fw={500}>
                     {emptyMessage}

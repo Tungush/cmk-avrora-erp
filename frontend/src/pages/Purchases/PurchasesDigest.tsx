@@ -51,7 +51,7 @@ export function PurchasesDigest({
       <DigestCard
         title="Должны поставщикам"
         tone="danger"
-        icon={<IconCoin size={19} />}
+        icon={<IconCoin aria-hidden size={20} />}
         value={kpi?.owed.amount ?? 0}
         format={(v) => formatCompactMoney(v)}
         caption={kpi ? `по ${kpi.owed.docs} документам из ${kpi.owed.totalDocs}` : undefined}
@@ -71,7 +71,7 @@ export function PurchasesDigest({
       <DigestCard
         title="Висит больше 30 дней"
         tone="warn"
-        icon={<IconClockExclamation size={19} />}
+        icon={<IconClockExclamation aria-hidden size={20} />}
         value={kpi?.overdue30.amount ?? 0}
         format={(v) => formatCompactMoney(v)}
         caption={kpi
@@ -92,7 +92,7 @@ export function PurchasesDigest({
       <DigestCard
         title="Закуп за 30 дней"
         tone="brand"
-        icon={<IconTruckDelivery size={19} />}
+        icon={<IconTruckDelivery aria-hidden size={20} />}
         value={kpi?.spendMonth.amount ?? 0}
         format={(v) => formatCompactMoney(v)}
         caption={kpi
@@ -115,7 +115,7 @@ export function PurchasesDigest({
       <DigestCard
         title="Товар не пришёл"
         tone={kpi && kpi.noReceipt.docs > 0 ? 'warn' : 'ok'}
-        icon={<IconPackageOff size={19} />}
+        icon={<IconPackageOff aria-hidden size={20} />}
         value={kpi?.noReceipt.docs ?? 0}
         format={(v) => Math.round(v).toLocaleString('ru-RU')}
         caption={kpi

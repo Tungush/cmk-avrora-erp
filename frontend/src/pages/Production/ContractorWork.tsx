@@ -151,7 +151,7 @@ function ContractorModal({ onClose, onCreated }: {
         title: 'Подрядчик заведён',
         message: `«${c.name}» теперь можно ставить в заявки`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       onCreated(c.id);
     },
@@ -159,7 +159,7 @@ function ContractorModal({ onClose, onCreated }: {
       title: 'Не сохранено',
       message: apiErrorMessage(e, 'Ошибка сохранения подрядчика'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -302,7 +302,7 @@ function RequestFormModal({ editing, onClose }: {
           ? 'Разнесённые строки пересчитаны по новой ставке'
           : 'Отметьте её галочкой и отправьте в Б24 вместе с остальными',
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       onClose();
     },
@@ -310,7 +310,7 @@ function RequestFormModal({ editing, onClose }: {
       title: 'Не сохранено',
       message: apiErrorMessage(e, 'Ошибка сохранения заявки'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -402,7 +402,7 @@ function RequestFormModal({ editing, onClose }: {
             />
             <Button
               variant="default"
-              leftSection={<IconUserPlus size={16} />}
+              leftSection={<IconUserPlus aria-hidden size={16} />}
               onClick={() => setContractorModal(true)}
             >
               Завести подрядчика
@@ -516,7 +516,7 @@ function AllocateModal({ request, onClose }: {
             : null,
         ].filter(Boolean).join(' · '),
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       onClose();
     },
@@ -524,7 +524,7 @@ function AllocateModal({ request, onClose }: {
       title: 'Не разнесено',
       message: apiErrorMessage(e, 'Ошибка разнесения'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -703,7 +703,7 @@ function AcceptModal({ request, onClose }: {
             : null,
         ].filter(Boolean).join(' · '),
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       onClose();
     },
@@ -711,7 +711,7 @@ function AcceptModal({ request, onClose }: {
       title: 'Не принято',
       message: apiErrorMessage(e, 'Ошибка приёмки'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -777,7 +777,7 @@ function AcceptModal({ request, onClose }: {
         </SimpleGrid>
 
         {overflow && (
-          <Alert color="danger" variant="light" icon={<IconAlertTriangle size={16} />}>
+          <Alert color="danger" variant="light" icon={<IconAlertTriangle aria-hidden size={16} />}>
             <Text size="sm">
               По заказам разнесено {formatNumber(allocatedQty, 3)} {request.unit}, а принимается{' '}
               {formatNumber(Number(qty), 3)} — заказы поделили бы больше, чем подрядчик сдал.
@@ -791,7 +791,7 @@ function AcceptModal({ request, onClose }: {
           {isLoading ? (
             <Skeleton height={80} radius="sm" />
           ) : works.length === 0 ? (
-            <Alert color="warning" variant="light" icon={<IconAlertTriangle size={16} />}>
+            <Alert color="warning" variant="light" icon={<IconAlertTriangle aria-hidden size={16} />}>
               <Text size="sm">
                 Заявка не разнесена ни на один заказ — вся сумма повиснет в воздухе,
                 а штат на этом виде работ посчитается по норме целиком. Сначала «Разнести».
@@ -916,14 +916,14 @@ function AllocationsPanel({ request, canAllocate }: {
           ? `Пропорции пересчитаны, строк: ${res.recalculatedRows}`
           : 'Объём вернулся в нераспределённый остаток',
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
     },
     onError: (e) => notifications.show({
       title: 'Не снято',
       message: apiErrorMessage(e, 'Ошибка снятия разнесения'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -987,8 +987,9 @@ function AllocationsPanel({ request, canAllocate }: {
                         color="danger"
                         loading={remove.isPending && remove.variables === w.id}
                         onClick={() => remove.mutate(w.id)}
+                        aria-label="Снять разнесение"
                       >
-                        <IconTrash size={16} />
+                        <IconTrash aria-hidden size={16} />
                       </ActionIcon>
                     </Tooltip>
                   )}
@@ -1104,14 +1105,14 @@ function RequestsTab() {
         title: 'Заявка ушла в Б24',
         message: `Сделка №${res.dealId}: ${res.sent} заявок на ${formatCurrency(res.totalEstimate)}`,
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
     },
     onError: (e) => notifications.show({
       title: 'Не отправлено',
       message: apiErrorMessage(e, 'Ошибка отправки в Б24'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -1125,13 +1126,13 @@ function RequestsTab() {
       title: 'Не отменена',
       message: apiErrorMessage(e, 'Ошибка отмены'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
   if (error) {
     return (
-      <Alert color="danger" variant="light" icon={<IconAlertTriangle size={16} />}>
+      <Alert color="danger" variant="light" icon={<IconAlertTriangle aria-hidden size={16} />}>
         <Text size="sm">{apiErrorMessage(error, 'Не удалось загрузить заявки на подряд')}</Text>
       </Alert>
     );
@@ -1141,7 +1142,7 @@ function RequestsTab() {
     <Stack gap="md">
       {/* Самая опасная точка потока: деньги приняты и не сидят ни в одном заказе */}
       {data && data.unallocated.requests > 0 && (
-        <Alert color="danger" variant="light" icon={<IconAlertTriangle size={18} />}>
+        <Alert color="danger" variant="light" icon={<IconAlertTriangle aria-hidden size={20} />}>
           <Text size="sm" fw={600}>
             Принято на {formatCurrency(data.unallocated.amount)} и не разнесено ни на один
             заказ — штат на этих работах считается по норме целиком
@@ -1176,7 +1177,7 @@ function RequestsTab() {
         {canEdit && (
           <Button
             ml="auto"
-            leftSection={<IconPlus size={16} />}
+            leftSection={<IconPlus aria-hidden size={16} />}
             onClick={() => setCreating(true)}
           >
             Новая заявка
@@ -1195,7 +1196,7 @@ function RequestsTab() {
               )}
             </Text>
             <Button
-              leftSection={<IconSend size={16} />}
+              leftSection={<IconSend aria-hidden size={16} />}
               disabled={selected.size === 0}
               loading={send.isPending}
               onClick={() => send.mutate([...selected])}
@@ -1214,7 +1215,7 @@ function RequestsTab() {
         ) : sorted.length === 0 ? (
           <Stack align="center" gap="sm" py="xl">
             <ThemeIcon size={48} radius="xl" variant="light" color="gray">
-              <IconClipboardList size={26} />
+              <IconClipboardList aria-hidden size={24} />
             </ThemeIcon>
             <Text fw={700}>Заявок на подряд нет</Text>
             <Text size="sm" c="dimmed" ta="center" maw={460}>
@@ -1274,7 +1275,7 @@ function RequestsTab() {
                               onClick={() => setExpandedId(opened ? null : r.id)}
                               aria-label="Показать разнесение"
                             >
-                              {opened ? <IconChevronDown size={15} /> : <IconChevronRight size={15} />}
+                              {opened ? <IconChevronDown aria-hidden size={16} /> : <IconChevronRight aria-hidden size={16} />}
                             </ActionIcon>
                             <Text size="sm" fw={700} ff="monospace">{r.number}</Text>
                             <Badge
@@ -1409,18 +1410,18 @@ function RequestsTab() {
                                 : 'Принять акт — сумма заморозится и разойдётся по заказам'}>
                                 <ActionIcon
                                   variant={r.acceptedAt ? 'subtle' : 'light'}
-                                  color={r.acceptedAt ? 'gray' : 'teal'}
+                                  color={r.acceptedAt ? 'gray' : 'success'}
                                   onClick={() => setAccepting(r)}
                                   aria-label={r.acceptedAt ? 'Правка акта' : 'Принять акт'}
                                 >
-                                  <IconFileInvoice size={16} />
+                                  <IconFileInvoice aria-hidden size={16} />
                                 </ActionIcon>
                               </Tooltip>
                             )}
                             {canEdit && r.status !== 'CANCELLED' && (
                               <Tooltip label="Подрядчик, ставка, объём — их называют в Б24">
-                                <ActionIcon variant="subtle" color="gray" onClick={() => setEditing(r)}>
-                                  <IconPencil size={16} />
+                                <ActionIcon variant="subtle" color="gray" onClick={() => setEditing(r)} aria-label="Изменить заявку">
+                                  <IconPencil aria-hidden size={16} />
                                 </ActionIcon>
                               </Tooltip>
                             )}
@@ -1432,8 +1433,9 @@ function RequestsTab() {
                                   color="danger"
                                   loading={cancel.isPending && cancel.variables === r.id}
                                   onClick={() => cancel.mutate(r.id)}
+                                  aria-label="Отменить заявку"
                                 >
-                                  <IconX size={16} />
+                                  <IconX aria-hidden size={16} />
                                 </ActionIcon>
                               </Tooltip>
                             )}
@@ -1539,7 +1541,7 @@ function AllocatedTab() {
         title: 'Работа принята',
         message: 'Сумма заморожена — пересчёт калькуляции её больше не двигает',
         color: 'success',
-        icon: <IconCheck size={16} />,
+        icon: <IconCheck aria-hidden size={16} />,
       });
       setAccepting(null);
       setQty('');
@@ -1548,7 +1550,7 @@ function AllocatedTab() {
       title: 'Не принято',
       message: apiErrorMessage(e, 'Ошибка приёмки'),
       color: 'danger',
-      icon: <IconAlertTriangle size={16} />,
+      icon: <IconAlertTriangle aria-hidden size={16} />,
     }),
   });
 
@@ -1557,7 +1559,7 @@ function AllocatedTab() {
   if (error) {
     const status = (error as { response?: { status?: number } })?.response?.status;
     return (
-      <Alert color="danger" variant="light" icon={<IconAlertTriangle size={16} />}>
+      <Alert color="danger" variant="light" icon={<IconAlertTriangle aria-hidden size={16} />}>
         <Text size="sm">
           {status === 403
             ? 'Разнесённые работы видят плановик, менеджер, бухгалтер и директор — у вашей роли доступа нет. Заявки на вкладке рядом открыты.'
@@ -1588,7 +1590,7 @@ function AllocatedTab() {
             <Card key={c.id} withBorder radius="md" padding="md">
               <Group gap="xs" mb={6} wrap="nowrap">
                 <ThemeIcon variant="light" color="warning" radius="md" size="sm">
-                  <IconBuildingFactory size={14} />
+                  <IconBuildingFactory aria-hidden size={16} />
                 </ThemeIcon>
                 {/* Обёртка с truncate оставлена от прежнего заголовка: без неё
                     длинное имя распирает карточку в сетке */}
@@ -1641,7 +1643,7 @@ function AllocatedTab() {
         {data.data.length === 0 ? (
           <Stack align="center" gap="sm" py="xl">
             <ThemeIcon size={48} radius="xl" variant="light" color="gray">
-              <IconTruck size={26} />
+              <IconTruck aria-hidden size={24} />
             </ThemeIcon>
             <Text fw={700}>Подряда нет</Text>
             <Text size="sm" c="dimmed" ta="center" maw={440}>
@@ -1832,13 +1834,13 @@ export function ContractorWork() {
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       >
         <Tabs.List mb="sm">
-          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid size={15} />}>
+          <Tabs.Tab value="digest" leftSection={<IconLayoutGrid aria-hidden size={16} />}>
             Что требует решения
           </Tabs.Tab>
-          <Tabs.Tab value="requests" leftSection={<IconClipboardList size={15} />}>
+          <Tabs.Tab value="requests" leftSection={<IconClipboardList aria-hidden size={16} />}>
             Заявки
           </Tabs.Tab>
-          <Tabs.Tab value="allocated" leftSection={<IconListDetails size={15} />}>
+          <Tabs.Tab value="allocated" leftSection={<IconListDetails aria-hidden size={16} />}>
             Разнесено по заказам
           </Tabs.Tab>
         </Tabs.List>

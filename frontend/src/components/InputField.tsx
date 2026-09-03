@@ -1,6 +1,7 @@
 import React from 'react';
 import { TextInput } from '@mantine/core';
 import { IconPencil } from '@tabler/icons-react';
+import { Icon } from './Icon';
 
 interface InputFieldProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string;
@@ -14,7 +15,7 @@ export function InputField({ label, disabled, size = 'md', className, ...props }
       disabled={disabled}
       size={size}
       className={className}
-      rightSection={!disabled ? <IconPencil size={14} stroke={1.6} /> : null}
+      rightSection={!disabled ? <Icon icon={IconPencil} size={16} /> : null}
       rightSectionPointerEvents="none"
       {...props}
     />

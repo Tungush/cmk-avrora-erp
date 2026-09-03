@@ -6,6 +6,7 @@ import {
 import {
   IconAlertTriangle, IconCoin, IconRuler2, IconTruck, IconShoppingCart, IconScale,
 } from '@tabler/icons-react';
+import { Icon } from './Icon';
 import api from '../api/client';
 import { StatusBadge } from './StatusBadge';
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS } from '../utils/formatters';
@@ -76,7 +77,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="overdue"
-        icon={<IconAlertTriangle size={17} style={{ color: 'var(--err-6, #E53228)' }} />}
+        icon={<Icon icon={IconAlertTriangle} size={20} style={{ color: 'var(--s-attention)' }} />}
         title="Просроченные заказы"
         badge={<Badge color="danger" variant="light" radius="xl">{w.overdueOrders.count}</Badge>}
       >
@@ -99,7 +100,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="funnel"
-        icon={<IconShoppingCart size={17} style={{ color: 'var(--brand-6, #0057FF)' }} />}
+        icon={<Icon icon={IconShoppingCart} size={20} style={{ color: 'var(--s-text-faint)' }} />}
         title="Воронка по стадиям"
         badge={<Text size="xs" c="dimmed" ff="monospace">{funnelTotal.toLocaleString('ru-RU')}</Text>}
       >
@@ -125,7 +126,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="payment"
-        icon={<IconCoin size={17} style={{ color: 'var(--warn-6, #FF9500)' }} />}
+        icon={<Icon icon={IconCoin} size={20} style={{ color: 'var(--s-attention)' }} />}
         title="Ожидают оплаты"
         badge={<Badge color="warning" variant="light" radius="xl">{w.awaitingPayment.linesCount}</Badge>}
       >
@@ -139,7 +140,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="norms"
-        icon={<IconRuler2 size={17} style={{ color: 'var(--warn-6, #FF9500)' }} />}
+        icon={<Icon icon={IconRuler2} size={20} style={{ color: 'var(--s-attention)' }} />}
         title="Спецификации без норм труда"
         badge={<Badge color="warning" variant="light" radius="xl">{w.specsWithoutNorms.count.toLocaleString('ru-RU')}</Badge>}
       >
@@ -162,7 +163,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="deviations"
-        icon={<IconScale size={17} style={{ color: 'var(--info-6, #0B7FD4)' }} />}
+        icon={<Icon icon={IconScale} size={20} style={{ color: 'var(--s-text-faint)' }} />}
         title="Топ-расхождения «цена ↔ себестоимость»"
       >
         <Stack gap={4}>
@@ -196,7 +197,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="procurement"
-        icon={<IconShoppingCart size={17} style={{ color: 'var(--brand-6, #0057FF)' }} />}
+        icon={<Icon icon={IconShoppingCart} size={20} style={{ color: 'var(--s-text-faint)' }} />}
         title="Заявки на закуп"
       >
         <Group gap="sm">
@@ -214,7 +215,7 @@ export function RoleWidgets() {
     cards.push(
       <WidgetCard
         key="ship"
-        icon={<IconTruck size={17} style={{ color: 'var(--ok-6, #00A854)' }} />}
+        icon={<Icon icon={IconTruck} size={20} style={{ color: 'var(--s-ok)' }} />}
         title="К отгрузке"
         badge={<Badge color="success" variant="light" radius="xl">{w.readyToShip.count}</Badge>}
       >

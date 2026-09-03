@@ -98,7 +98,7 @@ export function Sites() {
         </Group>
         <TextInput
           placeholder="Площадка или заказчик..."
-          leftSection={<IconSearch size={16} />}
+          leftSection={<IconSearch aria-hidden size={16} />}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           size="sm"
@@ -110,22 +110,22 @@ export function Sites() {
         items={[
           {
             key: 'all', label: 'Площадок', value: groups.all.length.toLocaleString('ru-RU'),
-            hint: 'объект указан в заказе из 1С', icon: <IconAntenna size={17} />,
+            hint: 'объект указан в заказе из 1С', icon: <IconAntenna aria-hidden size={16} />,
             onClick: () => setSlice('all'), active: slice === 'all',
           },
           {
             key: 'overdue', label: 'С просрочкой', value: groups.overdue.length.toLocaleString('ru-RU'),
-            hint: 'срок вывоза прошёл', tone: 'danger', icon: <IconClockExclamation size={17} />,
+            hint: 'срок вывоза прошёл', tone: 'danger', icon: <IconClockExclamation aria-hidden size={16} />,
             onClick: () => setSlice('overdue'), active: slice === 'overdue',
           },
           {
             key: 'ready', label: 'Собраны полностью', value: groups.ready.length.toLocaleString('ru-RU'),
-            hint: 'все изделия изготовлены', tone: 'ok', icon: <IconCircleCheck size={17} />,
+            hint: 'все изделия изготовлены', tone: 'ok', icon: <IconCircleCheck aria-hidden size={16} />,
             onClick: () => setSlice('ready'), active: slice === 'ready',
           },
           {
             key: 'money', label: 'Сумма по объектам', value: formatCompactMoney(totalAmount),
-            hint: '₸ по позициям заказов', tone: 'brand', icon: <IconCurrencyTenge size={17} />,
+            hint: '₸ по позициям заказов', tone: 'brand', icon: <IconCurrencyTenge aria-hidden size={16} />,
           },
         ]}
       />
