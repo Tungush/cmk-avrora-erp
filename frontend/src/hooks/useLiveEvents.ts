@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '../store/auth';
 import { API_BASE } from '../api/base';
+import { isDesignMode } from '../dev/designMode';
 
 /**
  * Подписка на живые события (§3.4): пересчёт себестоимости в одном окне
@@ -14,6 +15,9 @@ export function useLiveCostUpdates() {
 
   useEffect(() => {
     if (!token) return;
+    // В режиме дизайна бэкенда нет вовсе: без этой проверки страница
+    // стучалась на /events/stream и получала 401 (03.09.2026)
+    if (isDesignMode()) return;
     const es = new EventSource(`${API_BASE}/events/stream?token=${encodeURIComponent(token)}`);
     es.onmessage = (e) => {
       try {

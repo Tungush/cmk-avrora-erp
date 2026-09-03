@@ -54,13 +54,13 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         icon={<IconClipboardList size={19} />}
         value={Number(unallocated.requests) || 0}
         caption={unallocated.requests > 0
-          ? `заявок на ${formatMoney(unallocated.amount)} ₸ висят партией — себестоимость заказов занижена`
+          ? `заявок на ${formatMoney(unallocated.amount)} висят партией — себестоимость заказов занижена`
           : 'все заявки разнесены по заказам'}
         loading={requests.isLoading}
         items={needAlloc.slice(0, 4).map((r) => ({
           id: r.id,
           label: `${r.number} · ${r.contractor?.name ?? 'подрядчик не выбран'}`,
-          value: `${formatMoney(r.totalAmount ?? r.estimatedAmount ?? 0)} ₸`,
+          value: `${formatMoney(r.totalAmount ?? r.estimatedAmount ?? 0)}`,
           sub: `${r.stageLabel} · принято ${r.acceptedAt ? formatDate(r.acceptedAt) : '—'}`
             + (r.daysSinceAccepted != null ? ` · ${r.daysSinceAccepted} дн назад` : ''),
           share: Number(r.totalAmount ?? r.estimatedAmount ?? 0) / maxAlloc,
@@ -97,13 +97,13 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
         icon={<IconChecks size={19} />}
         value={pendingAccept.length}
         caption={pendingAccept.length > 0
-          ? `строк на ${formatMoney(pendingAmount)} ₸ — пока не приняты, платить не за что`
+          ? `строк на ${formatMoney(pendingAmount)} — пока не приняты, платить не за что`
           : 'вся работа принята'}
         loading={work.isLoading}
         items={pendingAccept.slice(0, 4).map((r) => ({
           id: r.id,
           label: `${r.order?.orderNumber ?? '—'} · ${r.contractor?.name ?? '—'}`,
-          value: r.amount != null ? `${formatMoney(r.amount)} ₸` : '—',
+          value: r.amount != null ? `${formatMoney(r.amount)}` : '—',
           sub: `${r.routingStage} · ${r.workLocation === 'OUR_SHOP' ? 'у нас в цехе' : 'на площадке подрядчика'}`,
           // Строка начинается номером заказа — туда клик и ведёт
           onClick: r.order?.id
@@ -128,7 +128,7 @@ export function ContractorDigest({ onGoTab }: { onGoTab: (tab: string) => void }
           .map((c) => ({
             id: c.id,
             label: c.name,
-            value: `${formatMoney(c.amount)} ₸`,
+            value: `${formatMoney(c.amount)}`,
             sub: `принято ${num(c.accepted)} · открыто ${num(c.open)}`,
             share: Number(c.amount ?? 0) / maxContractor,
             onClick: () => openEntity({ kind: 'contractor', id: c.id ?? c.name, label: c.name }),

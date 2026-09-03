@@ -15,7 +15,7 @@ import { useAuthStore } from '../../store/auth';
 import { FadeSwap } from '../../components/motion';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { PulseRow } from '../../components/SectionHeader';
-import { FitScreen, useFitRows, usePageKeys, ROW_H } from '../../components/FitScreen';
+import { FitScreen, useFitRows, usePageKeys } from '../../components/FitScreen';
 import { MastLoader } from '../../components/Mast';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { Ref } from '../../components/EntityRef';
@@ -143,7 +143,8 @@ export function ShopFloor() {
   const visible = groups[slice];
 
   // Сколько строк влезло в свободную высоту — столько и показываем
-  const fit = useFitRows(ROW_H, 4, 40);
+  // 56 px — высота строки цеха: в неё помещается кнопка 44 px
+  const fit = useFitRows(56, 4, 40);
   const paged = usePagedList(visible, fit.rows, `${search}|${slice}|${fit.rows}`);
   const totalPages = Math.max(1, Math.ceil(paged.total / Math.max(1, fit.rows)));
   usePageKeys(paged.page, totalPages, paged.setPage);
@@ -317,7 +318,7 @@ function WorkRowView({
         {p.isDuplicateCode && <span className="worklist__chip">поз. {p.lineNo}</span>}
         {p.siteCode && (
           <span className="worklist__chip" data-tone="info">
-            <Ref kind="site" id={p.siteCode} label={p.siteCode} tone="text" size="11px" bold>
+            <Ref kind="site" id={p.siteCode} label={p.siteCode} tone="text" size="13px" bold>
               {p.siteCode}
             </Ref>
           </span>
@@ -350,25 +351,25 @@ function WorkRowView({
         </span>
 
         {canEdit && (done ? (
-          <Button size="compact-sm" variant="default" h={30}
+          <Button size="compact-sm" variant="default" h={44}
             leftSection={<IconArrowBackUp size={15} />}
             loading={busy} onClick={() => onMark(false)}>
             Снять
           </Button>
         ) : blocked ? (
-          <Button size="compact-sm" variant="light" color="danger" h={30}
+          <Button size="compact-sm" variant="light" color="danger" h={44}
             component={Link} to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
             leftSection={<IconRuler2 size={15} />}>
             Спецификация
           </Button>
         ) : (
           <Group gap={6} wrap="nowrap">
-            <Button size="compact-sm" h={30} leftSection={<IconCheck size={15} />}
+            <Button size="compact-sm" h={44} leftSection={<IconCheck size={15} />}
               loading={busy} onClick={() => onMark(true)}>
               Изготовлено
             </Button>
             <Tooltip label="Часы, подряд, обеспеченность" openDelay={400}>
-              <ActionIcon variant="default" size={30} aria-label="Подробности" onClick={onDetails}>
+              <ActionIcon variant="default" size={44} aria-label="Подробности" onClick={onDetails}>
                 <IconDots size={16} />
               </ActionIcon>
             </Tooltip>

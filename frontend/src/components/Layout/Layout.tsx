@@ -83,13 +83,17 @@ export function Layout() {
         <Sidebar onNavigate={close} collapsed={collapsed && !mobileOpened} />
       </AppShell.Navbar>
 
+      {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить
+          одиннадцать пунктов меню на каждом разделе (03.09.2026) */}
+      <a href="#main" className="skip-link">К содержимому</a>
+
       {/* Полоса загрузки и зерно живут поверх всего приложения */}
       <LoadBar />
       <div className="grain" aria-hidden />
 
       <AppShell.Main>
         {/* min-width:0 — иначе широкие таблицы растягивают main и ломают сетку */}
-        <Box style={{ minWidth: 0, maxWidth: '100%' }}>
+        <Box id="main" style={{ minWidth: 0, maxWidth: '100%' }}>
           {/* Смена раздела: новый экран поднимается с растворением, ключ —
               путь БЕЗ search-параметров, иначе открытие карточки заказа
               (?order=…) перезапускало бы весь экран */}

@@ -65,7 +65,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         icon={<IconGauge size={19} />}
         value={deficits.length}
         caption={deficits.length > 0
-          ? `изделий не хватает на складе ГП · ${formatMoney(deficitValue)} ₸`
+          ? `изделий не хватает на складе ГП · ${formatMoney(deficitValue)}`
           : 'все нормативы выполнены'}
         loading={minStock.isLoading}
         items={deficits.slice(0, 4).map((r) => ({
@@ -94,7 +94,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         items={anomalyRows.slice(0, 4).map((r) => ({
           id: r.batchId,
           label: `${r.material?.materialCode ?? '—'} · ${r.material?.name ?? ''}`,
-          value: `${formatMoney(r.unitPrice)} ₸`,
+          value: `${formatMoney(r.unitPrice)}`,
           sub: r.anomalyFactor ? `×${Number(r.anomalyFactor).toFixed(1)} к обычной цене · ${r.supplierName ?? 'поставщик не указан'}` : r.hint,
           onClick: r.material?.id
             ? () => openEntity({ kind: 'material', id: r.material.id, label: r.material.name })
@@ -110,7 +110,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
         icon={<IconClockExclamation size={19} />}
         value={expiringRows.length}
         caption={expiringRows.length > 0
-          ? `резервов истекают в 3 дня · ${formatMoney(expiringValue)} ₸ вернётся в общий остаток`
+          ? `резервов истекают в 3 дня · ${formatMoney(expiringValue)} вернётся в общий остаток`
           : 'ничего не истекает'}
         loading={expiring.isLoading}
         items={expiringRows.slice(0, 4).map((r) => ({

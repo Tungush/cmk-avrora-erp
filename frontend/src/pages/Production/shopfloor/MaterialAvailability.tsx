@@ -21,7 +21,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
   // Кнопка не шлёт вслепую: сначала карточка «что и сколько закупать»,
   // и только подтверждение кладёт дефицит в очередь (уточнение 26.08.2026)
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['order-availability', orderId],
     queryFn: () => api.get(`/orders/${orderId}/material-availability`).then((r) => r.data),
     staleTime: 60_000,
@@ -44,6 +44,19 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
   });
 
   if (isLoading) return <Skeleton height={26} width={180} radius="xl" />;
+  // Ответ с ошибкой приходит телом (адаптер режима дизайна и часть
+  // обработчиков отдают {error} при HTTP 200), и прежняя проверка его
+  // пропускала: дальше shortages.reduce падал на undefined и уносил ВЕСЬ
+  // раздел «Цех», потому что граница ошибок стоит на маршруте
+  // (03.09.2026, аудит по скилу)
+  if (isError || (data as any)?.error) {
+    return (
+      <Group gap={8} wrap="nowrap">
+        <Text size="sm" c="dimmed">обеспеченность не проверена</Text>
+        <Button size="compact-sm" variant="subtle" onClick={() => refetch()}>Повторить</Button>
+      </Group>
+    );
+  }
   if (!data || data.checkedMaterials === 0) {
     return <Text size="sm" c="dimmed">состав изделий не заведён</Text>;
   }
@@ -58,7 +71,7 @@ export function MaterialAvailability({ orderId, orderNumber }: { orderId: string
   const shortages: Array<{
     materialId: string; materialCode: string; name: string; unit: string;
     need: number; available: number; shortage: number; estimatedPrice: number;
-  }> = data.shortages;
+  }> = data.shortages ?? [];
   const totalEstimate = shortages.reduce((s, sh) => s + sh.shortage * sh.estimatedPrice, 0);
   const noPriceCount = shortages.filter((sh) => !(sh.estimatedPrice > 0)).length;
 

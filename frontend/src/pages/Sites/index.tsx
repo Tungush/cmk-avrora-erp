@@ -89,7 +89,7 @@ export function Sites() {
     <div>
       <Group justify="space-between" align="center" wrap="nowrap" gap="md" mb="sm">
         <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-          <Text fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+          <Text component="h1" fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
             <TextReveal text="Объекты" />
           </Text>
           <Text size="sm" c="dimmed" lineClamp={1}>

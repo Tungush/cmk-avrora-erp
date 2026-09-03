@@ -42,7 +42,7 @@ export function Warehouse() {
 
   const header = (
     <Group gap="sm" wrap="nowrap" align="baseline" style={{ minWidth: 0 }}>
-      <Text className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap' }}>
+      <Text component="h1" className="page-title" style={{ fontSize: 26, lineHeight: 1.1, whiteSpace: 'nowrap', margin: 0 }}>
         <TextReveal text="Склад" />
       </Text>
       <Text size="sm" c="dimmed" lineClamp={1}>

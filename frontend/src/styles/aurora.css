@@ -309,8 +309,8 @@ a:hover > .mantine-Card-root,
 .mantine-Select-input:focus, .mantine-Textarea-input:focus,
 .mantine-PasswordInput-input:focus-within {
   background: var(--ref-surface);
-  border-color: rgba(78, 127, 168, 0.55);
-  box-shadow: 0 0 0 3px rgba(216, 195, 165, 0.22);
+  border-color: var(--c-input-border-focus);
+  box-shadow: 0 0 0 3px rgba(154, 52, 18, 0.18);
 }
 
 /* ---------------------------------------------------------------
@@ -390,10 +390,13 @@ a:hover > .mantine-Card-root,
   color: var(--ref-ink);
   -webkit-text-fill-color: var(--ref-ink);
 }
-.pulse-tile[data-tone='brand']  .pulse-tile__value { color: var(--ref-coral-ink); -webkit-text-fill-color: var(--ref-coral-ink); }
-.pulse-tile[data-tone='ok']     .pulse-tile__value { color: var(--ref-green-ink); -webkit-text-fill-color: var(--ref-green-ink); }
-.pulse-tile[data-tone='warn']   .pulse-tile__value { color: var(--ref-amber-ink); -webkit-text-fill-color: var(--ref-amber-ink); }
-.pulse-tile[data-tone='danger'] .pulse-tile__value { color: var(--ref-coral-ink); -webkit-text-fill-color: var(--ref-coral-ink); }
+/* Тон красит число только у НЕактивной плитки: у активной подложка
+   тёмная, и тоновое правило перебивало белый текст — «142» в цеху
+   читалось 1,78:1 (03.09.2026, аудит по скилу) */
+.pulse-tile:not([data-active])[data-tone='brand']  .pulse-tile__value { color: var(--s-attention); -webkit-text-fill-color: var(--s-attention); }
+.pulse-tile:not([data-active])[data-tone='ok']     .pulse-tile__value { color: var(--s-ok); -webkit-text-fill-color: var(--s-ok); }
+.pulse-tile:not([data-active])[data-tone='warn']   .pulse-tile__value { color: var(--s-attention); -webkit-text-fill-color: var(--s-attention); }
+.pulse-tile:not([data-active])[data-tone='danger'] .pulse-tile__value { color: var(--s-attention); -webkit-text-fill-color: var(--s-attention); }
 
 .pulse-tile__icon {
   display: grid; place-items: center;
@@ -404,10 +407,10 @@ a:hover > .mantine-Card-root,
   border: 1px solid var(--ref-line);
   color: var(--ref-ink);
 }
-.pulse-tile[data-tone='brand']  .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
-.pulse-tile[data-tone='ok']     .pulse-tile__icon { background: rgba(74, 93, 58, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
-.pulse-tile[data-tone='warn']   .pulse-tile__icon { background: rgba(233, 128, 116, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
-.pulse-tile[data-tone='danger'] .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile:not([data-active])[data-tone='brand']  .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
+.pulse-tile:not([data-active])[data-tone='ok']     .pulse-tile__icon { background: rgba(74, 93, 58, 0.16);  border-color: transparent; color: var(--ref-green-ink); }
+.pulse-tile:not([data-active])[data-tone='warn']   .pulse-tile__icon { background: rgba(233, 128, 116, 0.16); border-color: transparent; color: var(--ref-amber-ink); }
+.pulse-tile:not([data-active])[data-tone='danger'] .pulse-tile__icon { background: rgba(233, 128, 116, 0.14); border-color: transparent; color: var(--ref-coral-ink); }
 
 /* ---------------------------------------------------------------
    8. Экран входа: тёмная сцена, стеклянная панель, свет за курсором
@@ -479,12 +482,12 @@ a:hover > .mantine-Card-root,
 .login-scene__glow--a {
   width: 54vmax; height: 54vmax; top: -22vmax; right: -18vmax;
   background: radial-gradient(circle, rgba(216, 195, 165, 0.30), transparent 62%);
-  animation: aurora-drift-a 24s ease-in-out infinite;
+  
 }
 .login-scene__glow--b {
   width: 40vmax; height: 40vmax; bottom: -18vmax; right: 12vw;
   background: radial-gradient(circle, rgba(233, 128, 116, 0.24), transparent 60%);
-  animation: aurora-drift-b 30s ease-in-out infinite;
+  
 }
 .login-scene__glow--c { display: none; }
 @keyframes aurora-drift-a { 0%,100% { transform: translate3d(0,0,0) scale(1); } 50% { transform: translate3d(-4vw,4vh,0) scale(1.1); } }
@@ -588,8 +591,11 @@ a:hover > .mantine-Card-root,
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 16px;
-  height: var(--row-h, 45px);
-  padding: 0 14px;
+  /* 56 px: кнопку «Изготовлено» жмут с планшета, а цель нажатия должна
+     быть не меньше 44 px — в строке 45 px она физически не помещалась
+     (03.09.2026, аудит по скилу) */
+  min-height: var(--row-h, 56px);
+  padding: 4px 14px;
   border-bottom: 1px solid var(--ref-line);
   transition: background-color .15s var(--ease-out);
 }
@@ -603,7 +609,7 @@ a:hover > .mantine-Card-root,
   height: 34px;
   padding: 0 14px;
   border-bottom: 1px solid var(--ref-line);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.07em;
   text-transform: uppercase;
@@ -617,7 +623,7 @@ a:hover > .mantine-Card-root,
   height: 22px;
   padding: 0 8px;
   border-radius: 999px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   background: var(--ref-surface-sub);
@@ -699,7 +705,7 @@ a:hover > .mantine-Card-root,
   font-variant-numeric: tabular-nums;
 }
 .head-pulse__item[data-tone='warn'] .head-pulse__value { color: var(--ref-amber-ink); }
-.head-pulse__label { font-size: 12px; color: var(--ref-muted); }
+.head-pulse__label { font-size: 13px; color: var(--ref-muted); }
 
 /* Изделия: список слева, редактор справа — обе колонки в высоту окна */
 .specs-split {
@@ -741,9 +747,9 @@ a:hover > .mantine-Card-root,
    поля (02.09.2026) */
 @container (max-width: 760px) {
   .stage-cell { padding: 8px; gap: 4px; }
-  .stage-cell .mantine-InputWrapper-label { font-size: 11px; margin-bottom: 1px; }
+  .stage-cell .mantine-InputWrapper-label { font-size: 13px; margin-bottom: 1px; }
   .stage-cell .mantine-Input-input { height: 28px; min-height: 28px; }
-  .stage-cell__calc { padding: 4px 8px; font-size: 12px; }
+  .stage-cell__calc { padding: 4px 8px; font-size: 13px; }
   .stage-cell__calc b { font-size: 14px; }
   /* Слагаемые себестоимости — в три колонки: два ряда вместо трёх */
   .cost-lines { grid-template-columns: repeat(auto-fit, minmax(178px, 1fr)); gap: 0 14px; }
@@ -781,7 +787,7 @@ a:hover > .mantine-Card-root,
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ref-muted);
   white-space: nowrap;
 }
@@ -810,8 +816,12 @@ a:hover > .mantine-Card-root,
 /* Мачта базовой станции — фирменный знак */
 .mast-beacon__dot { fill: var(--c-yellow); }
 .mast-beacon__halo { fill: var(--c-yellow); opacity: 0; }
-.mast-beacon .mast-beacon__dot { animation: mast-blink 2.6s ease-in-out infinite; }
-.mast-beacon .mast-beacon__halo { animation: mast-halo 2.6s ease-in-out infinite; }
+/* Маячок и блик мачты больше не мигают в покое: непрерывное движение в
+   периферийном зрении утомляет за смену (WCAG 2.2.2, аудит 03.09.2026).
+   Они оживают только когда движение включено пользователем и вкладка
+   активна — этим управляет data-motion на <html> */
+[data-motion='on'] .mast-beacon .mast-beacon__dot { animation: mast-blink 2.6s ease-in-out infinite; }
+[data-motion='on'] .mast-beacon .mast-beacon__halo { animation: mast-halo 2.6s ease-in-out infinite; }
 @keyframes mast-blink { 0%, 62%, 100% { opacity: 0.35; } 72%, 86% { opacity: 1; } }
 @keyframes mast-halo { 0%, 62%, 100% { opacity: 0; transform: scale(0.5); } 74% { opacity: 0.28; transform: scale(1); } 100% { opacity: 0; } }
 .mast-beacon__halo { transform-box: fill-box; transform-origin: center; }
@@ -863,14 +873,14 @@ a:hover > .mantine-Card-root,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.site-card__sub { font-size: 12px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-card__sub { font-size: 13px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site-card__stat { margin-top: 6px; font-family: var(--ff-num); white-space: nowrap; }
 .site-card__stat b { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .site-card__stat span { font-size: 13px; color: var(--ref-muted); margin-left: 3px; }
 .site-card__meta {
   display: flex;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ref-muted);
   font-family: var(--ff-num);
   margin-bottom: 6px;
@@ -921,14 +931,14 @@ a:hover > .mantine-Card-root,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.site-card__sub { font-size: 12px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-card__sub { font-size: 13px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site-card__stat { margin-top: 5px; font-family: var(--ff-num); white-space: nowrap; }
 .site-card__stat b { font-size: 21px; font-weight: 800; letter-spacing: -0.02em; }
-.site-card__stat span { font-size: 12px; color: var(--ref-muted); margin-left: 3px; }
+.site-card__stat span { font-size: 13px; color: var(--ref-muted); margin-left: 3px; }
 .site-card__meta {
   display: flex;
   gap: 10px;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ref-muted);
   font-family: var(--ff-num);
   margin-bottom: 5px;
@@ -968,7 +978,7 @@ a:hover > .mantine-Card-root,
 .bom-row--head {
   min-height: 32px;
   background: var(--ref-surface-sub);
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -995,7 +1005,7 @@ a:hover > .mantine-Card-root,
   white-space: nowrap;
 }
 .bom-row__sum { font-weight: 700; font-size: 14px; }
-.bom-row__unit { font-size: 12px; color: var(--ref-muted); text-align: right; }
+.bom-row__unit { font-size: 13px; color: var(--ref-muted); text-align: right; }
 /* Узкая панель — цена уходит, остаётся расход и стоимость */
 @container (max-width: 520px) {
   .bom-row__price { display: none; }
@@ -1028,13 +1038,18 @@ a:hover > .mantine-Card-root,
   transition: box-shadow .25s var(--ease-out);
 }
 .digest-card:hover { box-shadow: var(--ref-sh-hover); }
-.digest-card[data-tone='brand']  { background: var(--c-blue); color: #fff; border-color: transparent; }
-.digest-card[data-tone='brand'] .kpi-icon { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.16); color: #fff; }
-.digest-card[data-tone='brand'] .mantine-Text-root { color: rgba(255,255,255,.62) !important; }
-.digest-card[data-tone='brand'] .digest-item { border-color: rgba(255,255,255,.10); }
-.digest-card[data-tone='brand'] .digest-item__label { color: rgba(255,255,255,.9); }
-.digest-card[data-tone='brand'] .digest-item__bar { background: rgba(255,255,255,.14); }
-.digest-card[data-tone='brand'] .digest-item__bar i { background: var(--c-yellow); }
+/* Бежевая панель — светлая, поэтому текст по ней ЧЕРНИЛЬНЫЙ. Белый давал
+   1,41:1: заголовок карточки был почти невидим на шести разделах
+   (03.09.2026, аудит по скилу) */
+.digest-card[data-tone='brand']  { background: var(--s-panel); color: var(--s-text-on-panel); border-color: transparent; }
+.digest-card[data-tone='brand'] .kpi-icon { background: rgba(51,49,44,.08); border-color: rgba(51,49,44,.14); color: var(--s-text-on-panel); }
+.digest-card[data-tone='brand'] .mantine-Text-root { color: rgba(51,49,44,.72) !important; }
+.digest-card[data-tone='brand'] .digest-item { border-color: rgba(51,49,44,.14); }
+.digest-card[data-tone='brand'] .digest-item__label { color: var(--s-text-on-panel); }
+.digest-card[data-tone='brand'] .digest-item__value { color: var(--s-text-on-panel); }
+.digest-card[data-tone='brand'] .digest-item__sub { color: rgba(51,49,44,.68); }
+.digest-card[data-tone='brand'] .digest-item__bar { background: rgba(51,49,44,.14); }
+.digest-card[data-tone='brand'] .digest-item__bar i { background: var(--s-attention); }
 
 .digest-card__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .digest-card__value {
@@ -1049,7 +1064,7 @@ a:hover > .mantine-Card-root,
 /* Число всегда чёрное: состояние несёт полоса слева. Жёлтый как текст
    нечитаем, а разноцветные цифры в референсе не встречаются вовсе */
 .digest-card__value { color: var(--ref-ink); }
-.digest-card[data-tone='brand'] .digest-card__value { color: #fff; }
+.digest-card[data-tone='brand'] .digest-card__value { color: var(--s-text-on-panel); }
 
 .digest-card__body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .digest-item {
@@ -1067,7 +1082,9 @@ a:hover > .mantine-Card-root,
   cursor: pointer;
   width: 100%;
 }
-.digest-item:disabled { cursor: default; }
+/* Строка без действия не должна выглядеть кликабельной */
+.digest-item:disabled { cursor: default; opacity: .55; }
+.digest-item:disabled:hover .digest-item__label { color: inherit; }
 .digest-item:not(:disabled):hover .digest-item__label { color: var(--ref-coral-ink); }
 /* Имя виновника переносится на вторую строку, а не обрывается многоточием:
    «Металлобаза Астана, ТОО» и «Avrora Global trade, ТОО» в одну строку не
@@ -1091,7 +1108,7 @@ a:hover > .mantine-Card-root,
   white-space: nowrap;
 }
 .digest-item__value { font-family: var(--ff-num); font-size: 13px; font-weight: 700; white-space: nowrap; }
-.digest-item__sub { grid-column: 1 / -1; font-size: 11px; color: var(--ref-muted); }
+.digest-item__sub { grid-column: 1 / -1; font-size: 13px; color: var(--ref-muted); }
 .digest-item__bar {
   grid-column: 1 / -1;
   height: 4px;
@@ -1107,7 +1124,8 @@ a:hover > .mantine-Card-root,
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 36px;
+  /* 44 px — минимальная цель нажатия: эти кнопки жмут с планшета */
+  min-height: 44px;
   border-radius: 999px;
   border: none;
   background: var(--ref-ink);
@@ -1262,7 +1280,7 @@ a:hover > .mantine-Card-root,
 
 /* Мачта: по решётке раз в несколько секунд проходит блик — как отсвет
    солнца по оцинковке. Только на крупных мачтах, где он читается. */
-.mast-sweep { animation: mast-sweep 6.5s ease-in-out infinite; }
+[data-motion='on'] .mast-sweep { animation: mast-sweep 6.5s ease-in-out infinite; }
 @keyframes mast-sweep {
   0%, 62%, 100% { opacity: 0; transform: translateY(40%); }
   72%           { opacity: 0.55; }
@@ -1336,7 +1354,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   border-radius: 6px;
   background: var(--c-yellow);
   color: #000;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
@@ -1436,16 +1454,26 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
    (03.09.2026, «всё в сервисе должно быть кликабельно»)
    --------------------------------------------------------------- */
 
+/* Ссылка на сущность — цель нажатия, а не просто текст: без вертикального
+   поля её высота была 12–16 px, то есть ниже даже веб-минимума 24×24
+   (03.09.2026, аудит по скилу) */
 .ent-ref {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 0;
   background: none;
   border: none;
-  padding: 0;
   cursor: pointer;
   text-align: left;
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: color .14s var(--ease-out), border-color .14s var(--ease-out);
+}
+/* На планшете цеха цель растёт до полноценных 44 px */
+@media (hover: none) {
+  .ent-ref { min-height: 44px; padding: 10px 0; }
 }
 /* Идентификаторы НЕ красятся (03.09.2026). Единственный акцентный тон в
    системе означает «сюда смотреть» — просрочка, дефицит, долг. Если им же
@@ -1458,8 +1486,10 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   border-bottom: 1px dashed var(--s-line);
 }
 .ent-ref--text:hover { color: var(--s-attention); border-bottom-color: var(--s-attention); }
+/* Кольцо фокуса — цветом внимания: беж давал 1,38:1 на холсте, то есть
+   при работе с клавиатуры не было видно вовсе (03.09.2026) */
 .ent-ref:focus-visible {
-  outline: 2px solid var(--c-blue);
+  outline: 2px solid var(--s-focus);
   outline-offset: 2px;
   border-radius: 3px;
 }
@@ -1474,7 +1504,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   background: var(--ref-surface-sub);
 }
 .ent-stat__label {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -1504,7 +1534,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 .ent-row:first-child { border-top: none; }
 .ent-row__sub {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--ref-muted);
   margin-top: 2px;
   overflow: hidden;
@@ -1535,3 +1565,27 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .mantine-AppShell-navbar .nav-item svg { width: clamp(18px, 2.1vh, 21px); height: clamp(18px, 2.1vh, 21px); }
 /* На совсем низком окне подпись «Меню» уходит: место дороже */
 @media (max-height: 760px) { .nav-label { display: none; } }
+
+/* Ссылка «к содержимому»: не видна мышью, появляется по Tab */
+.skip-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 10001;
+  transform: translateY(-200%);
+  padding: 10px 16px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--s-action);
+  color: var(--s-text-on-dark);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform .16s var(--ease-out);
+}
+.skip-link:focus { transform: translateY(0); outline: 2px solid var(--s-focus); outline-offset: 2px; }
+
+/* Клавиши в подсказке поиска: Mantine ставит 12 px, пол системы — 13 */
+.mantine-Kbd-root { font-size: 13px; }

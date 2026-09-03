@@ -79,6 +79,17 @@ export function PaginationBar({
             siblings={variant === 'compact' ? 0 : 1}
             boundaries={1}
             withEdges={variant === 'full' && totalPages > 5}
+            /* Стрелки — кнопки без текста: скринридер объявлял просто
+               «кнопка». Имена обязательны (03.09.2026, аудит по скилу) */
+            getControlProps={(control) => ({
+              'aria-label': {
+                first: 'В начало',
+                previous: 'Предыдущая страница',
+                next: 'Следующая страница',
+                last: 'В конец',
+              }[control],
+            })}
+            getItemProps={(p) => ({ 'aria-label': `Страница ${p}` })}
           />
         )}
       </Group>

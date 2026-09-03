@@ -94,6 +94,13 @@ export function usePageKeys(page: number, totalPages: number, setPage: (p: numbe
       const t = e.target as HTMLElement | null;
       if (t && /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName)) return;
       if (t?.isContentEditable) return;
+      // Внутри вкладок, радиогрупп, списков и сегментов стрелки по ARIA
+      // обязаны двигать выбор, а не листать страницу (03.09.2026)
+      if (t?.closest?.(
+        '[role="tablist"],[role="tab"],[role="radiogroup"],[role="radio"],'
+        + '[role="listbox"],[role="option"],[role="menu"],[role="slider"],'
+        + '.mantine-SegmentedControl-root,.mantine-Slider-root'
+      )) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'ArrowRight' || e.key === 'PageDown') { e.preventDefault(); go(1); }
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') { e.preventDefault(); go(-1); }

@@ -84,7 +84,7 @@ h1, h2, h3, h4, h5, h6, p {
   --chart-tick: #66625A;
 
   /* Типографика: 6 размеров, больше не нужно */
-  --fz-xs: 12px;  /* подписи, метки колонок */
+  --fz-xs: 13px;  /* подписи, метки колонок — ниже 13 не опускаемся */
   --fz-sm: 14px;  /* таблицы, вспомогательный текст */
   --fz-md: 15px;  /* основной */
   --fz-lg: 17px;  /* заголовки карточек */
@@ -175,7 +175,7 @@ h1, h2, h3, h4, h5, h6, p {
 .mantine-Table-td .mantine-Badge-root {
   height: 22px;
   padding: 0 8px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   border-radius: var(--r-sm);
 }
@@ -348,7 +348,7 @@ textarea.input-field {
 }
 
 .table-container th {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -441,6 +441,9 @@ textarea.input-field {
   *, *::before, *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    /* Без этого анимация с infinite не останавливается, а лишь ускоряется
+       в сто тысяч раз — цикл продолжает грузить компоновщик (03.09.2026) */
+    animation-iteration-count: 1 !important;
   }
 }
 
@@ -757,9 +760,12 @@ textarea.input-field {
 [data-motion='off'] *, [data-motion='off'] *::before, [data-motion='off'] *::after {
   transition-duration: 0.01ms !important;
   animation-duration: 0.01ms !important;
+  /* Цикл надо именно ОСТАНОВИТЬ: одна только нулевая длительность
+     оставляет бесконечную анимацию крутиться (03.09.2026) */
+  animation-iteration-count: 1 !important;
 }
 
-/* Бейджи: ничего мельче 12 px, даже если страница просит size="xs"/"sm" —
+/* Бейджи: ничего мельче 13 px, даже если страница просит size="xs"/"sm" —
    max() поверх переменных Mantine, инлайновые vars так не перебить иначе */
 .mantine-Badge-root { height: max(var(--badge-height), 24px); }
-.mantine-Badge-label { font-size: max(var(--badge-fz), 12px); }
+.mantine-Badge-label { font-size: max(var(--badge-fz), 13px); }

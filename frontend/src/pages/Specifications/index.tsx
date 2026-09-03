@@ -816,7 +816,7 @@ export function Specifications() {
   const header = (
     <Group justify="space-between" align="center" wrap="nowrap" gap="md">
       <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }}>
-        <Text fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
+        <Text component="h1" fw={800} style={{ fontSize: 22, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
           <TextReveal text="Изделия" />
         </Text>
         <Text size="sm" c="dimmed" lineClamp={1}>
