@@ -1829,40 +1829,89 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .mast-solid[data-on-dark] .ms-base { fill: color-mix(in srgb, var(--s-text-on-panel) 22%, transparent); }
 
 /* ---------------------------------------------------------------
-   Изделия: рабочая вкладка «нормы и состав» (04.09.2026)
+   Изделия: чистый экран, подробности по клику (04.09.2026)
 
-   Себестоимость — это материалы ПЛЮС труд, но лежали они по разным
-   вкладкам: инженер правил часы, не видя материалов, и не понимал,
-   откуда сумма. Теперь обе половины рядом, итог по ним — снизу во всю
-   ширину.
+   Владелец: «убрать материалы, чтобы много деталей не было, а по
+   желанию пользователь при нажатии видел всё». Состав стоял второй
+   колонкой рядом с нормами — экран был плотным независимо от того,
+   нужен состав сейчас или нет.
 
-   Три передела в ряд требуют около 620 px; состав живёт в оставшемся.
-   Порог 1400 px, а не 1280: на ноутбуке 1280 редактору достаётся ~810 px,
-   и при делении надвое нормам оставалось 433 — три передела туда не
-   влезают, поля ввода сжимались до нечитаемых. Ниже порога колонки
-   встают друг под друга: нормам вся ширина, состав под ними.
+   По умолчанию видно только работу — нормы — и полосу из четырёх чисел.
+   Раскрытая подробность занимает оставшуюся высоту; пока ничего не
+   раскрыто, места не занимает вовсе.
    --------------------------------------------------------------- */
 .specs-work {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr) auto;
-  grid-template-areas: 'norms bom' 'total total';
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   height: 100%;
   min-height: 0;
 }
-.specs-work__norms { grid-area: norms; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.specs-work__bom   { grid-area: bom;   min-width: 0; min-height: 0; display: flex; flex-direction: column; }
-.specs-work__total { grid-area: total; min-width: 0; }
-.specs-work__bom > * { flex: 1; min-height: 0; }
-
-@media (max-width: 1399px) {
-  .specs-work {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'norms' 'bom' 'total';
-    grid-template-rows: auto minmax(0, 1fr) auto;
-  }
+.specs-work__norms { flex: 0 0 auto; min-width: 0; }
+.specs-detail {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
+.specs-detail > * { flex: 1; min-height: 0; }
+
+/* Полоса фактов: четыре числа, три раскрываются кликом по себе же */
+.fact-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.fact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 10px 14px;
+  min-height: 62px;
+  border-radius: 12px;
+  border: 1px solid var(--s-line);
+  background: var(--s-surface);
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color .15s var(--ease-out), border-color .15s var(--ease-out);
+}
+.fact:disabled { cursor: default; }
+.fact:not(:disabled):hover { background: var(--s-surface-quiet); }
+.fact[data-active] { background: var(--s-action); border-color: transparent; }
+.fact__label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--s-text-quiet);
+}
+.fact__value {
+  font-family: var(--ff-num);
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--s-text);
+  white-space: nowrap;
+}
+.fact[data-strong] .fact__value { font-size: 20px; color: var(--s-attention); }
+.fact__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--s-text-quiet);
+}
+.fact[data-active] .fact__label,
+.fact[data-active] .fact__value,
+.fact[data-active] .fact__hint { color: var(--s-text-on-dark); }
+/* Стрелка поворачивается, когда панель раскрыта: состояние видно
+   формой, а не только цветом */
+.fact__chev { transition: transform .18s var(--ease-out); }
+.fact[data-active] .fact__chev { transform: rotate(180deg); }
+
 
 /* Очередь работы на экране «Изделия»: пилюли со счётчиками (04.09.2026).
    Это не фильтр «на всякий случай», а сам список задач инженера —
@@ -1902,3 +1951,21 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   color: var(--s-text);
 }
 .specs-queue button[data-active] .specs-queue__n { color: var(--s-text-on-dark); }
+
+/* «Где применяется» — ссылка у названия, а не клетка в полосе фактов:
+   у неё нет числа, и пустая четвёртая клетка рядом с тремя
+   заполненными читалась неровно (04.09.2026) */
+.specs-usage-link {
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  min-height: 24px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--s-text-quiet);
+  border-bottom: 1px dashed var(--s-line-strong);
+  cursor: pointer;
+}
+.specs-usage-link:hover,
+.specs-usage-link[data-active] { color: var(--s-attention); border-bottom-color: var(--s-attention); }

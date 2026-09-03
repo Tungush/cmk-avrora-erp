@@ -381,35 +381,68 @@ function StageTable({
  * ноутбуке возвращал прокрутку — он переехал в свою вкладку, а здесь
  * осталось то, ради чего инженер и правит норму.
  */
-function CostStrip({ articleId }: { articleId: string }) {
+/**
+ * Полоса фактов: четыре числа, три из них раскрываются (04.09.2026).
+ *
+ * Владелец: «убрать материалы, чтобы много деталей не было, а по желанию
+ * пользователь при нажатии видел всё». До этого состав лежал во второй
+ * колонке рядом с нормами, и экран был плотным независимо от того,
+ * нужен состав сейчас или нет.
+ *
+ * Теперь по умолчанию на экране только работа — нормы — и четыре числа
+ * итога. Что стоит за числом, открывается кликом по нему же: состав за
+ * материалами, разбор формулы за себестоимостью, заказы за применением.
+ * Открыто всегда не больше одного: две развёрнутые панели вернули бы ту
+ * же плотность, от которой уходим.
+ */
+function CostStrip({
+  articleId, open, onOpen,
+}: {
+  articleId: string;
+  open: string | null;
+  onOpen: (key: string | null) => void;
+}) {
   const { data, isLoading } = useCosting(articleId);
   const can = useAuthStore((s) => s.can);
   if (!can('read', 'routing.cost')) return null;
-  if (isLoading || !data) return <Skeleton height={52} radius="lg" />;
+  if (isLoading || !data) return <Skeleton height={62} radius="lg" />;
 
   const { result, explain } = data;
   const items = [
-    { label: 'Материалы', value: `${num(result.materialCost)} ₸` },
-    { label: 'Трудозатраты', value: `${num(result.laborCost)} ₸` },
-    { label: 'Себестоимость', value: `${num(result.totalCost)} ₸`, strong: true },
-    { label: 'Трудоёмкость', value: `${num(explain.totalManHours, 3)} ч` },
+    { key: 'bom', label: 'Материалы', value: `${num(result.materialCost)} ₸`, hint: 'состав изделия' },
+    { key: null, label: 'Трудозатраты', value: `${num(result.laborCost)} ₸`, hint: `${num(explain.totalManHours, 3)} ч` },
+    { key: 'cost', label: 'Себестоимость', value: `${num(result.totalCost)} ₸`, strong: true, hint: 'как посчитано' },
   ];
+  // «Где применяется» из полосы убрано: у него нет числа, и пустая
+  // четвёртая клетка рядом с тремя заполненными читалась неровно.
+  // Оно переехало ссылкой к названию изделия (04.09.2026).
 
   return (
-    <Card withBorder radius="lg" padding="xs">
-      <div className="cost-strip">
-        {items.map((it) => (
-          <div className="cost-strip__item" key={it.label} data-strong={it.strong ? 'true' : undefined}>
-            <Text size="xs" c="dimmed" tt="uppercase" fw={700} style={{ letterSpacing: '0.06em' }}>
-              {it.label}
-            </Text>
-            <Text fw={800} ff="var(--ff-num)" style={{ fontSize: it.strong ? 19 : 16, whiteSpace: 'nowrap' }}>
-              {it.value}
-            </Text>
-          </div>
-        ))}
-      </div>
-    </Card>
+    <div className="fact-strip">
+      {items.map((it) => {
+        const clickable = it.key != null;
+        const active = clickable && open === it.key;
+        return (
+          <button
+            key={it.label}
+            type="button"
+            className="fact"
+            data-strong={it.strong ? 'true' : undefined}
+            data-active={active ? 'true' : undefined}
+            disabled={!clickable}
+            aria-expanded={clickable ? active : undefined}
+            onClick={() => clickable && onOpen(active ? null : it.key)}
+          >
+            <span className="fact__label">{it.label}</span>
+            {it.value && <span className="fact__value">{it.value}</span>}
+            <span className="fact__hint">
+              {it.hint}
+              {clickable && <IconChevronDown size={14} aria-hidden className="fact__chev" />}
+            </span>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -798,7 +831,8 @@ export function Specifications() {
   // страницу списка её там уже нет, а шапка редактора должна остаться
   const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
   const [historyOpened, setHistoryOpened] = useState(false);
-  const [activeTab, setActiveTab] = useState<string>('work');
+  /** Какая подробность раскрыта: null — экран чистый, только работа */
+  const [openDetail, setOpenDetail] = useState<string | null>(null);
   /**
    * Очередь работы (04.09.2026, просьба владельца пересмотреть страницу).
    *
@@ -936,47 +970,45 @@ export function Specifications() {
               {noBom && (
                 <span className="worklist__chip" data-tone="danger">нет состава</span>
               )}
+              <button
+                type="button"
+                className="specs-usage-link"
+                aria-expanded={openDetail === 'usage'}
+                data-active={openDetail === 'usage' ? 'true' : undefined}
+                onClick={() => setOpenDetail(openDetail === 'usage' ? null : 'usage')}
+              >
+                где применяется
+              </button>
             </Group>
           ) : <Skeleton height={28} width={320} radius="sm" mb="xs" />}
 
-          {/* Нормы и состав СОЕДИНЕНЫ в одну рабочую вкладку (04.09.2026).
-              Себестоимость — это материалы ПЛЮС труд, а они лежали по
-              разным вкладкам: инженер правил часы, не видя материалов, и
-              не мог понять, почему сумма такая. Разбор цены и «где
-              применяется» остались вкладками — они справочные, в них не
-              работают. */}
-          <Tabs value={activeTab} onChange={(v) => setActiveTab(v ?? 'work')} radius="md" keepMounted={false}>
-            <Tabs.List>
-              <Tabs.Tab value="work">Нормы и состав</Tabs.Tab>
-              <Tabs.Tab value="cost">Разбор цены</Tabs.Tab>
-              <Tabs.Tab value="usage">Где применяется</Tabs.Tab>
-            </Tabs.List>
-          </Tabs>
+
 
           <div className="specs-editor__body">
-            <FadeSwap swapKey={`${activeId ?? 'none'}-${activeTab}`}>
-              {!activeId ? null
-                : activeTab === 'cost' ? <CostingPanel articleId={activeId} />
-                  : activeTab === 'usage' ? <UsagePanel articleId={activeId} />
-                    : (
-                      /* Рабочая вкладка: слева нормы, справа состав, снизу
-                         итог по обоим. Инженер правит часы и сразу видит,
-                         во что это вылилось вместе с материалами. */
-                      <div className="specs-work">
-                        <div className="specs-work__norms">
-                          {routingLoading || !routing
-                            ? <Skeleton height={220} radius="lg" />
-                            : <StageTable stages={routing.stages} articleId={activeId} />}
-                        </div>
-                        <div className="specs-work__bom">
-                          <BomPanel articleId={activeId} />
-                        </div>
-                        <div className="specs-work__total">
-                          <CostStrip articleId={activeId} />
-                        </div>
-                      </div>
-                    )}
-            </FadeSwap>
+            {!activeId ? null : (
+              <div className="specs-work">
+                {/* Нормы — это и есть работа: они на экране всегда */}
+                <div className="specs-work__norms">
+                  {routingLoading || !routing
+                    ? <Skeleton height={220} radius="lg" />
+                    : <StageTable stages={routing.stages} articleId={activeId} />}
+                </div>
+
+                <CostStrip articleId={activeId} open={openDetail} onOpen={setOpenDetail} />
+
+                {/* Подробность по требованию. Пока ничего не раскрыто,
+                    место не занимается вовсе — экран остаётся чистым */}
+                {openDetail && (
+                  <div className="specs-detail">
+                    <FadeSwap swapKey={`${activeId}-${openDetail}`} style={{ height: '100%' }}>
+                      {openDetail === 'bom' ? <BomPanel articleId={activeId} />
+                        : openDetail === 'cost' ? <CostingPanel articleId={activeId} />
+                          : <UsagePanel articleId={activeId} />}
+                    </FadeSwap>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
