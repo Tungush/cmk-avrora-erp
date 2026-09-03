@@ -484,10 +484,15 @@ a:hover > .mantine-Card-root,
 .login-hero__text { position: relative; z-index: 2; max-width: 500px; }
 .login-hero .login-mast {
   position: absolute;
-  right: -78px;
-  bottom: -24px;
+  /* Вышка уведена дальше за край и приглушена до водяного знака
+     (04.09.2026). Решётчатая была прозрачной — текст читался сквозь
+     ферму. Плотный силуэт светлой заливкой поднимал фон под белым
+     текстом, и «цена» с «3 866» пропадали. Знак остаётся фоном, а не
+     спорит с тем, ради чего человек пришёл на экран. */
+  right: -150px;
+  bottom: -40px;
   z-index: 1;
-  opacity: 0.8;
+  opacity: 0.22;
 }
 .login-form-side {
   position: relative;
