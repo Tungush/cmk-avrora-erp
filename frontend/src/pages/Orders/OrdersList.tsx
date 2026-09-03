@@ -1,41 +1,50 @@
 import React from 'react';
-import { Stack, Text, Tabs } from '@mantine/core';
-import { IconTable, IconChartBar } from '@tabler/icons-react';
+import { Stack } from '@mantine/core';
+import { IconTable, IconChartBar, IconLayoutGrid } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { OrdersRegistry } from './OrdersRegistry';
 import { OrdersDashboard } from './OrdersDashboard';
 import { FadeSwap } from '../../components/motion';
+import { SectionHead } from '../../components/SectionHeader';
 
+/**
+ * Три вида раздела — один ряд вкладок (04.09.2026).
+ *
+ * Раньше видов тоже было три, но выбирались они в ДВУХ местах: здесь
+ * стояли «Реестр / Дашборд», а внутри реестра — второй переключатель
+ * «Что требует решения / Реестр · 384». Вместе с блоком названия это
+ * съедало 154 px до первой строки данных, и владелец справедливо сказал,
+ * что реестром пользоваться неудобно: из 384 заказов было видно шесть
+ * строк. Два переключателя делали одну работу, поэтому сведены в один.
+ */
 export function OrdersList() {
-  // Вкладка в адресе — ссылки с других экранов могут вести сразу на дашборд
+  // Вид в адресе — ссылки с других экранов ведут сразу куда нужно
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') ?? 'registry';
+  const tab = params.get('tab') ?? 'digest';
   const setTab = (v: string) => setParams((prev) => {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
 
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
-      <Stack gap={4}>
-        <Text fw={900} style={{ fontSize: 'clamp(22px, 2.4vw, 28px)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-          Заказы
-        </Text>
-        <Text size="sm" c="dimmed">
-          Реестр с пресетами колонок и карточкой по клику — вместо 66 столбцов вправо
-        </Text>
-      </Stack>
+      <SectionHead
+        title="Заказы"
+        subtitle="карточка по клику — вместо 66 столбцов вправо"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: 'digest', label: 'Что требует решения', icon: <IconLayoutGrid aria-hidden size={16} /> },
+          { value: 'registry', label: 'Реестр', icon: <IconTable aria-hidden size={16} /> },
+          { value: 'dashboard', label: 'Дашборд', icon: <IconChartBar aria-hidden size={16} /> },
+        ]}
+      />
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'registry')} radius="md">
-        <Tabs.List>
-          <Tabs.Tab value="registry" leftSection={<IconTable aria-hidden size={16} />}>Реестр</Tabs.Tab>
-          <Tabs.Tab value="dashboard" leftSection={<IconChartBar aria-hidden size={16} />}>Дашборд</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
-
-      {/* Содержимое вкладки живёт вне Tabs.Panel: так смена вкладки
-          анимируется, а не «мигает» — старое растворяется, новое поднимается */}
+      {/* Содержимое вида живёт вне Tabs.Panel: так смена анимируется,
+          а не «мигает» — старое растворяется, новое поднимается */}
       <FadeSwap swapKey={tab}>
-        {tab === 'dashboard' ? <OrdersDashboard /> : <OrdersRegistry />}
+        {tab === 'dashboard'
+          ? <OrdersDashboard />
+          : <OrdersRegistry view={tab === 'registry' ? 'list' : 'digest'} onViewChange={(v) => setTab(v === 'list' ? 'registry' : 'digest')} />}
       </FadeSwap>
     </Stack>
   );

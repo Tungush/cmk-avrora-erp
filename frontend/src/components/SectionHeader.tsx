@@ -43,6 +43,73 @@ export function PageHeader({
   );
 }
 
+export interface SectionTab {
+  value: string;
+  label: string;
+  icon?: React.ReactNode;
+}
+
+/**
+ * Шапка раздела в ОДНУ строку: название, пояснение и вкладки (04.09.2026).
+ *
+ * До этого обвязка раздела занимала три уровня по вертикали: блок с
+ * названием и пояснением, под ним вкладки «Реестр / Дашборд», под ними
+ * ещё один переключатель «Что требует решения / Реестр · 384». Два
+ * переключателя делали одну работу — выбирали, что показать, — и вместе
+ * с блоком названия съедали 154 px до первой строки данных. В реестре из
+ * 384 заказов на экран влезало шесть строк.
+ *
+ * Теперь это одна строка: название слева, вкладки справа. Пояснение
+ * стоит рядом с названием, а не отдельной строкой под ним, — оно
+ * прочитывается один раз и дальше только занимает место.
+ *
+ * Все виды раздела — равноправные вкладки одного ряда. Вложенных
+ * переключателей больше нет: если вид один из трёх, он и должен
+ * выбираться в одном месте.
+ */
+export function SectionHead({
+  title, subtitle, tabs, value, onChange, actions,
+}: {
+  title: string;
+  subtitle?: string;
+  tabs?: SectionTab[];
+  value?: string;
+  onChange?: (v: string) => void;
+  actions?: React.ReactNode;
+}) {
+  return (
+    <div className="section-head">
+      <div className="section-head__title">
+        <Text component="h1" className="page-title" fw={900}
+          style={{ fontSize: 'clamp(21px, 2.1vw, 26px)', lineHeight: 1.15, letterSpacing: '-0.025em', margin: 0 }}>
+          {title}
+        </Text>
+        {subtitle && <Text size="sm" c="dimmed" className="section-head__sub">{subtitle}</Text>}
+      </div>
+
+      {tabs && tabs.length > 0 && (
+        <div className="view-switch" role="tablist">
+          {tabs.map((t) => (
+            <button
+              key={t.value}
+              type="button"
+              role="tab"
+              aria-selected={value === t.value}
+              data-active={value === t.value ? 'true' : undefined}
+              onClick={() => onChange?.(t.value)}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {actions && <Group gap="sm" wrap="nowrap" className="section-head__actions">{actions}</Group>}
+    </div>
+  );
+}
+
 export type PulseTone = 'neutral' | 'brand' | 'ok' | 'warn' | 'danger';
 
 export interface PulseItem {
@@ -104,7 +171,11 @@ export function PulseRow({ items, loading, compact }: { items: PulseItem[]; load
                 {it.icon && <span className="pulse-tile__icon">{it.icon}</span>}
               </Group>
               <div className="pulse-tile__value">{it.value}</div>
-              {it.hint && (
+              {/* Пояснение — только в полном виде. В компактной пилюле оно
+                  не помещается: четыре пилюли с пояснениями переносятся на
+                  вторую строку и съедают ещё 32 px у таблицы. Подпись рядом
+                  с числом и так называет фильтр (04.09.2026). */}
+              {it.hint && !compact && (
                 <Text size="xs" c="dimmed" mt={4} lineClamp={1} style={{ textAlign: 'left' }}>
                   {it.hint}
                 </Text>

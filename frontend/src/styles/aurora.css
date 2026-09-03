@@ -1677,6 +1677,12 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  /* Подложки у строки фильтров нет: она была нужна, когда плитки
+     выглядели карточками отчёта. Пилюли держат форму сами, а 16 px
+     отступа с каждой стороны — это 32 px, отнятые у таблицы. */
+  padding: 0;
+  background: none;
+  border-radius: 0;
 }
 .pulse-row[data-compact] .pulse-tile {
   display: inline-flex;
@@ -1694,8 +1700,6 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 /* Значка в компактной пилюле нет: подпись рядом и так называет фильтр,
    а 32 px на каждой из четырёх пилюль — это лишняя строка переноса. */
 .pulse-row[data-compact] .pulse-tile__icon { display: none; }
-/* Пояснение под числом в пилюле не помещается и не нужно: рядом подпись */
-.pulse-row[data-compact] .pulse-tile__hint { display: none; }
 .pulse-row[data-compact] .pulse-tile[data-clickable]:hover { transform: none; box-shadow: var(--ref-sh); }
 /* Пилюля шириной по содержимому. Без этого внутренняя Group с
    justify="space-between" растягивала плитку на всю строку, и четыре
@@ -1728,3 +1732,41 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .digest-card[data-variant='metric'] .kpi-icon svg { width: 18px; height: 18px; }
 /* Полоса-акцент слева у показателя не нужна: он ничего не требует */
 .digest-card[data-variant='metric']::after { display: none; }
+
+/* ---------------------------------------------------------------
+   Шапка раздела в одну строку (04.09.2026)
+
+   Было три уровня по вертикали: название с пояснением, вкладки, ещё
+   один переключатель. Вместе — 154 px до первой строки данных, и в
+   реестре из 384 заказов помещалось шесть строк.
+
+   Стало: название слева, вкладки справа, пояснение рядом с названием.
+   На узком экране вкладки переносятся под название — но только там,
+   где иначе не помещаются.
+   --------------------------------------------------------------- */
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.section-head__title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+/* Пояснение — рядом с названием и в одну строку: оно прочитывается
+   один раз, дальше только занимает место */
+.section-head__sub {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.section-head__actions { flex: 0 0 auto; }
+@media (max-width: 900px) {
+  .section-head__sub { display: none; }
+}

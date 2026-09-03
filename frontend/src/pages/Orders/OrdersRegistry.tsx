@@ -19,7 +19,6 @@ import { useQueries } from '@tanstack/react-query';
 import { ordersApi } from '../../api/orders';
 import { PulseRow } from '../../components/SectionHeader';
 import { DigestCard, DigestGrid } from '../../components/Digest';
-import { ViewSwitch } from '../../components/ViewSwitch';
 import { IconClockExclamation, IconInbox, IconTruckDelivery, IconLayoutGrid } from '@tabler/icons-react';
 import { TableScroll } from '../../components/TableScroll';
 import { useFitHeight } from '../../components/FitScreen';
@@ -168,7 +167,13 @@ function useSliceCounts() {
   };
 }
 
-export function OrdersRegistry() {
+export function OrdersRegistry({ view, onViewChange }: {
+  /** Вид выбирается ВЫШЕ, одним рядом вкладок вместе с «Дашбордом»
+      (04.09.2026): раньше здесь стоял второй переключатель, и два ряда
+      делали одну работу, съедая высоту у таблицы */
+  view: 'digest' | 'list';
+  onViewChange: (v: 'digest' | 'list') => void;
+}) {
   const can = useAuthStore((s) => s.can);
   const { open: openCard } = useOrderCard();
   // < 768px: таблица превращается в ленту карточек (§4.6)
@@ -195,8 +200,6 @@ export function OrdersRegistry() {
    */
   const fit = useFitHeight(42, 220);
   const [viewName, setViewName] = useState('');
-  // Реестр открывается сводкой решений, а не таблицей на 384 строки
-  const [view, setView] = useState<'digest' | 'list'>('digest');
   const [saveViewOpened, setSaveViewOpened] = useState(false);
 
   const { data: savedViews } = useSavedViews('orders');
@@ -270,18 +273,11 @@ export function OrdersRegistry() {
 
   const openList = (slice: 'all' | 'overdue' | 'new' | 'ready') => {
     applySlice(slice);
-    setView('list');
+    onViewChange('list');
   };
 
   return (
     <Stack gap="md" style={{ minWidth: 0 }}>
-      <ViewSwitch
-        value={view}
-        onChange={setView}
-        digestLabel="Что требует решения"
-        listLabel={`Реестр · ${fmt(meta ? total : null)}`}
-      />
-
       {view === 'digest' ? (
         <DigestGrid>
           <DigestCard
