@@ -266,7 +266,13 @@ function StageRow({
     <div className="stage-cell">
       <div className="stage-cell__head">
         <StageIcon size={16} aria-hidden />
-        <Text size="sm" fw={700} lh={1.2} style={{ flex: 1, minWidth: 0 }} lineClamp={1}>{row.label}</Text>
+        {/* h2, а не просто текст (04.09.2026, аудит design-review): на всей
+            странице был один заголовок — h1 «Изделия», — и структуры для
+            скринридера не существовало вовсе. Уровень именно второй:
+            передел и «Состав изделия» — соседние разделы, а h3 после h1
+            дал бы пропуск уровня. Вид не меняется. */}
+        <Text component="h2" size="sm" fw={700} lh={1.2} m={0}
+          style={{ flex: 1, minWidth: 0 }} lineClamp={1}>{row.label}</Text>
         {!row.exists && (
           <Tooltip label="Норма не задана — себестоимость труда встанет в ноль">
             <IconAlertTriangle aria-hidden size={16} style={{ color: 'var(--ref-amber-ink)', flexShrink: 0 }} />
@@ -335,7 +341,11 @@ function StageRow({
         </Popover>
 
         {canNorm && (
-          <Button size="compact-sm" h={28} onClick={handleSaveNorm}
+          /* 36 px, а не 28 (04.09.2026, аудит design-review): «Сохранить» —
+             главное действие экрана норм, а стояло мельче второстепенного
+             окружения. Пилюли очереди 34 px, клетки фактов 62 — выходило,
+             что чем действие важнее, тем оно мельче. Иерархия наоборот. */
+          <Button size="compact-sm" h={36} onClick={handleSaveNorm}
             disabled={!dirty || w <= 0}
             loading={previewNorm.isPending || saveNorm.isPending}>
             Сохранить
@@ -504,7 +514,8 @@ function CostingPanel({ articleId }: { articleId: string }) {
   return (
     <Card withBorder radius="lg" padding="sm">
       <Group justify="space-between" mb={6}>
-        <Text fw={700} size="sm">Влияние на себестоимость</Text>
+        {/* h2: заголовок раскрытой панели */}
+        <Text component="h2" fw={700} size="sm" m={0}>Влияние на себестоимость</Text>
         <Tooltip label="Формулы листа «Спецификации 2022»: труд = Σ(чел × часы × ставка); логистика 3 % и энергия 1 % от материалов; маржа 10 %" multiline w={320}>
           <ActionIcon variant="subtle" color="gray" size="md" aria-label="Как считается себестоимость"><IconHelpCircle aria-hidden size={20} /></ActionIcon>
         </Tooltip>

@@ -179,7 +179,8 @@ export function BomPanel({ articleId }: { articleId: string }) {
       style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
       <Group justify="space-between" mb="sm" wrap="wrap" gap="xs">
         <Group gap="xs">
-          <Text fw={700} size="md">Состав изделия</Text>
+          {/* h2: заголовок раскрытой панели (04.09.2026, аудит design-review) */}
+          <Text component="h2" fw={700} size="md" m={0}>Состав изделия</Text>
           <Badge variant="light" color="gray" size="lg" h={22} px={8}>{items.length} позиций</Badge>
         </Group>
         <Group gap={6} wrap="nowrap">

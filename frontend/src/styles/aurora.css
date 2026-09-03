@@ -1969,3 +1969,16 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 .specs-usage-link:hover,
 .specs-usage-link[data-active] { color: var(--s-attention); border-bottom-color: var(--s-attention); }
+
+/* Пагинация: минимальная цель нажатия (04.09.2026, аудит design-review).
+   Стрелки «предыдущая/следующая» выходили 16 px в ширину при высоте 26 —
+   попасть мышью трудно, а пальцем на планшете невозможно. 32 px — не
+   сенсорный минимум 44 (пагинация не главное действие), но и не щель. */
+.mantine-Pagination-control {
+  min-width: 32px;
+  min-height: 32px;
+}
+@media (hover: none) {
+  /* На сенсорном экране пагинацией пользуются пальцем — полный минимум */
+  .mantine-Pagination-control { min-width: 44px; min-height: 44px; }
+}
