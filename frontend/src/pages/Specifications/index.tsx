@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import {
   Stack, Group, Text, Card, NumberInput, Select, Button, Badge,
-  Skeleton, Box, Progress, Divider, ActionIcon, Tooltip, Modal, Table, Tabs,
+  Skeleton, Box, Divider, ActionIcon, Tooltip, Modal, Table, Tabs,
   Popover, UnstyledButton,
 } from '@mantine/core';
 import {
@@ -415,6 +415,9 @@ function CostStrip({ articleId }: { articleId: string }) {
 /** Строки-итоги: их показываем крупно и отдельно от слагаемых */
 const TOTAL_LINES = new Set(['Себестоимость', 'Расчётная цена']);
 
+/** Не слагаемые себестоимости: маржа берётся от ЦЕНЫ, доля ей не считается */
+const NON_COST_LINES = new Set(['Маржа']);
+
 /** Панель «Влияние на себестоимость» — разбор формулы вместо =VLOOKUP(...) */
 function CostingPanel({ articleId }: { articleId: string }) {
   const { data, isLoading } = useCosting(articleId);
@@ -473,30 +476,42 @@ function CostingPanel({ articleId }: { articleId: string }) {
         </Tooltip>
       </Group>
 
-      <Progress.Root size={14} radius="md" mb={10}>
-        {parts.filter((p) => p.value > 0).map((p) => (
-          <Progress.Section key={p.label} value={(p.value / total) * 100} color={p.color}>
-            {p.value / total > 0.2 && (
-              <Progress.Label style={{ fontSize: 10 }}>{Math.round((p.value / total) * 100)}%</Progress.Label>
-            )}
-          </Progress.Section>
-        ))}
-      </Progress.Root>
+      {/* Сложенной полосы здесь больше нет (04.09.2026).
+          Она делила ширину между четырьмя слагаемыми, но материалы дают
+          95 % — и три остальных сегмента выходили 15, 27 и 9 px, то есть
+          нечитаемыми щепками. Процент был напечатан ПОВЕРХ полосы шрифтом
+          10 px, а те же самые числа стоят строкой ниже. Полоса не
+          добавляла ничего, кроме шума, поэтому доля переехала к каждой
+          строке — там она точна и читается. */}
 
       {/* Слагаемые — в две колонки, итоги — отдельной строкой снизу.
           В столбик они занимали пол-экрана и выталкивали панель за край */}
       <div className="cost-lines">
-        {explain.lines.filter((l) => !TOTAL_LINES.has(l.label)).map((line) => (
-          <div className="cost-lines__row" key={line.label}>
-            <div style={{ minWidth: 0 }}>
-              <Text size="sm" truncate>{line.label}</Text>
-              {line.formula && <Text size="xs" c="dimmed" truncate>{line.formula}</Text>}
+        {explain.lines.filter((l) => !TOTAL_LINES.has(l.label)).map((line) => {
+          /* Доля считается ОТ СЕБЕСТОИМОСТИ, поэтому маржа сюда не входит:
+             она берётся от цены, и рядом с «Материалы 95 %» её «54 %»
+             читались бы как часть той же сотни. Сумма долей должна
+             сходиться к 100, иначе цифра врёт. */
+          const share = total > 0 && !NON_COST_LINES.has(line.label)
+            ? (line.value / total) * 100
+            : 0;
+          return (
+            <div className="cost-lines__row" key={line.label}>
+              <div style={{ minWidth: 0 }}>
+                <Text size="sm" truncate>{line.label}</Text>
+                {line.formula && <Text size="xs" c="dimmed" truncate>{line.formula}</Text>}
+              </div>
+              <Text size="sm" fw={500} ff="var(--ff-num)" style={{ whiteSpace: 'nowrap' }}>
+                {num(line.value)} ₸
+                {/* Доля — рядом с числом, а не поверх полосы. Меньше 0,5 %
+                    не пишем: «0 %» рядом с суммой сбивает с толку. */}
+                {share >= 0.5 && (
+                  <Text span size="xs" c="dimmed" ml={8}>{Math.round(share)} %</Text>
+                )}
+              </Text>
             </div>
-            <Text size="sm" fw={500} ff="var(--ff-num)" style={{ whiteSpace: 'nowrap' }}>
-              {num(line.value)} ₸
-            </Text>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="cost-totals">
