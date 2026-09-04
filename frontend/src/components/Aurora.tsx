@@ -1,71 +1,18 @@
 import { useEffect } from 'react';
 
 /**
- * Слой света (02.09.2026).
+ * Фон приложения (04.09.2026).
  *
- * Под интерфейсом медленно дышит градиентное сияние, а панели — матовое
- * стекло, сквозь которое оно видно. За курсором идёт тёплое пятно, и
- * стеклянные поверхности ловят его кромкой: интерфейс ощущается
- * материалом, а не картинкой.
- *
- * Всё держится на двух CSS-переменных, которые пишет ОДИН обработчик
- * указателя: React при движении мыши не перерисовывается вовсе.
+ * Раньше здесь жил слой света: за курсором шло размытое пятно, а
+ * стеклянные поверхности ловили его кромкой. Владелец попросил убрать —
+ * и правильно: пятно двигалось всё время, пока рука на мыши, то есть
+ * нарушало правило «ничего не движется в покое», и заставляло глаз
+ * следить за собой вместо данных. Обработчик pointermove снят целиком:
+ * на каждое движение мыши больше не пишутся CSS-переменные и не
+ * запускается кадр анимации.
  */
-
-/** Пишет --cursor-x/--cursor-y холсту и --mx/--my стеклу под курсором */
-export function useCursorLight() {
-  useEffect(() => {
-    if (window.matchMedia('(pointer: coarse)').matches) return; // на тач-экране света нет
-    const root = document.documentElement;
-    let raf = 0;
-    let x = 0;
-    let y = 0;
-    let lit: HTMLElement | null = null;
-
-    const paint = () => {
-      raf = 0;
-      root.style.setProperty('--cursor-x', `${x}px`);
-      root.style.setProperty('--cursor-y', `${y}px`);
-      if (lit) {
-        const r = lit.getBoundingClientRect();
-        lit.style.setProperty('--mx', `${x - r.left}px`);
-        lit.style.setProperty('--my', `${y - r.top}px`);
-      }
-    };
-
-    const onMove = (e: PointerEvent) => {
-      x = e.clientX;
-      y = e.clientY;
-      const target = e.target as Element | null;
-      // Стеклянная поверхность под курсором: карточка, панель входа
-      const next = target?.closest?.('.mantine-Card-root, .glass-lit, .login-card') as HTMLElement | null;
-      if (next !== lit) {
-        lit?.style.removeProperty('--mx');
-        lit?.style.removeProperty('--my');
-        lit = next;
-      }
-      if (!raf) raf = requestAnimationFrame(paint);
-    };
-
-    window.addEventListener('pointermove', onMove, { passive: true });
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      if (raf) cancelAnimationFrame(raf);
-    };
-  }, []);
-}
-
-/** Градиентное сияние под всем приложением + свет за курсором */
 export function AuroraCanvas() {
-  useCursorLight();
-  return (
-    <div className="aurora-canvas" aria-hidden>
-      <div className="aurora-canvas__blob aurora-canvas__blob--warm" />
-      <div className="aurora-canvas__blob aurora-canvas__blob--deep" />
-      <div className="aurora-canvas__blob aurora-canvas__blob--cool" />
-      <div className="aurora-canvas__cursor" />
-    </div>
-  );
+  return null;
 }
 
 /**

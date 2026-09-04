@@ -9,7 +9,7 @@ import { useAuthStore } from '../store/auth';
 import { LogoMark } from '../components/Brand';
 import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
-import { useCursorLight, useMagnetic } from '../components/Aurora';
+import { useMagnetic } from '../components/Aurora';
 import { useMotionOff } from '../components/motion';
 
 // Общий PIN на восемь операционных ролей убран (30.08.2026, решение
@@ -40,8 +40,6 @@ export function Login() {
   const submitRef = useRef<HTMLButtonElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const reduced = useMotionOff();
-
-  useCursorLight();
   useMagnetic(submitRef, 4);
 
   const setAuth = useAuthStore((state) => state.setAuth);

@@ -58,12 +58,12 @@ h1, h2, h3, h4, h5, h6, p {
 
   /* Нейтральные */
   --gray-0: var(--s-surface);
-  --gray-1: var(--p-slate-50);
+  --gray-1: var(--p-surface);
   --gray-2: var(--s-line);
   --gray-3: var(--s-line-strong);
   --gray-5: var(--s-text-faint);   /* только линии и иконки */
   --gray-6: var(--s-text-quiet);
-  --gray-7: var(--p-slate-700);
+  --gray-7: var(--p-muted);
   --gray-9: var(--s-text);
 
   /* Акцент — терракота; для текста её тёмный брат */

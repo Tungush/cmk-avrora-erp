@@ -30,12 +30,12 @@
   --c-terra-ink: var(--s-attention);
   --c-black: var(--s-text);
   --c-ok: var(--s-ok);
-  --c-ok-ink: var(--p-forest-700);
+  --c-ok-ink: var(--p-muted);
   --c-danger: var(--s-attention-fill);
   --c-danger-ink: var(--s-attention);
   --c-blue: var(--s-action);          /* заливка полос и прогресса — индиго */
   --c-blue-ink: var(--s-attention);
-  --c-blue-deep: var(--p-indigo-800);
+  --c-blue-deep: var(--p-panel-deep);
   --c-blue-wash: var(--s-attention-wash);
   --c-amber: var(--s-attention-soft);
   --c-amber-ink: var(--s-attention);
@@ -47,7 +47,7 @@
   --ref-coral: var(--s-attention);
   --ref-coral-ink: var(--s-attention);
   --ref-green: var(--s-ok);
-  --ref-green-ink: var(--p-forest-700);
+  --ref-green-ink: var(--p-muted);
   --ref-amber: var(--s-attention-soft);
   --ref-amber-ink: var(--s-attention);
   --ref-blue: var(--s-action);
@@ -87,21 +87,6 @@
    --------------------------------------------------------------- */
 
 body { background: var(--ref-canvas); color: var(--ref-ink); }
-
-/* Референс — чистый светлый холст, поэтому цветные пятна выключены.
-   Остаётся мягкий след за курсором: владелец просил «фишки при движении» */
-.aurora-canvas { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
-.aurora-canvas__blob { display: none; }
-.aurora-canvas__cursor {
-  position: absolute; left: 0; top: 0;
-  width: 38vmax; height: 38vmax;
-  margin-left: -19vmax; margin-top: -19vmax;
-  border-radius: 50%;
-  background: radial-gradient(circle, color-mix(in srgb, var(--s-panel) 20%, transparent), transparent 62%);
-  filter: blur(60px);
-  transform: translate3d(var(--cursor-x, 50vw), var(--cursor-y, 40vh), 0);
-  will-change: transform;
-}
 
 .mantine-AppShell-root { position: relative; z-index: 1; }
 .mantine-AppShell-main { background: transparent !important; }
@@ -522,10 +507,10 @@ a:hover > .mantine-Card-root,
   background-size: 64px 64px;
   pointer-events: none;
   mask-image:
-    radial-gradient(360px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.3) 55%, transparent 100%),
+    radial-gradient(360px circle at 50% 40%, #000 0%, rgba(0,0,0,0.3) 55%, transparent 100%),
     radial-gradient(ellipse 70% 60% at 70% 45%, #000 20%, transparent 76%);
   -webkit-mask-image:
-    radial-gradient(360px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.3) 55%, transparent 100%),
+    radial-gradient(360px circle at 50% 40%, #000 0%, rgba(0,0,0,0.3) 55%, transparent 100%),
     radial-gradient(ellipse 70% 60% at 70% 45%, #000 20%, transparent 76%);
   -webkit-mask-composite: source-over;
   mask-composite: add;
@@ -561,7 +546,6 @@ a:hover > .mantine-Card-root,
 .magnetic { transition: transform .18s var(--ease-out); will-change: transform; }
 
 [data-motion='off'] .login-scene__glow { animation: none !important; }
-[data-motion='off'] .aurora-canvas__cursor { display: none; }
 
 /* ---------------------------------------------------------------
    9. «Экран = один экран»: страница не прокручивается вовсе
@@ -1315,10 +1299,10 @@ a:hover > .mantine-Card-root,
 /* Сетка на входе светится под курсором — сцена откликается на движение */
 .login-scene__grid {
   mask-image:
-    radial-gradient(340px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.25) 55%, transparent 100%),
+    radial-gradient(340px circle at 50% 40%, #000 0%, rgba(0,0,0,0.25) 55%, transparent 100%),
     radial-gradient(ellipse 80% 60% at 50% 40%, #000 25%, transparent 78%) !important;
   -webkit-mask-image:
-    radial-gradient(340px circle at var(--cursor-x, 50vw) var(--cursor-y, 40vh), #000 0%, rgba(0,0,0,0.25) 55%, transparent 100%),
+    radial-gradient(340px circle at 50% 40%, #000 0%, rgba(0,0,0,0.25) 55%, transparent 100%),
     radial-gradient(ellipse 80% 60% at 50% 40%, #000 25%, transparent 78%) !important;
   -webkit-mask-composite: source-over;
   mask-composite: add;

@@ -9,7 +9,6 @@ import { OrderCardProvider } from '../OrderCard/OrderCardProvider';
 import { ReceiptCardProvider } from '../ReceiptCard/ReceiptCardProvider';
 import { motion } from 'framer-motion';
 import { SPRING, useMotionOff } from '../motion';
-import { AuroraCanvas } from '../Aurora';
 import { LoadBar } from './LoadBar';
 import { SectionErrorBoundary } from '../ErrorBoundary';
 import { EntityProvider } from '../EntityRef';
@@ -72,7 +71,6 @@ export function Layout() {
     {/* Провайдер сущностей — НАД оболочкой: карточку материала или
         заказчика открывают из любого раздела и из шторки заказа тоже */}
     <EntityProvider>
-    <AuroraCanvas />
     <AppShell
       header={{ height: 56 }}   /* 64 -> 56: полоса поиска не нуждается в такой высоте */
       padding={{ base: 16, md: 24 }}
