@@ -468,9 +468,25 @@ export function OrdersRegistry({ view, onViewChange }: {
             <Stack gap={4} p="md">
               {[...Array(10)].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)}
             </Stack>
-          ) : isMobile ? (
-            /* Мобильная лента (§4.6): № + статус, заказчик, суммы, план вывоза */
-            <Stack gap="sm" p="sm">
+          /* Карточки, а не таблица, когда справа открыт паспорт
+             (04.09.2026): в колонке ~600 px семь столбцов не помещаются
+             и «Статус» обрезался до «Н…». Карточка в узкой колонке
+             читается целиком. Полная таблица возвращается кнопкой
+             «Свернуть» у паспорта. */
+          ) : (isMobile || (splitFits && openedId)) ? (
+            /* Мобильная лента (§4.6): № + статус, заказчик, суммы, план вывоза.
+               На телефоне высота не ограничена — там страница прокручивается.
+               Рядом с паспортом лента обязана крутиться ВНУТРИ себя тем же
+               замером, что и таблица: без этого 26 карточек вытягивали
+               колонку на 3978 px и уводили в прокрутку весь экран. */
+            <Stack
+              gap="sm"
+              p="sm"
+              ref={splitFits && openedId ? (fit.ref as any) : undefined}
+              style={splitFits && openedId
+                ? { maxHeight: fit.height, overflowY: 'auto', overscrollBehavior: 'contain' }
+                : undefined}
+            >
               <Stagger>
                 {orders.map((o) => {
                   const qty = sumLines(o, 'qty');
@@ -580,6 +596,12 @@ export function OrdersRegistry({ view, onViewChange }: {
 
       {splitFits && (
       <aside className="reg-split__card" aria-label="Паспорт заказа">
+        {openedId && (
+          <button type="button" className="reg-split__collapse" onClick={closeCard}
+            title="Свернуть паспорт и вернуть полную таблицу">
+            Свернуть
+          </button>
+        )}
         <div className="reg-split__scroll">
         {openedId ? (
           <OrderDetail id={openedId} onClose={closeCard} />

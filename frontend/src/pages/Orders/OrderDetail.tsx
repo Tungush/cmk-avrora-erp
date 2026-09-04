@@ -612,9 +612,21 @@ export function OrderDetail({
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="wrap" gap="xs">
-        <Group gap="sm" wrap="wrap">
-          <Text fw={800} size="lg" ff="monospace">{order.orderNumber}</Text>
+      {/* Шапка тёмной плиткой (04.09.2026, эталон): на экране должен быть
+          один якорь, и в карточке заказа это её «обложка» — номер,
+          заказчик и объект. Цифр под ролями здесь намеренно нет: шапка
+          видна всем, кто открыл карточку, а количества и деньги
+          закрыты правами ниже по карточке. */}
+      <div className="passport-head">
+        <div className="passport-head__eyebrow">Паспорт заказа</div>
+        <div className="passport-head__num">{order.orderNumber}</div>
+        {(o.customer?.name || o.customerName || o.projectSite) && (
+          <div className="passport-head__sub">
+            {o.customer?.name ?? o.customerName}
+            {o.projectSite && <> · объект {o.projectSite}</>}
+          </div>
+        )}
+        <div className="passport-head__pills">
           <StatusBadge status={order.status} />
           {o.onecNum && (
             <Tooltip label={o.onecStatus ? `статус в 1С: ${o.onecStatus}` : '№ документа в 1С'}>
@@ -622,13 +634,13 @@ export function OrderDetail({
             </Tooltip>
           )}
           {o.isArchived && <ArchivedHint />}
-        </Group>
-        {order.overdueDays > 0 && (
-          <Badge color="danger" variant="light" radius="xl" size="lg" leftSection={<IconAlertTriangle aria-hidden size={16} />}>
-            Просрочка {order.overdueDays} дн
-          </Badge>
-        )}
-      </Group>
+          {order.overdueDays > 0 && (
+            <Badge color="danger" variant="light" radius="xl" size="lg" leftSection={<IconAlertTriangle aria-hidden size={16} />}>
+              Просрочка {order.overdueDays} дн
+            </Badge>
+          )}
+        </div>
+      </div>
 
       {/* ▼ Основное. Конечный заказчик и объект приходят из 1С и раньше
           нигде не показывались, хотя завод работает через генподрядчиков */}

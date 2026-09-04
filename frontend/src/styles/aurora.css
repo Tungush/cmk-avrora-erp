@@ -2187,3 +2187,76 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 @media (max-width: 1400px) {
   .reg-split { grid-template-columns: minmax(0, 1fr) 360px; }
 }
+
+/* ---------------------------------------------------------------
+   Шапка паспорта заказа — тёмная плитка (04.09.2026, эталон)
+   --------------------------------------------------------------- */
+
+/* Один якорь на экран. В эталоне это тёмная карточка с номером заказа;
+   у нас перекрашивать весь паспорт нельзя — внутри 41 КБ содержимого,
+   свёрстанного под светлый фон, и контраст поехал бы в двух десятках
+   мест. Тёмной делается только обложка. */
+.passport-head {
+  background: var(--s-panel);
+  border-radius: var(--ref-r-card);
+  padding: 16px 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.passport-head__eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--s-text-on-panel) 62%, transparent);
+}
+.passport-head__num {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 23px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--s-text-on-dark);
+}
+.passport-head__sub {
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: color-mix(in srgb, var(--s-text-on-panel) 82%, transparent);
+}
+.passport-head__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+/* Обводочные бейджи на тёмном читались серым по тёмно-синему (~1.8:1).
+   Внутри шапки им нужна своя, светлая обводка. */
+.passport-head .mantine-Badge-root[data-variant='outline'] {
+  border-color: color-mix(in srgb, var(--s-text-on-dark) 34%, transparent) !important;
+  color: var(--s-text-on-dark) !important;
+}
+
+/* Статус-бейдж приходит 11 px из общего StatusBadge. В обложке он
+   один из трёх опознавательных знаков заказа — поднимаем до правила
+   «не мельче 13 px». Общий компонент не трогаем: он стоит в сотне мест
+   и в таблицах 11 px уместны. */
+.passport-head .mantine-Badge-root { font-size: 13px !important; }
+
+/* Свернуть паспорт — вернуть реестру полную ширину и таблицу */
+.reg-split__collapse {
+  position: absolute;
+  top: 10px; right: 12px;
+  z-index: 2;
+  border: 0;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--s-text-on-dark);
+  background: color-mix(in srgb, var(--s-text-on-dark) 16%, transparent);
+}
+.reg-split__collapse:hover { background: color-mix(in srgb, var(--s-text-on-dark) 26%, transparent); }
+.reg-split__collapse:focus-visible { outline: 2px solid var(--s-text-on-dark); outline-offset: 2px; }
