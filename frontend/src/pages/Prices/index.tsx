@@ -15,7 +15,7 @@ import { formatCurrency } from '../../utils/formatters';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FitScreen, useFitGrid, useFitRows, usePageKeys } from '../../components/FitScreen';
 import { FadeSwap, TextReveal } from '../../components/motion';
-import { MastLoader } from '../../components/Mast';
+import { EmptyState } from '../../components/EmptyState';
 import { DigestCard, type DigestCardProps } from '../../components/Digest';
 import { IconRuler2, IconScale, IconAlertTriangle, IconLayoutGrid, IconList, IconGavel } from '@tabler/icons-react';
 import { useNavigate } from 'react-router-dom';
@@ -430,7 +430,7 @@ function PriceList({
                   {rows.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={5}>
-                        <MastLoader height={132} sections={5} title="Цен по такому запросу нет" />
+                        <EmptyState height={132} title="Цен по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}

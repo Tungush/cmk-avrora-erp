@@ -16,7 +16,7 @@ import { FadeSwap } from '../../components/motion';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { PulseRow } from '../../components/SectionHeader';
 import { FitScreen, useFitRows, usePageKeys } from '../../components/FitScreen';
-import { MastLoader } from '../../components/Mast';
+import { EmptyState } from '../../components/EmptyState';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { Ref } from '../../components/EntityRef';
 import { formatDate } from '../../utils/formatters';
@@ -250,7 +250,7 @@ export function ShopFloor() {
                 /* Отказ ОБЯЗАН отличаться от пустого списка: раньше при
                    упавшем запросе мастеру показывалось «Всё изготовлено»,
                    и он уходил, решив, что работа кончилась (04.09.2026) */
-                <MastLoader title={emptyText} error={error} onRetry={() => refetch()} />
+                <EmptyState title={emptyText} error={error} onRetry={() => refetch()} />
               ) : (
                 <FadeSwap swapKey={`${paged.page}|${slice}|${fit.rows}`}>
                   {paged.slice.map((p) => (

@@ -485,18 +485,6 @@ a:hover > .mantine-Card-root,
   pointer-events: none;
 }
 .login-hero__text { position: relative; z-index: 2; max-width: 500px; }
-.login-hero .login-mast {
-  position: absolute;
-  /* Вышка уведена дальше за край и приглушена до водяного знака
-     (04.09.2026). Решётчатая была прозрачной — текст читался сквозь
-     ферму. Плотный силуэт светлой заливкой поднимал фон под белым
-     текстом, и «цена» с «3 866» пропадали. Знак остаётся фоном, а не
-     спорит с тем, ради чего человек пришёл на экран. */
-  right: -150px;
-  bottom: -40px;
-  z-index: 1;
-  opacity: 0.22;
-}
 .login-form-side {
   position: relative;
   display: grid;
@@ -562,14 +550,6 @@ a:hover > .mantine-Card-root,
   pointer-events: none;
 }
 .login-card:hover::before { opacity: 1; }
-
-/* Мачта стоит на голубой панели — белая решётка, жёлтый огонь */
-.login-mast {
-  color: rgba(255, 255, 255, 0.72);
-  flex: 0 0 auto;
-  transform: translate3d(calc(var(--par-x, 0px) * 0.4), calc(var(--par-y, 0px) * 0.2), 0);
-  transition: transform .3s var(--ease-out);
-}
 
 /* Действие — чёрная пилюля, как «Try Now» в референсе */
 .login-card .mantine-Button-root[data-variant='filled'] { background-color: var(--s-action); color: var(--s-text-on-dark); }
@@ -854,30 +834,6 @@ a:hover > .mantine-Card-root,
 }
 .cost-totals__item { display: flex; flex-direction: column; gap: 1px; }
 
-/* Мачта базовой станции — фирменный знак */
-.mast-beacon__dot { fill: var(--c-yellow); }
-.mast-beacon__halo { fill: var(--c-yellow); opacity: 0; }
-/* Маячок и блик мачты больше не мигают в покое: непрерывное движение в
-   периферийном зрении утомляет за смену (WCAG 2.2.2, аудит 03.09.2026).
-   Они оживают только когда движение включено пользователем и вкладка
-   активна — этим управляет data-motion на <html> */
-[data-motion='on'] .mast-beacon .mast-beacon__dot { animation: mast-blink 2.6s ease-in-out infinite; }
-[data-motion='on'] .mast-beacon .mast-beacon__halo { animation: mast-halo 2.6s ease-in-out infinite; }
-@keyframes mast-blink { 0%, 62%, 100% { opacity: 0.35; } 72%, 86% { opacity: 1; } }
-@keyframes mast-halo { 0%, 62%, 100% { opacity: 0; transform: scale(0.5); } 74% { opacity: 0.28; transform: scale(1); } 100% { opacity: 0; } }
-.mast-beacon__halo { transform-box: fill-box; transform-origin: center; }
-
-.mast-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 24px 16px;
-  color: var(--ref-muted);
-}
-.mast-empty__title { font-size: 16px; font-weight: 700; color: var(--ref-ink); }
-.mast-empty__hint { font-size: 13px; color: var(--ref-muted); text-align: center; max-width: 340px; }
-
 
 /* Объекты: карточка площадки — мачта плюс цифры */
 .site-grid {
@@ -903,7 +859,6 @@ a:hover > .mantine-Card-root,
 .site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
 .site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
 .site-card[data-state='done'] { background: linear-gradient(160deg, color-mix(in srgb, var(--s-ok) 9%, transparent), rgba(255,255,255,0) 60%), var(--ref-surface); }
-.site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .8; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
   font-weight: 700;
@@ -960,7 +915,6 @@ a:hover > .mantine-Card-root,
 .site-card[data-state='done'] {
   background: linear-gradient(160deg, color-mix(in srgb, var(--s-ok) 10%, transparent), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
 }
-.site-card__mast { flex: 0 0 auto; color: var(--ref-ink); opacity: .78; display: flex; align-items: flex-end; }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
 .site-card__title {
   font-weight: 700;
@@ -1357,30 +1311,6 @@ a:hover > .mantine-Card-root,
   .reveal-word { animation: none; }
   .load-bar { animation: none; }
 }
-
-/* Мачта: по решётке раз в несколько секунд проходит блик — как отсвет
-   солнца по оцинковке. Только на крупных мачтах, где он читается. */
-[data-motion='on'] .mast-sweep { animation: mast-sweep 6.5s ease-in-out infinite; }
-@keyframes mast-sweep {
-  0%, 62%, 100% { opacity: 0; transform: translateY(40%); }
-  72%           { opacity: 0.55; }
-  86%           { opacity: 0; transform: translateY(-60%); }
-}
-
-/* Волны сигнала от антенн: расходятся и гаснут, три штуки со сдвигом */
-.mast-signal {
-  transform-box: fill-box;
-  transform-origin: center;
-  opacity: 0;
-  animation: mast-signal 4.2s cubic-bezier(0.16, 1, 0.3, 1) infinite;
-}
-@keyframes mast-signal {
-  0%   { opacity: 0;    transform: scale(0.25); }
-  12%  { opacity: 0.55; }
-  70%  { opacity: 0;    transform: scale(2.6); }
-  100% { opacity: 0;    transform: scale(2.6); }
-}
-@media (prefers-reduced-motion: reduce) { .mast-signal { animation: none; opacity: 0; } }
 
 /* Сетка на входе светится под курсором — сцена откликается на движение */
 .login-scene__grid {
@@ -1839,16 +1769,6 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .ms-base    { fill: var(--s-action); stroke: var(--s-text); stroke-linejoin: round; }
 .ms-beacon  { fill: var(--s-attention); stroke: var(--s-text); }
 .ms-wave    { fill: none; stroke: var(--s-text); }
-
-/* На тёмной подложке (экран входа) контур ведётся светлым, иначе тёмное
-   по тёмному пропадает целиком */
-.mast-solid[data-on-dark] .ms-outline,
-.mast-solid[data-on-dark] .ms-base,
-.mast-solid[data-on-dark] .ms-beacon,
-.mast-solid[data-on-dark] .ms-wave { stroke: var(--s-text-on-panel); }
-.mast-solid[data-on-dark] .ms-fill { fill: color-mix(in srgb, var(--s-text-on-panel) 14%, transparent); }
-.mast-solid[data-on-dark] .ms-fill.is-done { fill: color-mix(in srgb, var(--s-text-on-panel) 34%, transparent); }
-.mast-solid[data-on-dark] .ms-base { fill: color-mix(in srgb, var(--s-text-on-panel) 22%, transparent); }
 
 /* ---------------------------------------------------------------
    Изделия: чистый экран, подробности по клику (04.09.2026)
@@ -2429,3 +2349,56 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 .topbar-peek:hover { color: var(--s-text); }
 .topbar-peek:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }
+
+/* ---------------------------------------------------------------
+   Пусто / не загрузилось и полосы готовности (04.09.2026)
+   Пришли на смену силуэту вышки: рисунок ничего не сообщал, а места
+   занимал больше текста. Доля готовности теперь читается числом.
+   --------------------------------------------------------------- */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px 16px;
+  text-align: center;
+}
+.empty-state__icon { color: var(--s-attention); margin-bottom: 2px; }
+.empty-state__title { font-size: 15px; font-weight: 700; color: var(--ref-ink); }
+.empty-state__hint { font-size: 13px; color: var(--ref-muted); max-width: 340px; line-height: 1.5; }
+
+/* Готовность объекта: полоса и число рядом */
+.site-card__ready,
+.ent-ready { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+/* В карточке объекта — столбиком: число сверху, полоса под ним.
+   flex-grow у полосы здесь недопустим: в колоночной раскладке он
+   растягивает её на всю высоту карточки (поймано на снимке). */
+.site-card__ready { flex-direction: column; width: 52px; align-items: stretch; gap: 4px; }
+.site-card__ready-bar,
+.ent-ready__bar {
+  position: relative;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 999px;
+  background: var(--s-surface-quiet);
+  overflow: hidden;
+}
+.ent-ready__bar { flex: 1 1 auto; min-width: 48px; }
+.site-card__ready-bar { width: 100%; }
+.site-card__ready-num { text-align: center; }
+.site-card__ready-bar > span,
+.ent-ready__bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--s-panel);
+}
+.site-card__ready-num,
+.ent-ready__num {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--ref-ink);
+}

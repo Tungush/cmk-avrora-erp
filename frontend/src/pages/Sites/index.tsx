@@ -3,8 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Group, Text, TextInput, Skeleton, Tooltip } from '@mantine/core';
 import { IconSearch, IconAntenna, IconClockExclamation, IconCircleCheck, IconCurrencyTenge } from '@tabler/icons-react';
 import api from '../../api/client';
-import { MastLoader } from '../../components/Mast';
-import { MastSolid } from '../../components/MastSolid';
+import { EmptyState } from '../../components/EmptyState';
 import { PulseRow } from '../../components/SectionHeader';
 import { FitScreen, useFitGrid, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
@@ -150,7 +149,7 @@ export function Sites() {
         [...Array(Math.max(4, fit.count))].map((_, i) => <Skeleton key={i} height={CARD_H} radius="lg" />)
       ) : paged.total === 0 ? (
         <div className="site-grid__empty">
-          <MastLoader
+          <EmptyState
             height={200}
             title={search ? 'Такой площадки нет' : 'Проекты пока не заполнены'}
             hint={search ? undefined
@@ -196,8 +195,13 @@ function SiteCard({ row }: { row: SiteRow }) {
       style={{ cursor: 'pointer' }}
       data-state={done ? 'done' : overdue ? 'overdue' : undefined}
     >
-      <div className="site-card__mast">
-        <MastSolid height={108} progress={progress} />
+      {/* Готовность полосой, а не силуэтом мачты (04.09.2026): доля
+          читается числом, а не на глаз по высоте заливки. */}
+      <div className="site-card__ready" aria-hidden>
+        <div className="site-card__ready-bar">
+          <span style={{ width: `${Math.round(progress * 100)}%` }} />
+        </div>
+        <div className="site-card__ready-num">{Math.round(progress * 100)}%</div>
       </div>
 
       <div className="site-card__body">

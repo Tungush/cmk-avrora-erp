@@ -5,8 +5,6 @@ import { useNavigate } from 'react-router-dom';
 import api from '../../api/client';
 import { formatDate, formatMoney, formatCompactMoney } from '../../utils/formatters';
 import { Ref, useEntity, type EntityTarget } from '../EntityRef';
-import { MastSolid } from '../MastSolid';
-import { Mast } from '../Mast';
 
 /**
  * Карточки сущностей для сквозной связанности (03.09.2026).
@@ -281,10 +279,14 @@ function SitePanel({ id }: { id: string }) {
   return (
     <Stack gap="lg">
       <Group gap="md" wrap="nowrap" align="center">
-        <MastSolid height={92} progress={progress} />
         <Stack gap={2} style={{ minWidth: 0 }}>
           <Text size="lg" fw={600}>{(id || '').replace(/^KZ-/, '').replace(/_/g, ' · ')}</Text>
           <Text size="sm" c="dimmed">{s?.customerName ?? ''}</Text>
+          {/* Готовность числом и полосой вместо силуэта мачты */}
+          <div className="ent-ready">
+            <div className="ent-ready__bar"><span style={{ width: `${Math.round(progress * 100)}%` }} /></div>
+            <span className="ent-ready__num">{Math.round(progress * 100)}%</span>
+          </div>
         </Stack>
       </Group>
 

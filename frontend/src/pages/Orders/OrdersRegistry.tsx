@@ -26,7 +26,7 @@ import { TableScroll } from '../../components/TableScroll';
 import { useFitHeight } from '../../components/FitScreen';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap, Stagger } from '../../components/motion';
-import { MastLoader } from '../../components/Mast';
+import { EmptyState } from '../../components/EmptyState';
 
 const ORDER_TYPE_LABELS: Record<string, string> = { FZ: 'ФЗ', VZ: 'ВЗ' };
 
@@ -542,7 +542,7 @@ export function OrdersRegistry({ view, onViewChange }: {
                 })}
               </Stagger>
               {orders.length === 0 && (
-                <MastLoader height={132} sections={5} title="Заказов по такому запросу нет" />
+                <EmptyState height={132} title="Заказов по такому запросу нет" />
               )}
             </Stack>
           ) : (
@@ -582,7 +582,7 @@ export function OrdersRegistry({ view, onViewChange }: {
                   {orders.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={columns.length}>
-                        <MastLoader height={132} sections={5} title="Заказов по такому запросу нет" />
+                        <EmptyState height={132} title="Заказов по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}

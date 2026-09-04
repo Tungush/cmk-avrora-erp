@@ -7,7 +7,7 @@ import { ReceiptRef } from '../../components/ReceiptCard/ReceiptCardProvider';
 import { Ref } from '../../components/EntityRef';
 import { formatMoney, formatDate } from '../../utils/formatters';
 import { useFitHeight } from '../../components/FitScreen';
-import { MastLoader } from '../../components/Mast';
+import { EmptyState } from '../../components/EmptyState';
 
 const STATUS_LABELS: Record<string, string> = {
   UNPAID: 'Не оплачен', PARTIALLY_PAID: 'Частично', PAID: 'Оплачен', EXECUTED: 'Исполнен',
@@ -70,7 +70,7 @@ export function PurchasesRecent({ onGoRegistry }: { onGoRegistry: () => void }) 
             {[...Array(5)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}
           </div>
         ) : rows.length === 0 ? (
-          <MastLoader height={110} sections={3} title="Заказов поставщику нет" />
+          <EmptyState height={110} title="Заказов поставщику нет" />
         ) : (
           <Table highlightOnHover>
             <Table.Thead>

@@ -7,12 +7,10 @@ import { IconArrowRight, IconCheck, IconShieldLock } from '@tabler/icons-react';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '../store/auth';
 import { LogoMark } from '../components/Brand';
-import { MastSolid } from '../components/MastSolid';
 import { authApi } from '../api/auth';
 import { notifications } from '@mantine/notifications';
 import { useCursorLight, useMagnetic } from '../components/Aurora';
 import { useMotionOff } from '../components/motion';
-import { Mast } from '../components/Mast';
 
 // Общий PIN на восемь операционных ролей убран (30.08.2026, решение
 // пользователя): у каждого человека личный email+пароль, заводит и
@@ -100,13 +98,6 @@ export function Login() {
           карточка входа на сером холсте. Так устроен и сам референс */}
       <div className="login-split">
         <div className="login-hero">
-          {/* Мачта под базовую станцию: то, что завод и делает. Секции
-              встают снизу вверх, как при монтаже, потом поднимаются
-              антенны и загорается авиационный огонь */}
-          <div className="login-mast" aria-hidden>
-            <MastSolid height={520} progress={1} onDark />
-          </div>
-
           <div className="login-hero__text">
             <motion.div {...rise(0)}>
                 <Group gap={14} wrap="nowrap" mb={40}>

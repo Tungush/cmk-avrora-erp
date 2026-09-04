@@ -13,7 +13,7 @@ import { formatMoney, formatDate } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePageSize } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
-import { MastLoader } from '../../components/Mast';
+import { EmptyState } from '../../components/EmptyState';
 
 const STATUS_LABELS: Record<string, string> = {
   UNPAID: 'Не оплачен', PARTIALLY_PAID: 'Частично', PAID: 'Оплачен', EXECUTED: 'Исполнен',
@@ -162,7 +162,7 @@ export function PurchasesRegistry({ filters, onFiltersChange }: {
                   {rows.length === 0 && (
                     <Table.Tr>
                       <Table.Td colSpan={9}>
-                        <MastLoader height={132} sections={5} title="Закупок по такому запросу нет" />
+                        <EmptyState height={132} title="Закупок по такому запросу нет" />
                       </Table.Td>
                     </Table.Tr>
                   )}
