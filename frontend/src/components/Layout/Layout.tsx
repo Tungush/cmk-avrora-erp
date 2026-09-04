@@ -12,12 +12,6 @@ import { LoadBar } from './LoadBar';
 import { SectionErrorBoundary } from '../ErrorBoundary';
 import { EntityProvider } from '../EntityRef';
 
-const TOPBAR_KEY = 'ui-topbar';
-
-function readTopCollapsed(): boolean {
-  try { return localStorage.getItem(TOPBAR_KEY) === 'mini'; } catch { return false; }
-}
-
 /**
  * Оболочка приложения (04.09.2026).
  *
