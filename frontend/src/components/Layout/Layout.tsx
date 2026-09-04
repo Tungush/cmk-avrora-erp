@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
-import { useDisclosure, useMediaQuery } from '@mantine/hooks';
 import { TopBar } from './TopBar';
 import { BottomNav } from './BottomNav';
 import { useAuthStore } from '../../store/auth';
@@ -14,44 +13,19 @@ import { LoadBar } from './LoadBar';
 import { SectionErrorBoundary } from '../ErrorBoundary';
 import { EntityProvider } from '../EntityRef';
 
-export const NAV_WIDTH = 260;
-export const NAV_RAIL_WIDTH = 76;
-const NAV_KEY = 'ui-nav';
-
 /**
- * Свёрнутое меню (решение 02.09.2026): на ноутбуке 1280–1400 px полная
- * панель съедала четверть экрана, и таблицы уезжали вбок. Ниже 1400 px
- * меню по умолчанию сворачивается в рейку иконок (+184 px контенту);
- * выбор пользователя запоминается и дальше главнее автоматики.
+ * Оболочка приложения (04.09.2026).
+ *
+ * Боковое меню убрано: разделы живут в плавающей строке внизу
+ * (BottomNav). Вместе с ним ушли сворачивание в рейку, запоминание
+ * выбора в localStorage и выезжающее меню на телефоне — нижняя строка
+ * одинаково работает на всех ширинах и не отнимает у содержимого 260 px
+ * по всей высоте.
  */
-function readNavPreference(): boolean | null {
-  try {
-    const v = localStorage.getItem(NAV_KEY);
-    return v === 'rail' ? true : v === 'full' ? false : null;
-  } catch {
-    return null;
-  }
-}
-
 export function Layout() {
   const token = useAuthStore((state) => state.token);
-  const [mobileOpened, { toggle, close }] = useDisclosure();
   const { pathname } = useLocation();
   const reduced = useMotionOff();
-  const narrow = useMediaQuery('(max-width: 1399px)');
-  const [pref, setPref] = useState<boolean | null>(readNavPreference);
-  const collapsed = pref ?? !!narrow;
-
-  const toggleNav = useCallback(() => {
-    const next = !collapsed;
-    setPref(next);
-    try { localStorage.setItem(NAV_KEY, next ? 'rail' : 'full'); } catch { /* приватный режим */ }
-  }, [collapsed]);
-
-  // Ширина меню нужна и CSS (липкие панели инструментов считают отступ)
-  useEffect(() => {
-    document.documentElement.dataset.nav = collapsed ? 'rail' : 'full';
-  }, [collapsed]);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -74,11 +48,11 @@ export function Layout() {
       transitionTimingFunction="cubic-bezier(0.25, 1, 0.5, 1)"
     >
       <AppShell.Header withBorder={false}>
-        <TopBar onToggleMobile={toggle} navCollapsed={collapsed} onToggleNav={toggleNav} />
+        <TopBar />
       </AppShell.Header>
 
       {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить
-          одиннадцать пунктов меню на каждом разделе (03.09.2026) */}
+          одиннадцать разделов нижней строки на каждом экране */}
       <a href="#main" className="skip-link">К содержимому</a>
 
       {/* Полоса загрузки и зерно живут поверх всего приложения */}

@@ -630,7 +630,11 @@ textarea.input-field {
 }
 .pagination-sticky {
   position: sticky;
-  bottom: 0;
+  /* Не 0 (04.09.2026): без прокручиваемого предка sticky прилипает к
+     низу ОКНА, а там теперь стоит плавающая строка разделов — счётчик
+     страниц уезжал под неё. Отступ берётся из той же величины, что и
+     запас снизу у оболочки, чтобы не разъехалось. */
+  bottom: var(--shell-bottom, 0px);
   z-index: 5;
   background: color-mix(in srgb, var(--app-bg) 90%, transparent);
   -webkit-backdrop-filter: blur(10px);
@@ -645,7 +649,6 @@ textarea.input-field {
 .kpi-glow { min-width: 0; overflow: hidden; }
 
 /* Рейка меню: подсветка иконки при наведении */
-[data-nav='rail'] .nav-item:hover { background: var(--gray-1); }
 
 /* Кликабельные строки: курсор и мягкий ховер */
 .mantine-Table-tr[data-clickable] { cursor: pointer; }

@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Drawer, Text, Group, Badge } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
@@ -13,6 +13,12 @@ interface OrderCardApi {
   close: () => void;
   openedId: string | null;
   focus: OrderCardFocus | null;
+  /**
+   * Экран сам показывает карточку панелью и просит не открывать шторку.
+   * Возвращает функцию отписки — раздел обязан её вызвать при уходе,
+   * иначе шторка останется выключенной на всём приложении.
+   */
+  claimInline: () => () => void;
 }
 
 const Ctx = createContext<OrderCardApi | null>(null);
@@ -36,6 +42,20 @@ export function OrderCardProvider({ children }: { children: React.ReactNode }) {
   const openedId = params.get('order');
   const focus = (params.get('focus') as OrderCardFocus | null) ?? null;
 
+  /**
+   * Реестр заказов показывает паспорт постоянной панелью справа, как в
+   * эталоне: список слева, живая карточка рядом. Шторка поверх того же
+   * содержимого была бы вторым его экземпляром, поэтому раздел
+   * «забирает» карточку себе, а провайдер перестаёт рисовать шторку.
+   * Счётчик, а не флаг: два хоста подряд при переходе между разделами
+   * монтируются раньше, чем размонтируется предыдущий.
+   */
+  const [inlineHosts, setInlineHosts] = useState(0);
+  const claimInline = useCallback(() => {
+    setInlineHosts((n) => n + 1);
+    return () => setInlineHosts((n) => Math.max(0, n - 1));
+  }, []);
+
   const open = useCallback((orderId: string, f?: OrderCardFocus) => {
     setParams((prev) => {
       const next = new URLSearchParams(prev);
@@ -55,15 +75,15 @@ export function OrderCardProvider({ children }: { children: React.ReactNode }) {
   }, [setParams]);
 
   const api = useMemo<OrderCardApi>(
-    () => ({ open, close, openedId, focus }),
-    [open, close, openedId, focus],
+    () => ({ open, close, openedId, focus, claimInline }),
+    [open, close, openedId, focus, claimInline],
   );
 
   return (
     <Ctx.Provider value={api}>
       {children}
       <Drawer
-        opened={Boolean(openedId)}
+        opened={Boolean(openedId) && inlineHosts === 0}
         onClose={close}
         position="right"
         size={isMobile ? '100%' : 'xl'}
@@ -132,4 +152,19 @@ export function ArchivedHint() {
       исторические данные из Excel
     </Badge>
   );
+}
+
+/**
+ * Раздел показывает карточку заказа панелью на месте, а не шторкой.
+ *
+ * @param active выключается на узком экране: два столбца там не
+ *   помещаются, и карточка обязана вернуться шторкой — иначе заказ
+ *   нельзя будет открыть вовсе.
+ */
+export function useInlineOrderCard(active = true) {
+  const { claimInline } = useOrderCard();
+  useEffect(() => {
+    if (!active) return;
+    return claimInline();
+  }, [claimInline, active]);
 }

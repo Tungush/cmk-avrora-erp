@@ -13,7 +13,8 @@ import { useAuthStore } from '../../store/auth';
 import { StatusBadge } from '../../components/StatusBadge';
 import { formatCurrency, formatDate, ORDER_STATUS_LABELS } from '../../utils/formatters';
 import { useSavedViews, useCreateSavedView, useDeleteSavedView } from '../../hooks/useSavedViews';
-import { OrderRef, useOrderCard } from '../../components/OrderCard/OrderCardProvider';
+import { OrderRef, useOrderCard, useInlineOrderCard } from '../../components/OrderCard/OrderCardProvider';
+import { OrderDetail } from './OrderDetail';
 import { Ref } from '../../components/EntityRef';
 import { useQueries } from '@tanstack/react-query';
 import { ordersApi } from '../../api/orders';
@@ -175,7 +176,12 @@ export function OrdersRegistry({ view, onViewChange }: {
   onViewChange: (v: 'digest' | 'list') => void;
 }) {
   const can = useAuthStore((s) => s.can);
-  const { open: openCard } = useOrderCard();
+  const { open: openCard, openedId, close: closeCard } = useOrderCard();
+  /* Паспорт показываем панелью справа, а не шторкой поверх списка
+     (04.09.2026, эталон): список и карточка видны одновременно, и
+     переход между заказами не требует закрывать-открывать. */
+  const splitFits = useMediaQuery('(min-width: 1100px)');
+  useInlineOrderCard(!!splitFits);
   // < 768px: таблица превращается в ленту карточек (§4.6)
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [preset, setPreset] = useState<PresetCode>('core');
@@ -451,6 +457,11 @@ export function OrdersRegistry({ view, onViewChange }: {
         </Group>
       </div>
 
+      {/* Список и паспорт рядом (эталон): слева реестр, справа живая
+          карточка выбранного заказа. Пока заказ не выбран — справа
+          подсказка, а не пустота. */}
+      <div className="reg-split">
+      <div className="reg-split__list">
       <FadeSwap swapKey={isLoading ? 'loading' : `${preset}:${page}`}>
         <Card withBorder radius="md" padding={0}>
           {isLoading ? (
@@ -564,6 +575,24 @@ export function OrdersRegistry({ view, onViewChange }: {
           noun="заказов"
           sticky
         />
+      </div>
+      </div>
+
+      {splitFits && (
+      <aside className="reg-split__card" aria-label="Паспорт заказа">
+        <div className="reg-split__scroll">
+        {openedId ? (
+          <OrderDetail id={openedId} onClose={closeCard} />
+        ) : (
+          <div className="reg-split__hint">
+            <span className="reg-split__hint-title">Паспорт заказа</span>
+            <span>Выберите заказ в списке слева — здесь появятся заказчик,
+              объект, этапы по позициям, что изготовлено и что отгружено.</span>
+          </div>
+        )}
+        </div>
+      </aside>
+      )}
       </div>
       </>
       )}

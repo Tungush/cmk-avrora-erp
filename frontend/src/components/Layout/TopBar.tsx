@@ -4,19 +4,12 @@ import { useDisclosure } from '@mantine/hooks';
 import { GlobalSearch, useGlobalSearchHotkey } from '../GlobalSearch';
 import {
   IconSearch, IconBell, IconLogout, IconMenu2,
-  IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { HeaderPulse } from './HeaderPulse';
 import { notifications } from '@mantine/notifications';
 
-interface TopBarProps {
-  onToggleMobile?: () => void;
-  navCollapsed?: boolean;
-  onToggleNav?: () => void;
-}
-
-export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: TopBarProps) {
+export function TopBar() {
   const logout = useAuthStore((state) => state.logout);
   const [searchOpened, { open: openSearch, close: closeSearch }] = useDisclosure(false);
   useGlobalSearchHotkey(openSearch);
@@ -33,34 +26,9 @@ export function TopBar({ onToggleMobile, navCollapsed = false, onToggleNav }: To
     <>
     <Group h="100%" px="md" justify="space-between" wrap="nowrap">
       <Group wrap="nowrap" style={{ flex: 1 }}>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          size="lg"
-          onClick={onToggleMobile}
-          display={{ base: 'inline-flex', sm: 'none' }}
-          aria-label="Открыть меню"
-        >
-          <IconMenu2 size={20} aria-hidden />
-        </ActionIcon>
-        {/* Свернуть меню в рейку иконок — на ноутбуке это +184 px таблицам */}
-        {onToggleNav && (
-          <Tooltip label={navCollapsed ? 'Развернуть меню' : 'Свернуть меню'} openDelay={300}>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              size="lg"
-              onClick={onToggleNav}
-              visibleFrom="sm"
-              aria-label={navCollapsed ? 'Развернуть меню' : 'Свернуть меню'}
-              aria-pressed={navCollapsed}
-            >
-              {navCollapsed
-                ? <IconLayoutSidebarLeftExpand size={20} aria-hidden />
-                : <IconLayoutSidebarLeftCollapse size={20} aria-hidden />}
-            </ActionIcon>
-          </Tooltip>
-        )}
+        {/* Кнопки «свернуть меню» больше нет (04.09.2026): боковая панель
+            заменена нижней строкой разделов, сворачивать нечего. Знак
+            остался кликабельной ссылкой на «Мою работу». */}
         {/* Поле было TextInput без обработчика — обещало поиск и не делало
             ничего. Теперь это кнопка, открывающая общий поиск (Cmd/Ctrl+K) */}
         <UnstyledButton

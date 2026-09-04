@@ -2119,3 +2119,71 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   .botnav__item { padding: 8px 10px; }
   .botnav__face { gap: 6px; }
 }
+
+/* ---------------------------------------------------------------
+   Реестр заказов: список слева, паспорт справа (04.09.2026, эталон)
+   --------------------------------------------------------------- */
+
+/* Раньше реестр занимал всю ширину, а карточка открывалась шторкой
+   поверх него — список пропадал ровно в тот момент, когда по нему
+   сверяются. В эталоне они стоят рядом, и переход между заказами не
+   требует закрывать карточку. */
+.reg-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 16px;
+  /* stretch, а не start: паспорт тянется на высоту списка. При start он
+     сжимался до высоты своего содержимого, и справа висел коротышка на
+     167 px рядом со списком на 451 — читалось как недогруженный экран. */
+  align-items: stretch;
+  min-height: 0;
+}
+.reg-split__list { min-width: 0; display: flex; flex-direction: column; }
+
+/* Паспорт НЕ задаёт высоту ряда. Иначе заказ с длинной карточкой
+   (2595 px в замере) растягивал сетку и вся страница уходила в
+   прокрутку — правило «экран не прокручивается» ломалось при первом же
+   клике. Содержимое вынесено из потока и крутится внутри панели. */
+.reg-split__card {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  border-radius: var(--ref-r-card);
+  background: var(--ref-surface);
+  box-shadow: var(--ref-sh);
+}
+.reg-split__scroll {
+  position: absolute;
+  inset: 0;
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* Пока заказ не выбран — объяснение, а не пустая панель: пустота на
+   пол-экрана читается как поломка */
+.reg-split__hint {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 4px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--s-text-quiet);
+}
+.reg-split__hint-title {
+  font-family: 'Onest', var(--font-sans, sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--s-text);
+}
+
+/* Ноутбук 1280: паспорт ужимается, но остаётся. Ниже 1100 px два
+   столбца не помещаются — там паспорт возвращается шторкой, столбец не
+   рендерится вовсе (условие splitFits в OrdersRegistry). */
+@media (max-width: 1099px) {
+  .reg-split { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1400px) {
+  .reg-split { grid-template-columns: minmax(0, 1fr) 360px; }
+}
