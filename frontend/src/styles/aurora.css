@@ -69,9 +69,12 @@
 
   --ref-r-card: var(--c-card-radius);
   --ref-r-tile: 16px;
-  --ref-r-chip: 12px;
+  --ref-r-chip: 999px;   /* пилюля: в эталоне rounded-full встречается 214 раз */
 
-  --ref-sh: 0 1px 2px color-mix(in srgb, var(--s-text) 3%, transparent), 0 10px 26px -18px color-mix(in srgb, var(--s-text) 18%, transparent);
+  /* Тень длиннее и шире (04.09.2026): раньше -18px стягивал её под
+     карточку, и без рамки края пропадали. Эталон разводит на -8px —
+     тень становится тем, что держит карточку над холстом. */
+  --ref-sh: 0 4px 12px -2px color-mix(in srgb, var(--s-text) 4%, transparent), 0 12px 36px -8px color-mix(in srgb, var(--s-text) 8%, transparent);
   --ref-sh-hover: 0 2px 6px color-mix(in srgb, var(--s-text) 5%, transparent), 0 20px 40px -22px color-mix(in srgb, var(--s-text) 24%, transparent);
   --ref-sh-pill: 0 6px 16px -8px color-mix(in srgb, var(--s-text) 34%, transparent);
 
@@ -803,7 +806,6 @@ a:hover > .mantine-Card-root,
   padding: 10px;
   border-radius: var(--ref-r-tile);
   background: var(--ref-surface);
-  border: 1px solid var(--ref-line);
   box-shadow: var(--ref-sh);
   min-width: 0;
 }
@@ -890,7 +892,6 @@ a:hover > .mantine-Card-root,
   padding: 14px;
   border-radius: var(--ref-r-tile);
   background: var(--ref-surface);
-  border: 1px solid var(--ref-line);
   box-shadow: var(--ref-sh);
   text-decoration: none;
   color: inherit;
@@ -946,7 +947,6 @@ a:hover > .mantine-Card-root,
   padding: 12px 14px;
   border-radius: var(--ref-r-tile);
   background: var(--ref-surface);
-  border: 1px solid var(--ref-line);
   box-shadow: var(--ref-sh);
   text-decoration: none;
   color: inherit;
@@ -1074,7 +1074,9 @@ a:hover > .mantine-Card-root,
   padding: 14px;
   border-radius: var(--ref-r-card);
   background: var(--ref-surface);
-  border: 1px solid var(--ref-line);
+  /* Рамки нет: карточка держится тенью и воздухом (04.09.2026,
+     эталон Crextio). Рамка + тень вместе дают «обведённую коробку»,
+     из-за которой экран читается как таблица таблиц. */
   box-shadow: var(--ref-sh);
   position: relative;
   isolation: isolate;
