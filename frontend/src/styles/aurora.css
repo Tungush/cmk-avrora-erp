@@ -74,7 +74,7 @@
   /* Тень длиннее и шире (04.09.2026): раньше -18px стягивал её под
      карточку, и без рамки края пропадали. Эталон разводит на -8px —
      тень становится тем, что держит карточку над холстом. */
-  --ref-sh: 0 4px 12px -2px color-mix(in srgb, var(--s-text) 4%, transparent), 0 12px 36px -8px color-mix(in srgb, var(--s-text) 8%, transparent);
+  --ref-sh: 0 4px 12px -2px rgba(0, 0, 0, 0.28), 0 12px 36px -8px rgba(0, 0, 0, 0.45);
   --ref-sh-hover: 0 2px 6px color-mix(in srgb, var(--s-text) 5%, transparent), 0 20px 40px -22px color-mix(in srgb, var(--s-text) 24%, transparent);
   --ref-sh-pill: 0 6px 16px -8px color-mix(in srgb, var(--s-text) 34%, transparent);
 
@@ -92,7 +92,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
 .mantine-AppShell-main { background: transparent !important; }
 
 .mantine-AppShell-header {
-  background: rgba(255, 255, 255, 0.82) !important;
+  background: color-mix(in srgb, var(--s-surface) 82%, transparent) !important;
   -webkit-backdrop-filter: saturate(160%) blur(18px);
   backdrop-filter: saturate(160%) blur(18px);
   border-bottom: 1px solid var(--ref-line) !important;
@@ -278,8 +278,9 @@ a:hover > .mantine-Card-root,
 .mantine-Tabs-tab[data-variant='pills'] { border-radius: 999px; font-weight: 600; color: var(--ref-muted); }
 .mantine-Tabs-tab[data-variant='pills'][data-active] {
   background-image: none;
-  background-color: var(--ref-ink);
-  color: var(--s-text-on-dark);
+  /* инверсная пилюля: следит за схемой (05.09.2026) */
+  background-color: var(--s-inverse-bg);
+  color: var(--s-inverse-fg);
   box-shadow: var(--ref-sh-pill);
 }
 .mantine-Tabs-tab[data-variant='pills']:not([data-active]):hover { background: var(--ref-surface-sub); color: var(--ref-ink); }
@@ -290,7 +291,8 @@ a:hover > .mantine-Card-root,
 .mantine-Pagination-control { border-color: var(--ref-line); font-weight: 600; }
 .mantine-Pagination-control[data-active] {
   background-image: none !important;
-  background-color: var(--ref-ink) !important;
+  background-color: var(--s-inverse-bg) !important;
+  color: var(--s-inverse-fg) !important;
   border-color: transparent !important;
   box-shadow: var(--ref-sh-pill);
 }
@@ -392,7 +394,8 @@ a:hover > .mantine-Card-root,
 .pulse-tile[data-active] .mantine-Text-root { color: var(--s-text-on-panel) !important; }
 .pulse-tile[data-active] .pulse-tile__value { color: var(--s-text-on-dark); -webkit-text-fill-color: var(--s-text-on-dark); }
 .pulse-tile[data-active] .pulse-tile__icon {
-  background: var(--s-text-on-panel); color: var(--s-text-on-dark); border-color: transparent;
+  /* диск значка на тёмной плитке — полупрозрачный, не сплошная светлая плашка */
+  background: rgba(255, 255, 255, 0.14); color: var(--s-text-on-panel); border-color: transparent;
 }
 
 .pulse-tile__value {
@@ -508,8 +511,8 @@ a:hover > .mantine-Card-root,
 .login-scene__grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(0,0,0,0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0,0,0,0.05) 1px, transparent 1px);
+    linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
   background-size: 64px 64px;
   pointer-events: none;
   mask-image:
@@ -655,7 +658,7 @@ a:hover > .mantine-Card-root,
   border-color: transparent;
 }
 .worklist__chip[data-tone='info'] {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(255, 255, 255, 0.06);
   color: var(--ref-ink);
 }
 .worklist__row:hover { background: var(--ref-surface-sub); }
@@ -1038,7 +1041,7 @@ a:hover > .mantine-Card-root,
 .digest-card[data-tone='brand'] .kpi-icon {
   /* Панель графитовая: подложка значка должна быть СВЕТЛЕЕ фона, иначе
      значок пропадает. Тёмный тон здесь был ошибкой светлой панели. */
-  background: var(--s-text-on-panel);
+  background: rgba(255, 255, 255, 0.14);
   border-color: var(--s-text-on-panel);
   color: var(--s-text-on-panel);
 }
@@ -1143,8 +1146,12 @@ a:hover > .mantine-Card-root,
   min-height: 44px;
   border-radius: 999px;
   border: none;
-  background: var(--ref-ink);
-  color: var(--s-text-on-dark);
+  /* Инверсная пилюля (05.09.2026): раньше фон — чернила, текст — «цвет
+     на тёмном». На тёмной теме оба токена светлые: контраст 1,00, кнопка
+     «Очередь закупок» стала пустой плашкой. Пара --s-inverse-* следит за
+     схемой сама. */
+  background: var(--s-inverse-bg);
+  color: var(--s-inverse-fg);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -1159,12 +1166,12 @@ a:hover > .mantine-Card-root,
    светлая кнопка — самое заметное на экране, а она и есть главное
    действие раздела. */
 .digest-card[data-tone='brand'] .digest-card__action {
-  background: var(--s-text-on-panel);
-  color: var(--s-text);
+  background: var(--s-inverse-bg);
+  color: var(--s-inverse-fg);
   box-shadow: none;
 }
 .digest-card[data-tone='brand'] .digest-card__action:hover {
-  background: color-mix(in srgb, var(--s-text-on-panel) 88%, var(--s-attention));
+  background: color-mix(in srgb, var(--s-inverse-bg) 88%, var(--s-attention));
 }
 
 /* Переключатель «сводка ↔ список» — тёмная пилюля из референса */
@@ -1195,8 +1202,8 @@ a:hover > .mantine-Card-root,
 }
 .view-switch button:hover { color: var(--ref-ink); }
 .view-switch button[data-active='true'] {
-  background: var(--ref-ink);
-  color: var(--s-text-on-dark);
+  background: var(--s-inverse-bg);
+  color: var(--s-inverse-fg);
   box-shadow: var(--ref-sh-pill);
 }
 
@@ -2046,7 +2053,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: var(--s-text-on-dark);
+  background: var(--s-inverse-bg);
   z-index: 0;
 }
 .botnav__face {
@@ -2346,3 +2353,130 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   font-variant-numeric: tabular-nums;
   color: var(--ref-ink);
 }
+
+/* ---------------------------------------------------------------
+   Кольца активности (05.09.2026)
+   --------------------------------------------------------------- */
+
+.rings {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+}
+/* Диск по центру, легенда под ним во всю ширину. Легенда СБОКУ не
+   помещалась: при 236 px на кольца ей оставалось 80, и «Оплачено
+   поставщикам» ломалось на четыре строки (снимок 05.09.2026). */
+.rings__disc {
+  position: relative;
+  width: var(--rings-size, 236px);
+  height: var(--rings-size, 236px);
+  margin: 0 auto;
+}
+.rings__svg { display: block; flex: 0 0 auto; }
+
+.rings__track { fill: var(--s-surface-quiet); }
+.rings__fill  { fill: var(--s-attention-fill); transition: fill .18s var(--ease-out); }
+.rings__hit   { fill: transparent; }
+.rings__ring  { cursor: pointer; outline: none; }
+.rings__ring[data-peek] .rings__fill,
+.rings__ring[data-active] .rings__fill { fill: var(--s-panel); }
+.rings__ring[data-peek] .rings__track  { fill: var(--s-line); }
+.rings__ring:focus-visible .rings__track { fill: var(--s-line); }
+/* Кольцо заполнено целиком — точка в вершине, чтобы 100 % не читалось как пустой круг */
+.rings__full { fill: var(--s-surface); }
+
+/* Центр стоит поверх svg, но по центру именно КОЛЕЦ, а не всей сетки */
+.rings__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  pointer-events: none;
+}
+.rings__center-value {
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 34px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--s-text);
+}
+.rings__center-label {
+  margin-top: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--s-text-quiet);
+}
+
+.rings__legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rings__legend-row {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'dot label pct' 'dot cap pct';
+  column-gap: 10px;
+  row-gap: 2px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  color: var(--s-text);
+  transition: background-color .15s var(--ease-out);
+}
+.rings__legend-row:hover,
+.rings__legend-row[data-peek] { background: var(--s-surface-quiet); }
+.rings__legend-row[data-active] { background: var(--s-surface-quiet); box-shadow: inset 3px 0 0 var(--s-panel); }
+.rings__legend-row:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; }
+.rings__legend-dot {
+  grid-area: dot;
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--s-attention-fill);
+  align-self: start; margin-top: 4px;
+}
+.rings__legend-row[data-active] .rings__legend-dot,
+.rings__legend-row[data-peek] .rings__legend-dot { background: var(--s-panel); }
+.rings__legend-label { grid-area: label; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rings__legend-pct {
+  grid-area: pct;
+  align-self: center;
+  font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums;
+  padding-left: 8px;
+}
+.rings__legend-cap { grid-area: cap; font-size: 13px; color: var(--s-text-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Экран директора: кольца слева, ответ справа */
+.dd-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.dd-rings { display: flex; flex-direction: column; justify-content: center; }
+@media (max-width: 1099px) {
+  .dd-layout { grid-template-columns: minmax(0, 1fr); }
+  .dd-rings { display: none; }   /* на узком экране кольца дублируют плитки — убираем, не ужимаем */
+}
+
+/* Плитка, связанная с кольцом под курсором: подсвечивается, не переключается */
+.pulse-tile[data-peek]:not([data-active]) { box-shadow: 0 0 0 2px var(--s-panel) inset; }
+
+/* Заливка пастельным акцентом на тёмной теме СВЕТЛАЯ (indigo/rose/
+   emerald/amber, светлота 0,31-0,55), а Mantine кладёт на неё белый
+   текст: счётчики в «Требует решения» давали 1,35:1 (замер 05.09.2026).
+   autoContrast в теме на это не подействовал, поэтому правило явное:
+   тёмный текст на любой сплошной заливке. Все четыре акцента с #0F172A
+   проходят от 5,4:1. */
+.mantine-Badge-root[data-variant='filled'],
+.mantine-Badge-root[data-variant='filled'] .mantine-Badge-label,
+.mantine-ThemeIcon-root[data-variant='filled'] { color: var(--s-inverse-fg) !important; }

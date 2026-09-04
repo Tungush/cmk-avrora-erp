@@ -29,89 +29,51 @@ import { isDesignMode, enterDesignMode } from './dev/designMode';
 /* Бирюза владельца #1985A1 стоит на ступени 5. Ступени 0-5 текстом
    НЕ ГОДЯТСЯ (максимум 3,65:1 на карточке), поэтому текст внимания
    берёт ступень 7 (#146B7E, 5,23:1), а сама бирюза работает заливкой. */
-const ACCENT: [string, string, string, string, string, string, string, string, string, string] = [
-  '#EAF4F7', '#CFE6EC', '#9CCCD9', '#5FAFC2', '#2E93AB',
-  '#1985A1', '#17788F', '#146B7E', '#11596A', '#0E4755',
+type Scale = [string, string, string, string, string, string, string, string, string, string];
+
+/* Тёмная нейтраль (05.09.2026). Порядок — от светлого к тёмному, как
+   требует Mantine для схемы dark: dark[0] — текст, dark[6] — карточка,
+   dark[7] — холст. Значения совпадают с tokens.css: карточка #1E293B,
+   холст #0F172A, вторичный текст #A3B1C6 (6,73:1). */
+const SLATE: Scale = [
+  '#E2E8F0', '#CBD5E1', '#A3B1C6', '#94A3B8', '#334155',
+  '#273449', '#1E293B', '#0F172A', '#0B1220', '#070D1A',
 ];
-/* Шкала строится ТОЛЬКО из палитры владельца: ступень 2 — холст
-   #C5C3C6, ступень 1 — карточка #DCDCDD, ступень 7 — структура
-   #4C5C68, ступень 8 — чернила #46494C. Промежуточные выведены
-   интерполяцией, потому что Mantine требует десять ступеней и без них
-   подставит СВОЮ палитру. Контраст на карточке #DCDCDD: ступень 6 =
-   4,52:1 (текст годится), 7 = 5,04:1, 8 = 6,61:1. */
-const NEUTRAL: [string, string, string, string, string, string, string, string, string, string] = [
-  '#E8E8E9', '#DCDCDD', '#C5C3C6', '#AFAEB1', '#93959A',
-  '#6E747C', '#45515D', '#45515D', '#46494C', '#46494C',
-];
+/* Четыре пастельных акцента — по категории, не по статусу. Ступень 4
+   (индекс) — рабочая на тёмном: indigo 4,90:1, rose 5,44, emerald 7,61,
+   amber 8,76 к карточке. autoContrast сам ставит тёмный текст на них. */
+const INDIGO: Scale = ['#EEF2FF', '#E0E7FF', '#C7D2FE', '#A5B4FC', '#818CF8', '#6366F1', '#4F46E5', '#4338CA', '#3730A3', '#312E81'];
+const ROSE: Scale    = ['#FFF1F2', '#FFE4E6', '#FECDD3', '#FDA4AF', '#FB7185', '#F43F5E', '#E11D48', '#BE123C', '#9F1239', '#881337'];
+const EMERALD: Scale = ['#ECFDF5', '#D1FAE5', '#A7F3D0', '#6EE7B7', '#34D399', '#10B981', '#059669', '#047857', '#065F46', '#064E3B'];
+const AMBER: Scale   = ['#FFFBEB', '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B', '#D97706', '#B45309', '#92400E', '#78350F'];
+
 const theme = createTheme({
   // Действие в референсе — чёрная пилюля, поэтому основной цвет чернильный.
   // Голубой (brand) остаётся спокойным акцентом, жёлтый (accent) — маркером
   // Главное действие — индиго: в этой палитре структуру держит синий
   primaryColor: 'accent',
-  primaryShade: 7,
+  primaryShade: { light: 6, dark: 4 },
   autoContrast: true,
   /* Чернила вместо чистого чёрного (04.09.2026). Без этого Mantine берёт
      --mantine-color-text = #000, и наш токен --s-text (#16181A) до
      компонентов не доходил: замер на «Закупках» показал чистый чёрный на
      135 элементах — таблицы, тексты, бейджи. Отсюда и ощущение, что
      интерфейс давит: контраст был жёстче задуманного. */
-  black: '#46494C',   /* чернила палитры, не чистый чёрный */
+  black: '#0F172A',
+  white: '#E2E8F0',
   colors: {
-    /* Палитра владельца, 04.09.2026
-       (coolors.co/palette/dcdcdd-c5c3c6-46494c-4c5c68-1985a1).
-
-       Держать здесь ПОЛНЫЕ десятиступенчатые шкалы обязательно: цвет,
-       которого нет в теме, молча падает на СВОЮ палитру Mantine — так в
-       интерфейс и попадала чужая гамма.
-
-       Шкала NEUTRAL построена по палитре: ступени 1,2,5 — это ровно
-       #E1E5EE, #C7CCDB и #767B91 владельца; 7 — #2A324B. Ступени 3,4,6,8,9
-       выведены, потому что Mantine требует десять.
-       Контраст на холсте #E1E5EE: ступень 5 = 3,32:1 (только линии и
-       значки), 6 = 4,92:1 (текст годится), 7 = 10,05:1.
-
-       Шкала ACCENT — персик #F7C59F на ступени 2. Ступени 0-6 текстом
-       НЕ ГОДЯТСЯ (максимум 3,38:1), поэтому текст внимания берёт
-       ступень 7 (#8A5220, 5,03:1), а персик работает только заливкой:
-       тёмный на нём даёт 8,12:1. */
-
-    // accent — тёмный #2A324B: структура, панель, кнопки, фокус
-    accent: NEUTRAL,
-    // brand — персик: внимание. Заливкой; текстом только ступень 7+
-    brand: ACCENT,
-    ink: NEUTRAL,
-    gray: NEUTRAL,
-    dark: NEUTRAL,
-
-    /* «Сделано» отдельного цвета НЕ имеет: в палитре его нет, и норму
-       не красят. Уходит в нейтраль — читается подписью, а указатель на
-       экране остаётся один. */
-    success: NEUTRAL,
-
-    /* warning и danger — один тон с brand намеренно: в цеху нет разницы
-       «предупреждение» и «ошибка», есть «требует решения». Отличает не
-       цвет, а слово рядом. */
-    warning: ACCENT,
-    danger: ACCENT,
-
-    /* ЗАПАСНЫЕ ИМЕНА. Mantine тянет `red` для --mantine-color-error, у
-       Badge и Alert по умолчанию `blue`, у части состояний `green`.
-       Перекрыть переменной в CSS не выходит: библиотека печатает свои
-       значения в собственном блоке и выигрывает по порядку. Поэтому
-       имена переопределены здесь — иначе на экране появляется чужой
-       #fa5252 (3,28:1), которого нет ни в одной нашей палитре. */
-    red: ACCENT,
-    orange: ACCENT,
-    yellow: ACCENT,
-    pink: ACCENT,
-    green: NEUTRAL,
-    lime: NEUTRAL,
-    teal: NEUTRAL,
-    blue: NEUTRAL,
-    cyan: NEUTRAL,
-    indigo: NEUTRAL,
-    violet: NEUTRAL,
-    grape: NEUTRAL,
+    /* accent — индиго: главное действие, фокус, ссылка */
+    accent: INDIGO,
+    /* brand — rose: внимание, просрочка, долг */
+    brand: ROSE,
+    ink: SLATE, gray: SLATE, dark: SLATE,
+    success: EMERALD,
+    warning: AMBER,
+    danger: ROSE,
+    /* Запасные имена Mantine — чтобы библиотека не подставила свою гамму */
+    red: ROSE, pink: ROSE, orange: AMBER, yellow: AMBER,
+    green: EMERALD, lime: EMERALD, teal: EMERALD,
+    blue: INDIGO, cyan: INDIGO, indigo: INDIGO, violet: INDIGO, grape: INDIGO,
   },
 
   fontFamily: "'Onest Variable', 'Onest', -apple-system, 'Segoe UI', sans-serif",
@@ -167,6 +129,10 @@ const theme = createTheme({
       defaultProps: {
         radius: 'xl',
         fw: 600,
+        /* Пастельная заливка светлая — белый текст Mantine давал 1,35:1
+           (счётчики «Требует решения», замер 05.09.2026). autoContrast
+           ставит на неё тёмный текст. */
+        autoContrast: true,
       },
     },
     SegmentedControl: {
@@ -179,7 +145,7 @@ const theme = createTheme({
       defaultProps: { radius: 'xl' },
     },
     ThemeIcon: {
-      defaultProps: { radius: 'md' },
+      defaultProps: { radius: 'md', autoContrast: true },
     },
     Menu: {
       defaultProps: { radius: 'lg', shadow: 'md' },
@@ -228,7 +194,7 @@ if (isDesignMode()) enterDesignMode();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="light">
+    <MantineProvider theme={theme} forceColorScheme="dark">
       <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
         <Notifications position="top-right" zIndex={9999} />
         <App />

@@ -18,6 +18,7 @@ import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { FadeSwap, TextReveal } from '../../components/motion';
 import { FitScreen, useFitRows, usePageKeys } from '../../components/FitScreen';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
+import { ActivityRings } from '../../components/ActivityRings';
 import './Dashboard.css';
 
 const HEALTH_COLORS: Record<string, string> = {
@@ -52,6 +53,9 @@ const ROW_H = 45;
  */
 export function DirectorDashboard() {
   const [tile, setTile] = useState<Tile>('decisions');
+  /* Кольцо или строка легенды под курсором: подсвечиваем связанную
+     плитку, но ничего не переключаем — переключает только нажатие */
+  const [peek, setPeek] = useState<Tile | null>(null);
   const view = TILE_VIEW[tile];
 
   const { data, isLoading } = useQuery({
@@ -115,7 +119,7 @@ export function DirectorDashboard() {
             value: decisionsTotal.toLocaleString('ru-RU'),
             hint: 'перехваты · цены · заявки', tone: 'danger',
             icon: <IconAlertTriangle size={17} aria-hidden />,
-            onClick: () => setTile('decisions'), active: tile === 'decisions',
+            onClick: () => setTile('decisions'), active: tile === 'decisions', peek: peek === 'decisions',
           },
           {
             key: 'margin', label: 'Маржа портфеля',
@@ -123,21 +127,21 @@ export function DirectorDashboard() {
             hint: `цель ${margin.targetPct}% от цены · ${formatCompactMoney(margin.totalMargin)}`,
             tone: margin.actualPct !== null && margin.actualPct >= margin.targetPct ? 'ok' : 'warn',
             icon: <IconScale size={17} aria-hidden />,
-            onClick: () => setTile('margin'), active: tile === 'margin',
+            onClick: () => setTile('margin'), active: tile === 'margin', peek: peek === 'margin',
           },
           {
             key: 'supplier', label: 'Мы должны поставщикам',
             value: formatCompactMoney(money.totalUnpaid),
             hint: `из ${formatCompactMoney(money.totalContracted)} по ДО закупа`,
             tone: 'brand', icon: <IconReceipt size={17} aria-hidden />,
-            onClick: () => setTile('supplier'), active: tile === 'supplier',
+            onClick: () => setTile('supplier'), active: tile === 'supplier', peek: peek === 'supplier',
           },
           {
             key: 'customer', label: 'Заказчики нам должны',
             value: cash ? formatCompactMoney(cash.receivables.owed) : '…',
             hint: 'по активным заказам, данные 1С',
             icon: <IconBuildingBank size={17} aria-hidden />,
-            onClick: () => setTile('customer'), active: tile === 'customer',
+            onClick: () => setTile('customer'), active: tile === 'customer', peek: peek === 'customer',
           },
         ]}
       />
@@ -146,6 +150,37 @@ export function DirectorDashboard() {
 
   return (
     <FitScreen header={header}>
+      {/* Кольца — доли к цели, плитки сверху — абсолютные числа. Не
+          дубль: другой взгляд на те же четыре вопроса. Нажатие на
+          кольцо переключает ответ справа тем же рычагом, что плитка. */}
+      <div className="dd-layout">
+        <Card padding="md" radius="lg" className="dd-rings">
+          <ActivityRings
+            active={tile}
+            peek={peek}
+            onSelect={(k) => setTile(k as Tile)}
+            onPeek={(k) => setPeek(k as Tile | null)}
+            center={{ value: decisionsTotal.toLocaleString('ru-RU'), label: 'требует решения' }}
+            rings={[
+              {
+                key: 'margin', label: 'Маржа к цели',
+                value: margin.actualPct ?? 0, max: margin.targetPct,
+                caption: margin.actualPct !== null ? `${margin.actualPct} % из ${margin.targetPct} %` : 'нет калькуляции',
+              },
+              {
+                key: 'supplier', label: 'Оплачено поставщикам',
+                value: money.totalPaid, max: money.totalContracted,
+                caption: `${formatCompactMoney(money.totalPaid)} из ${formatCompactMoney(money.totalContracted)}`,
+              },
+              {
+                key: 'customer', label: 'Оплачено заказчиками',
+                value: cash?.receivables.paid ?? 0, max: cash?.receivables.contracted ?? 0,
+                caption: cash ? `${formatCompactMoney(cash.receivables.paid)} из ${formatCompactMoney(cash.receivables.contracted)}` : '…',
+              },
+            ]}
+          />
+        </Card>
+
       <FadeSwap swapKey={view} style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
 
         {/* Ради этого директор и открывает систему */}
@@ -268,6 +303,7 @@ export function DirectorDashboard() {
           />
         )}
       </FadeSwap>
+      </div>
     </FitScreen>
   );
 }

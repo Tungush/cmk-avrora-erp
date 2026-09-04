@@ -122,6 +122,8 @@ export interface PulseItem {
   /** Клик по плитке = включить этот срез. Без него плитка просто цифра */
   onClick?: () => void;
   active?: boolean;
+  /** Связанный элемент под курсором (кольцо): подсветить, не переключая */
+  peek?: boolean;
 }
 
 /**
@@ -160,6 +162,7 @@ export function PulseRow({ items, loading, compact }: { items: PulseItem[]; load
               className="pulse-tile glass-lit"
               data-tone={it.tone ?? 'neutral'}
               data-active={it.active ? 'true' : undefined}
+              data-peek={it.peek ? 'true' : undefined}
               data-clickable={clickable ? 'true' : undefined}
               aria-pressed={clickable ? !!it.active : undefined}
             >

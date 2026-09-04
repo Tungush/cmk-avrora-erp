@@ -266,7 +266,7 @@ table td, table th,
   font-size: 14px;
   line-height: 1.45;
   color: var(--s-text);
-  background-color: #fff;
+  background-color: var(--s-surface);
   border: 1px solid var(--s-line-strong);
   border-radius: var(--mantine-radius-md, 8px);
   outline: none;
@@ -322,7 +322,7 @@ textarea.input-field {
 }
 
 .btn-secondary {
-  background-color: #fff;
+  background-color: var(--s-surface);
   color: var(--s-text);
   border-color: var(--s-line-strong);
 }
@@ -332,7 +332,7 @@ textarea.input-field {
 
 .btn-danger {
   background-color: var(--s-attention-fill);
-  color: #fff;
+  color: var(--c-button-fg);
 }
 .btn-danger:not(:disabled):hover {
   background-color: var(--s-attention);
@@ -345,7 +345,7 @@ textarea.input-field {
   overflow-x: auto;
   border: 1px solid var(--s-line);
   border-radius: var(--mantine-radius-md, 8px);
-  background: #fff;
+  background: var(--s-surface);
 }
 
 .table-container table {
@@ -680,9 +680,6 @@ textarea.input-field {
 /* Меню: активный пункт — чёрная пилюля с белой иконкой и подписью */
 .nav-item { transition: background-color .15s var(--ease-out); }
 .nav-item:hover { background: var(--gray-1); }
-.nav-item[aria-current='page'] { color: #fff; }
-.nav-item[aria-current='page'] .mantine-Text-root { color: #fff !important; }
-.nav-item[aria-current='page'] svg { color: #fff !important; }
 
 /* Шапка: белая, без стекла — как в референсе */
 .mantine-AppShell-header {
@@ -702,7 +699,7 @@ textarea.input-field {
 }
 .mantine-TextInput-input:focus, .mantine-NumberInput-input:focus, .mantine-Select-input:focus,
 .mantine-Textarea-input:focus {
-  background: #fff;
+  background: var(--s-surface);
   border-color: var(--brand-6);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand-6) 14%, transparent);
 }
@@ -713,7 +710,7 @@ textarea.input-field {
   padding: 4px;
 }
 .mantine-SegmentedControl-indicator {
-  background: #fff;
+  background: var(--s-surface);
   box-shadow: 0 1px 2px color-mix(in srgb, var(--s-text) 6%, transparent), 0 3px 8px color-mix(in srgb, var(--s-text) 8%, transparent);
 }
 .mantine-SegmentedControl-label { font-weight: 600; }
@@ -727,7 +724,7 @@ textarea.input-field {
 .mantine-Tabs-tab[data-variant='pills'] { font-weight: 600; border-radius: var(--r-full); }
 .mantine-Tabs-tab[data-variant='pills'][data-active] {
   background: var(--pill-dark);
-  color: #fff;
+  color: var(--c-button-fg);
 }
 .mantine-Tabs-tab[data-variant='pills']:not([data-active]):hover { background: var(--gray-2); }
 
@@ -766,7 +763,7 @@ textarea.input-field {
 .mantine-Pagination-control[data-active] {
   background: var(--pill-dark) !important;
   border-color: var(--pill-dark) !important;
-  color: #fff !important;
+  color: var(--c-button-fg) !important;
 }
 .mantine-Pagination-control { border-color: var(--gray-2); font-weight: 600; }
 

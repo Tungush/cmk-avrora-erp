@@ -38,7 +38,18 @@ function readTokens() {
     const ref = v.match(/^var\((--[a-z0-9-]+)\)$/i);
     if (ref) return resolve(ref[1], depth + 1);
     const hex = v.match(/^#[0-9a-f]{3,8}$/i);
-    return hex ? v.toUpperCase() : null;
+    if (hex) return v.toUpperCase();
+    /* rgba(): тонкие границы на тёмной теме заданы прозрачностью белого.
+       Для контраста сводим к непрозрачному цвету, положив на карточку. */
+    const rgba = v.match(/^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+))?\s*\)$/i);
+    if (rgba) {
+      const a = rgba[4] === undefined ? 1 : parseFloat(rgba[4]);
+      const base = raw['--p-surface'] && raw['--p-surface'].startsWith('#') ? raw['--p-surface'] : '#000000';
+      const b = [0, 2, 4].map((i) => parseInt(base.slice(1 + i, 3 + i), 16));
+      const c = [rgba[1], rgba[2], rgba[3]].map((x, i) => Math.round(a * +x + (1 - a) * b[i]));
+      return '#' + c.map((x) => x.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+    return null;
   };
   const out = {};
   for (const name of Object.keys(raw)) {
@@ -145,13 +156,16 @@ for (const [sn, sk] of [['карточке', '--s-surface'], ['холсте', '-
   }
 }
 
-/* 6. Бюджет палитры: цветов мало, хроматических — единицы */
+/* 6. Бюджет палитры (политика 05.09.2026: четыре пастельных акцента —
+   решение владельца). Хроматичность считаем от 60: холодная нейтраль
+   slate имеет синеву 30-45 и цветом не является. Акцентов четыре, у
+   каждого текстовая и заливочная ступень — итого не больше 8 цветных. */
 {
-  const chromatic = distinct.filter((h) => chroma(h) > 30);
+  const chromatic = distinct.filter((h) => chroma(h) > 60);
   ok.push(`различных цветов в токенах: ${distinct.length}`);
-  if (distinct.length > 12) fails.push(`цветов ${distinct.length} — больше 12, палитра расползлась`);
-  ok.push(`из них хроматических: ${chromatic.length} (${chromatic.join(', ') || 'нет'})`);
-  if (chromatic.length > 2) fails.push(`хроматических ${chromatic.length} — указатель должен быть один`);
+  if (distinct.length > 24) fails.push(`цветов ${distinct.length} — больше 24, палитра расползлась`);
+  ok.push(`из них хроматических (акценты): ${chromatic.length} (${chromatic.join(', ') || 'нет'})`);
+  if (chromatic.length > 8) fails.push(`хроматических ${chromatic.length} — больше 8: четыре акцента по две ступени`);
 }
 
 /* ── вывод ────────────────────────────────────────────────────────── */
