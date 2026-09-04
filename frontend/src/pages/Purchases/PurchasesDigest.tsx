@@ -5,6 +5,7 @@ import { purchasesApi } from '../../api/purchases';
 import { DigestCard, DigestGrid } from '../../components/Digest';
 import { useEntity } from '../../components/EntityRef';
 import { formatMoney, formatCompactMoney, formatDate } from '../../utils/formatters';
+import { PurchasesRecent } from './PurchasesRecent';
 
 /**
  * Сводка закупа (03.09.2026) — раздел открывается ответом, а не тремя
@@ -47,6 +48,7 @@ export function PurchasesDigest({
     : null;
 
   return (
+    <div className="digest-with-list">
     <DigestGrid>
       {/* Итог, а не ответ (04.09.2026): те же четыре поставщика с теми же
           суммами перечислены в соседней карточке «Висит больше 30 дней».
@@ -143,5 +145,11 @@ export function PurchasesDigest({
         action={{ label: 'Разрезы и графики', onClick: () => onGoTab('dashboard') }}
       />
     </DigestGrid>
+
+    {/* Второй ряд (04.09.2026, эталон): под сводкой — выписка последних
+        документов. Раздел заканчивался четырьмя карточками, и ниже
+        оставалось 322 px пустоты. */}
+    <PurchasesRecent onGoRegistry={() => onGoTab('registry')} />
+    </div>
   );
 }

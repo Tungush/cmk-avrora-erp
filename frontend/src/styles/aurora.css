@@ -2269,3 +2269,68 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 .reg-split__collapse:hover { background: color-mix(in srgb, var(--s-text-on-dark) 26%, transparent); }
 .reg-split__collapse:focus-visible { outline: 2px solid var(--s-text-on-dark); outline-offset: 2px; }
+
+/* Сводка + выписка: карточки сверху, список снизу занимает остаток */
+.digest-with-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+.digest-with-list > .digest-grid { flex: 0 0 auto; }
+
+.recent-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--ref-surface);
+  box-shadow: var(--ref-sh);
+  overflow: hidden;
+}
+.recent-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--ref-line);
+  flex: 0 0 auto;
+}
+.recent-card__more {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--s-action);
+  padding: 4px 6px;
+  border-radius: 999px;
+}
+.recent-card__more:hover { background: var(--s-surface-quiet); }
+.recent-card__more:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }
+.recent-card__scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+
+/* Сводка с выпиской: показатели столбиком, а не дырой справа
+   (04.09.2026). При auto-fit ряд держат высокие карточки-ответы, а два
+   коротких показателя оставляли справа пустое поле почти на треть
+   экрана. Здесь ряд из трёх колонок: два ответа и колонка показателей
+   друг под другом — как в эталоне, где ряд заполнен целиком. */
+@media (min-width: 1100px) {
+  .digest-with-list .digest-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.9fr);
+    grid-template-rows: auto auto;
+  }
+  .digest-with-list .digest-grid > .digest-card:nth-child(1),
+  .digest-with-list .digest-grid > .digest-card:nth-child(2) {
+    grid-row: span 2;
+  }
+  /* Показателям в столбике высота ряда уже не мешает — тянутся оба */
+  .digest-with-list .digest-grid > .digest-card[data-variant='metric'] {
+    align-self: stretch;
+  }
+}
