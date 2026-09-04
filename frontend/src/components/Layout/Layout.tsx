@@ -1,7 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
-import { IconChevronDown, IconChevronUp } from '@tabler/icons-react';
 import { TopBar } from './TopBar';
 import { BottomNav } from './BottomNav';
 import { useAuthStore } from '../../store/auth';
@@ -28,36 +27,17 @@ function readTopCollapsed(): boolean {
  * одинаково работает на всех ширинах и не отнимает у содержимого 260 px
  * по всей высоте.
  *
- * Шапка и строка разделов сворачиваются независимо: обе освобождают
- * место данным, но нужны в разные моменты.
+ * Сворачивание ШАПКИ убрано 04.09.2026: оно требовало двух отдельных
+ * кнопок — одной в шапке, другой язычком поверх экрана, — и владелец
+ * дважды указал на них как на лишние. Ради 56 px это дорого, тем более
+ * что жалоба была на тесноту, а не на нехватку места. Строка разделов
+ * сворачивается по-прежнему: у неё один понятный элемент.
  */
 export function Layout() {
   const token = useAuthStore((state) => state.token);
   const { pathname } = useLocation();
   const reduced = useMotionOff();
 
-  /**
-   * Шапка сворачивается по требованию (04.09.2026, просьба владельца:
-   * «чтобы эта часть экрана освобождалась, когда нам надо»). Полоса
-   * поиска занимает 56 px, и на разделе с длинной таблицей это две
-   * лишние строки данных.
-   *
-   * Шапка именно СКРЫВАЕТСЯ, а не размонтируется: внутри неё живёт
-   * общий поиск, и Cmd/Ctrl+K обязан работать в свёрнутом виде тоже.
-   */
-  const [topMini, setTopMini] = useState(readTopCollapsed);
-
-  useEffect(() => {
-    document.documentElement.dataset.topbar = topMini ? 'mini' : 'full';
-  }, [topMini]);
-
-  const toggleTop = useCallback(() => {
-    setTopMini((v) => {
-      const next = !v;
-      try { localStorage.setItem(TOPBAR_KEY, next ? 'mini' : 'full'); } catch { /* приватный режим */ }
-      return next;
-    });
-  }, []);
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -80,22 +60,8 @@ export function Layout() {
     >
       <AppShell.Header withBorder={false}>
         <TopBar />
-        <button type="button" className="topbar-toggle" onClick={toggleTop}
-          aria-expanded title="Свернуть шапку" aria-label="Свернуть шапку">
-          <IconChevronUp size={15} stroke={2.2} aria-hidden />
-        </button>
       </AppShell.Header>
 
-      {/* В свёрнутом виде — язычок, которым шапку возвращают. Нужен именно
-          видимый, а не «подвести курсор к краю»: в цеху работают с
-          планшета, где наведения нет. */}
-      {topMini && (
-        <button type="button" className="topbar-peek" onClick={toggleTop}
-          aria-expanded={false} title="Показать шапку и поиск"
-          aria-label="Показать шапку и поиск">
-          <IconChevronDown size={15} stroke={2.2} aria-hidden />
-        </button>
-      )}
 
       {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить
           одиннадцать разделов нижней строки на каждом экране */}

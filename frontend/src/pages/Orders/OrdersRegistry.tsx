@@ -288,7 +288,7 @@ export function OrdersRegistry({ view, onViewChange }: {
   };
 
   return (
-    <Stack gap={8} style={{ minWidth: 0 }}>
+    <Stack gap={12} style={{ minWidth: 0 }}>
       {view === 'digest' ? (
         <DigestGrid>
           <DigestCard

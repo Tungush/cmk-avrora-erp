@@ -383,10 +383,16 @@ a:hover > .mantine-Card-root,
   background-color: var(--s-panel);
   box-shadow: var(--ref-sh-pill);
 }
-.pulse-tile[data-active] .mantine-Text-root { color: color-mix(in srgb, var(--s-text-on-panel) 72%, transparent) !important; }
+/* Полная непрозрачность, а не 72 % (04.09.2026, найдено обходом).
+   Разбавленный светлый на структуре #4C5C68 давал 3,46:1 при пороге
+   4,5; даже 90 % дают только 4,43. Полный цвет — 5,04:1. Иерархия
+   между главным и вторичным на плитке держится размером и весом, а не
+   прозрачностью: разбавлять текст на цветном фоне вообще нельзя, там
+   не остаётся запаса. */
+.pulse-tile[data-active] .mantine-Text-root { color: var(--s-text-on-panel) !important; }
 .pulse-tile[data-active] .pulse-tile__value { color: var(--s-text-on-dark); -webkit-text-fill-color: var(--s-text-on-dark); }
 .pulse-tile[data-active] .pulse-tile__icon {
-  background: color-mix(in srgb, var(--s-text-on-panel) 14%, transparent); color: var(--s-text-on-dark); border-color: transparent;
+  background: var(--s-text-on-panel); color: var(--s-text-on-dark); border-color: transparent;
 }
 
 .pulse-tile__value {
@@ -573,7 +579,10 @@ a:hover > .mantine-Card-root,
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  /* 10 -> 14 (04.09.2026): владелец сказал «тесно». Днём я срезал
+     зазоры ради данных и пережал — воздух между шапкой раздела и
+     содержимым вернулся. */
+  gap: 14px;
   min-height: 0;
 }
 .fit-screen__head, .fit-screen__foot { flex: 0 0 auto; }
@@ -997,7 +1006,7 @@ a:hover > .mantine-Card-root,
 .digest-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
-  gap: 12px;
+  gap: 14px;
   align-content: start;
   /* Ответы в ряду выравниваются по высоте: разная высота у соседних
      карточек одного вида читается лестницей, а кнопки уезжают на разные
@@ -1008,8 +1017,8 @@ a:hover > .mantine-Card-root,
 .digest-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 14px;
+  gap: 12px;
+  padding: 18px;
   border-radius: var(--ref-r-card);
   background: var(--ref-surface);
   /* Рамки нет: карточка держится тенью и воздухом (04.09.2026,
@@ -1029,8 +1038,8 @@ a:hover > .mantine-Card-root,
 .digest-card[data-tone='brand'] .kpi-icon {
   /* Панель графитовая: подложка значка должна быть СВЕТЛЕЕ фона, иначе
      значок пропадает. Тёмный тон здесь был ошибкой светлой панели. */
-  background: color-mix(in srgb, var(--s-text-on-panel) 12%, transparent);
-  border-color: color-mix(in srgb, var(--s-text-on-panel) 22%, transparent);
+  background: var(--s-text-on-panel);
+  border-color: var(--s-text-on-panel);
   color: var(--s-text-on-panel);
 }
 /* Панель стала графитовой (ревизия 2): текст на ней ОБЯЗАН идти от
@@ -1038,13 +1047,13 @@ a:hover > .mantine-Card-root,
    они были рассчитаны на светлый беж и на графите давали 1:1, то есть
    надпись «Новые из 1С» и подпись под числом пропадали совсем. */
 .digest-card[data-tone='brand'] .mantine-Text-root {
-  color: color-mix(in srgb, var(--s-text-on-panel) 76%, transparent) !important;
+  color: var(--s-text-on-panel) !important;
 }
-.digest-card[data-tone='brand'] .digest-item { border-color: color-mix(in srgb, var(--s-text-on-panel) 18%, transparent); }
+.digest-card[data-tone='brand'] .digest-item { border-color: var(--s-text-on-panel); }
 .digest-card[data-tone='brand'] .digest-item__label { color: var(--s-text-on-panel); }
 .digest-card[data-tone='brand'] .digest-item__value { color: var(--s-text-on-panel); }
-.digest-card[data-tone='brand'] .digest-item__sub { color: color-mix(in srgb, var(--s-text-on-panel) 70%, transparent); }
-.digest-card[data-tone='brand'] .digest-item__bar { background: color-mix(in srgb, var(--s-text-on-panel) 18%, transparent); }
+.digest-card[data-tone='brand'] .digest-item__sub { color: var(--s-text-on-panel); }
+.digest-card[data-tone='brand'] .digest-item__bar { background: var(--s-text-on-panel); }
 .digest-card[data-tone='brand'] .digest-item__bar i { background: var(--s-attention); }
 
 .digest-card__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
@@ -1969,7 +1978,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   padding-bottom: 64px !important;
   /* Mantine кладёт сверху высоту шапки плюс свои 24 px. Между шапкой и
      названием раздела столько воздуха не нужно — 12 достаточно. */
-  padding-top: 68px !important;
+  padding-top: 76px !important;   /* 68 -> 76: было тесно под шапкой */
   /* Mantine ставит сюда min-height:100dvh. Внутри плашки это на 10 px
      больше, чем есть места (плашка отступает от края), и страница
      уходила в прокрутку ровно на это поле. */
@@ -2022,7 +2031,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   border-radius: 999px;
   text-decoration: none;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--s-text-on-panel) 74%, transparent);
+  color: var(--s-text-on-panel);
   transition: color .18s var(--ease-out);
 }
 .botnav__item:hover { color: var(--s-text-on-dark); }
@@ -2139,7 +2148,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   font-weight: 700;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: color-mix(in srgb, var(--s-text-on-panel) 62%, transparent);
+  color: var(--s-text-on-panel);
 }
 .passport-head__num {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
@@ -2152,7 +2161,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .passport-head__sub {
   font-size: 13.5px;
   line-height: 1.4;
-  color: color-mix(in srgb, var(--s-text-on-panel) 82%, transparent);
+  color: var(--s-text-on-panel);
 }
 .passport-head__pills {
   display: flex;
@@ -2179,7 +2188,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .digest-with-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
   height: 100%;
   min-height: 0;
 }
@@ -2275,7 +2284,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   border: 0;
   border-radius: 999px;
   cursor: pointer;
-  color: color-mix(in srgb, var(--s-text-on-panel) 74%, transparent);
+  color: var(--s-text-on-panel);
   background: color-mix(in srgb, var(--s-text-on-dark) 12%, transparent);
 }
 .botnav__collapse:hover {
@@ -2284,55 +2293,6 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 .botnav__collapse:focus-visible { outline: 2px solid var(--s-text-on-dark); outline-offset: 2px; }
 
-/* --- свёрнутая шапка (04.09.2026) --- */
-
-/* Шапка скрыта, но смонтирована: общий поиск по Cmd/Ctrl+K продолжает
-   работать, потому что компонент остаётся в дереве. */
-[data-topbar='mini'] .mantine-AppShell-header { display: none !important; }
-[data-topbar='mini'] .mantine-AppShell-main { padding-top: 16px !important; }
-
-.topbar-toggle {
-  position: absolute;
-  right: 14px;
-  bottom: -11px;
-  z-index: 3;
-  width: 26px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 0 0 999px 999px;
-  cursor: pointer;
-  color: var(--s-text-quiet);
-  background: var(--s-surface);
-  box-shadow: 0 2px 6px color-mix(in srgb, var(--s-text) 12%, transparent);
-}
-.topbar-toggle:hover { color: var(--s-text); }
-.topbar-toggle:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }
-
-/* Язычок возврата: то же стекло, что у строки разделов */
-.topbar-peek {
-  position: fixed;
-  top: 10px;
-  right: 26px;
-  z-index: 210;
-  width: 44px;
-  height: 22px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 0;
-  border-radius: 0 0 999px 999px;
-  cursor: pointer;
-  color: var(--s-text-quiet);
-  background: color-mix(in srgb, var(--s-surface) 78%, transparent);
-  -webkit-backdrop-filter: blur(18px) saturate(180%);
-  backdrop-filter: blur(18px) saturate(180%);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--s-text) 14%, transparent);
-}
-.topbar-peek:hover { color: var(--s-text); }
-.topbar-peek:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }
 
 /* ---------------------------------------------------------------
    Пусто / не загрузилось и полосы готовности (04.09.2026)

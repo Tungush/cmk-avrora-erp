@@ -41,7 +41,7 @@ const ACCENT: [string, string, string, string, string, string, string, string, s
    4,52:1 (текст годится), 7 = 5,04:1, 8 = 6,61:1. */
 const NEUTRAL: [string, string, string, string, string, string, string, string, string, string] = [
   '#E8E8E9', '#DCDCDD', '#C5C3C6', '#AFAEB1', '#93959A',
-  '#6E747C', '#59626C', '#4C5C68', '#46494C', '#46494C',
+  '#6E747C', '#45515D', '#45515D', '#46494C', '#46494C',
 ];
 const theme = createTheme({
   // Действие в референсе — чёрная пилюля, поэтому основной цвет чернильный.
@@ -117,6 +117,10 @@ const theme = createTheme({
   fontFamily: "'Onest Variable', 'Onest', -apple-system, 'Segoe UI', sans-serif",
   // 02.09.2026: шаг вверх по всей шкале — xs 12→13, sm 14→15, md 16, lg 18, xl 22.
   // Тексту size="xs" (подписи, второстепенное) 12 px не хватало на мониторе цеха.
+  /* Mantine берёт --mantine-color-dimmed со ступени 6 своей серой
+     шкалы, мимо наших токенов: все подписи через c="dimmed" шли
+     цветом #59626C и давали 3,46-3,66:1 при пороге 4,5 (найдено
+     обходом 04.09.2026). Ступени 5 и 6 сведены к #45515D. */
   fontSizes: { xs: '0.8125rem', sm: '0.9375rem', md: '1rem', lg: '1.125rem', xl: '1.375rem' },
   lineHeights: { xs: '1.4', sm: '1.45', md: '1.5', lg: '1.5', xl: '1.45' },
   fontFamilyMonospace: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace",

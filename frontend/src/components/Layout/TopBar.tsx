@@ -3,7 +3,7 @@ import { Group, Text, ActionIcon, Tooltip, UnstyledButton, Kbd } from '@mantine/
 import { useDisclosure } from '@mantine/hooks';
 import { GlobalSearch, useGlobalSearchHotkey } from '../GlobalSearch';
 import {
-  IconSearch, IconBell, IconLogout, IconMenu2,
+  IconChevronUp,  IconSearch, IconBell, IconLogout, IconMenu2,
 } from '@tabler/icons-react';
 import { useAuthStore } from '../../store/auth';
 import { HeaderPulse } from './HeaderPulse';
