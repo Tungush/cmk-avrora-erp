@@ -2,8 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
 import { useDisclosure, useMediaQuery } from '@mantine/hooks';
-import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { BottomNav } from './BottomNav';
 import { useAuthStore } from '../../store/auth';
 import { OrderCardProvider } from '../OrderCard/OrderCardProvider';
 import { ReceiptCardProvider } from '../ReceiptCard/ReceiptCardProvider';
@@ -68,7 +68,6 @@ export function Layout() {
     <AuroraCanvas />
     <AppShell
       header={{ height: 64 }}
-      navbar={{ width: collapsed ? NAV_RAIL_WIDTH : NAV_WIDTH, breakpoint: 'sm', collapsed: { mobile: !mobileOpened } }}
       padding={{ base: 16, md: 24 }}
       bg="transparent"
       transitionDuration={reduced ? 0 : 240}
@@ -77,11 +76,6 @@ export function Layout() {
       <AppShell.Header withBorder={false}>
         <TopBar onToggleMobile={toggle} navCollapsed={collapsed} onToggleNav={toggleNav} />
       </AppShell.Header>
-
-      <AppShell.Navbar p={collapsed ? 'xs' : 'md'} withBorder={false} style={{ transition: 'padding 240ms cubic-bezier(0.25, 1, 0.5, 1)' }}>
-        {/* На телефоне выезжающее меню всегда полное — иконки без подписей там не нужны */}
-        <Sidebar onNavigate={close} collapsed={collapsed && !mobileOpened} />
-      </AppShell.Navbar>
 
       {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить
           одиннадцать пунктов меню на каждом разделе (03.09.2026) */}
@@ -109,6 +103,9 @@ export function Layout() {
           </motion.div>
         </Box>
       </AppShell.Main>
+
+      {/* Разделы — плавающей строкой внизу, поверх содержимого */}
+      <BottomNav />
     </AppShell>
     </EntityProvider>
     </ReceiptCardProvider>

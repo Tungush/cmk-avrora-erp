@@ -53,7 +53,15 @@ export function useFitHeight(reserve = 0, min = 240) {
     if (!node) return;
     const top = node.getBoundingClientRect().top;
     const foot = footRef.current?.getBoundingClientRect().height ?? 0;
-    setH(Math.max(min, Math.round(window.innerHeight - top - foot - reserve)));
+    /* Низ экрана занят не до конца: у оболочки-плашки есть поле, а над
+       ним висит плавающая строка разделов. Раньше здесь стоял голый
+       window.innerHeight, и после появления плашки любой раздел с
+       таблицей уходил в прокрутку на 57 px. Величина живёт в CSS одним
+       значением (--shell-bottom), чтобы не разъехалась с разметкой. */
+    const shellBottom = parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue('--shell-bottom'),
+    ) || 0;
+    setH(Math.max(min, Math.round(window.innerHeight - top - foot - reserve - shellBottom)));
   }, [reserve, min]);
 
   const measureRef = useRef(measure);

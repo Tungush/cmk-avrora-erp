@@ -1784,15 +1784,23 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   flex-wrap: wrap;
   min-width: 0;
 }
+/* Название крупно, пояснение под ним (04.09.2026, эталон Crextio).
+   Раньше они стояли в одну строку, и название весило столько же,
+   сколько вкладки рядом, — экран начинался ни с чего. В эталоне
+   название занимает две строки и видно первым; пояснение уходит вниз
+   серым. Место под это есть: нижняя треть разделов-сводок пустует. */
 .section-head__title {
   display: flex;
-  align-items: baseline;
-  gap: 12px;
+  flex-direction: column;
+  gap: 2px;
   min-width: 0;
   flex: 1 1 auto;
 }
-/* Пояснение — рядом с названием и в одну строку: оно прочитывается
-   один раз, дальше только занимает место */
+.section-head .page-title {
+  font-size: clamp(28px, 3vw, 38px) !important;
+  line-height: 1.05 !important;
+  letter-spacing: -0.035em !important;
+}
 .section-head__sub {
   min-width: 0;
   overflow: hidden;
@@ -1983,4 +1991,131 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 @media (hover: none) {
   /* На сенсорном экране пагинацией пользуются пальцем — полный минимум */
   .mantine-Pagination-control { min-width: 44px; min-height: 44px; }
+}
+
+/* ---------------------------------------------------------------
+   Оболочка и нижняя панель разделов (04.09.2026, эталон Crextio)
+   --------------------------------------------------------------- */
+
+/* Приложение — плашка с полями, а не полотно во весь экран. В эталоне
+   так на всех четырёх экранах: содержимое лежит на скруглённой
+   поверхности, вокруг видно фон. Это то, из-за чего интерфейс читается
+   как предмет, а не как страница сайта. */
+/* Сколько внизу занято не содержимым: поле плашки (10) плюс полоса под
+   плавающую строку разделов (84). Одно значение на CSS и на измерение
+   высоты в useFitHeight — иначе разъедется и вернётся прокрутка. */
+:root { --shell-bottom: 94px; }
+
+.mantine-AppShell-root {
+  padding: 10px;
+  height: 100dvh;
+}
+.mantine-AppShell-root::before {
+  content: '';
+  position: fixed;
+  inset: 10px;
+  border-radius: 26px;
+  background: var(--s-surface);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--s-text) 5%, transparent),
+              0 24px 60px -22px color-mix(in srgb, var(--s-text) 20%, transparent);
+  /* Строго -1, не 0. При z-index:0 плашка — позиционированный элемент и
+     закрашивает всё НЕпозиционированное содержимое: заголовок раздела и
+     вкладки пропадали, а карточки оставались видны только потому, что у
+     них свой position:relative. Отрицательный слой уводит плашку под
+     содержимое, оставляя её внутри стекового контекста оболочки. */
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Шапка и содержимое живут внутри плашки, поэтому у них своё скругление
+   сверху и никакой собственной подложки во всю ширину окна */
+.mantine-AppShell-header {
+  left: 10px !important;
+  right: 10px !important;
+  top: 10px !important;
+  width: auto !important;
+  border-radius: 26px 26px 0 0;
+  background: transparent !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--ref-line) !important;
+}
+
+/* Меню слева больше нет — содержимому достаётся вся ширина плашки.
+   Снизу оставлено место под плавающую строку разделов. */
+.mantine-AppShell-main {
+  padding-left: 24px !important;
+  padding-right: 24px !important;
+  padding-bottom: 84px !important;
+  /* Mantine ставит сюда min-height:100dvh. Внутри плашки это на 10 px
+     больше, чем есть места (плашка отступает от края), и страница
+     уходила в прокрутку ровно на это поле. */
+  min-height: calc(100dvh - 20px) !important;
+}
+
+/* --- плавающая строка разделов --- */
+.botnav {
+  position: fixed;
+  left: 0; right: 0; bottom: 18px;
+  display: flex; justify-content: center;
+  z-index: 190;
+  pointer-events: none;
+}
+.botnav__bar {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border-radius: 999px;
+  background: var(--s-panel);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--s-text) 16%, transparent),
+              0 18px 44px -12px color-mix(in srgb, var(--s-text) 42%, transparent);
+  max-width: calc(100vw - 40px);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.botnav__bar::-webkit-scrollbar { display: none; }
+
+.botnav__item {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 13px;
+  border-radius: 999px;
+  text-decoration: none;
+  white-space: nowrap;
+  color: color-mix(in srgb, var(--s-text-on-panel) 74%, transparent);
+  transition: color .18s var(--ease-out);
+}
+.botnav__item:hover { color: var(--s-text-on-dark); }
+.botnav__item:focus-visible {
+  outline: 2px solid var(--s-text-on-dark);
+  outline-offset: 2px;
+}
+.botnav__item[data-active] { color: var(--s-panel); }
+
+/* Заливка активного пункта — под подписью, одна на всю строку */
+.botnav__pill {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: var(--s-text-on-dark);
+  z-index: 0;
+}
+.botnav__face {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;      /* правило «не мельче 13 px» действует и здесь */
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+@media (max-width: 1200px) {
+  .botnav__item { padding: 8px 10px; }
+  .botnav__face { gap: 6px; }
 }
