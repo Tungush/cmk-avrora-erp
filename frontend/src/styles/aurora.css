@@ -1718,7 +1718,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  min-height: 46px;
+  min-height: 38px;
   padding: 0 14px;
   border-radius: 999px;
   flex: 0 0 auto;
@@ -1796,11 +1796,15 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   min-width: 0;
   flex: 1 1 auto;
 }
+/* 04.09.2026, замер владельца «всё большое, данным мало места»: при
+   38 px полоса названия занимала 64 px из 900, а данным доставалось
+   44 % экрана. Название крупнее прежнего, но не за счёт данных. */
 .section-head .page-title {
-  font-size: clamp(28px, 3vw, 38px) !important;
-  line-height: 1.05 !important;
-  letter-spacing: -0.035em !important;
+  font-size: clamp(21px, 2.2vw, 28px) !important;
+  line-height: 1.08 !important;
+  letter-spacing: -0.03em !important;
 }
+.section-head__sub { font-size: 12.5px !important; }
 .section-head__sub {
   min-width: 0;
   overflow: hidden;
@@ -2004,7 +2008,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 /* Сколько внизу занято не содержимым: поле плашки (10) плюс полоса под
    плавающую строку разделов (84). Одно значение на CSS и на измерение
    высоты в useFitHeight — иначе разъедется и вернётся прокрутка. */
-:root { --shell-bottom: 94px; }
+:root { --shell-bottom: 74px; }   /* 10 поле плашки + 64 под строку разделов */
 
 .mantine-AppShell-root {
   padding: 10px;
@@ -2046,7 +2050,12 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .mantine-AppShell-main {
   padding-left: 24px !important;
   padding-right: 24px !important;
-  padding-bottom: 84px !important;
+  /* 64 вместо 84: строка разделов высотой 46 стоит в 18 от низа, то есть
+     занимает 64. Больше запаса — просто пустая полоса (была 72 px). */
+  padding-bottom: 64px !important;
+  /* Mantine кладёт сверху высоту шапки плюс свои 24 px. Между шапкой и
+     названием раздела столько воздуха не нужно — 12 достаточно. */
+  padding-top: 68px !important;
   /* Mantine ставит сюда min-height:100dvh. Внутри плашки это на 10 px
      больше, чем есть места (плашка отступает от края), и страница
      уходила в прокрутку ровно на это поле. */

@@ -204,7 +204,10 @@ export function OrdersRegistry({ view, onViewChange }: {
    * Ручной выбор «25/50/100 на стр.» остаётся: если человек сознательно
    * просит больше — таблица прокрутится внутри себя, а не страница.
    */
-  const fit = useFitHeight(42, 220);
+  /* 16, а не 42 (04.09.2026): запас закладывался под зазоры по 16 px
+     между блоками раздела. Зазоры уменьшены до 8, и прежние 42
+     превратились в пустую полосу внизу. */
+  const fit = useFitHeight(16, 220);
   const [viewName, setViewName] = useState('');
   const [saveViewOpened, setSaveViewOpened] = useState(false);
 
@@ -283,7 +286,7 @@ export function OrdersRegistry({ view, onViewChange }: {
   };
 
   return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
+    <Stack gap={8} style={{ minWidth: 0 }}>
       {view === 'digest' ? (
         <DigestGrid>
           <DigestCard

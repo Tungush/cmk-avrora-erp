@@ -41,7 +41,7 @@ export function Layout() {
     <EntityProvider>
     <AuroraCanvas />
     <AppShell
-      header={{ height: 64 }}
+      header={{ height: 56 }}   /* 64 -> 56: полоса поиска не нуждается в такой высоте */
       padding={{ base: 16, md: 24 }}
       bg="transparent"
       transitionDuration={reduced ? 0 : 240}
