@@ -2145,71 +2145,65 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 }
 
 /* ---------------------------------------------------------------
-   Реестр заказов: список слева, паспорт справа (04.09.2026, эталон)
+   Карточка заказа во весь экран (04.09.2026, решение владельца)
    --------------------------------------------------------------- */
 
-/* Раньше реестр занимал всю ширину, а карточка открывалась шторкой
-   поверх него — список пропадал ровно в тот момент, когда по нему
-   сверяются. В эталоне они стоят рядом, и переход между заказами не
-   требует закрывать карточку. */
-.reg-split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 420px;
-  gap: 16px;
-  /* stretch, а не start: паспорт тянется на высоту списка. При start он
-     сжимался до высоты своего содержимого, и справа висел коротышка на
-     167 px рядом со списком на 451 — читалось как недогруженный экран. */
-  align-items: stretch;
-  min-height: 0;
-}
-.reg-split__list { min-width: 0; display: flex; flex-direction: column; }
-
-/* Паспорт НЕ задаёт высоту ряда. Иначе заказ с длинной карточкой
-   (2595 px в замере) растягивал сетку и вся страница уходила в
-   прокрутку — правило «экран не прокручивается» ломалось при первом же
-   клике. Содержимое вынесено из потока и крутится внутри панели. */
-.reg-split__card {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  border-radius: var(--ref-r-card);
-  background: var(--ref-surface);
-  box-shadow: var(--ref-sh);
-}
-.reg-split__scroll {
-  position: absolute;
-  inset: 0;
-  padding: 16px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-
-/* Пока заказ не выбран — объяснение, а не пустая панель: пустота на
-   пол-экрана читается как поломка */
-.reg-split__hint {
+/* Боковая панель на 420 px оказалась тесной: в карточке этапы по
+   позициям, количества, деньги, подряд и себестоимость, и в узкой
+   колонке всё это читалось лентой вниз. Порядок работы: увидел список
+   -> выбрал заказ -> делаешь всё в карточке на весь экран. */
+.order-full {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 22px 4px;
-  font-size: 13.5px;
-  line-height: 1.5;
-  color: var(--s-text-quiet);
+  min-height: 0;
+  flex: 1;
 }
-.reg-split__hint-title {
-  font-family: 'Onest', var(--font-sans, sans-serif);
-  font-size: 15px;
-  font-weight: 700;
+.order-full__head { flex: 0 0 auto; }
+.order-full__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 6px 14px 6px 11px;
+  font-size: 13px;
+  font-weight: 600;
   color: var(--s-text);
+  background: var(--s-surface-quiet);
+}
+.order-full__back:hover { background: var(--s-line); }
+.order-full__back:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }
+
+.order-full__body {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
 }
 
-/* Ноутбук 1280: паспорт ужимается, но остаётся. Ниже 1100 px два
-   столбца не помещаются — там паспорт возвращается шторкой, столбец не
-   рендерится вовсе (условие splitFits в OrdersRegistry). */
-@media (max-width: 1099px) {
-  .reg-split { grid-template-columns: minmax(0, 1fr); }
+/* Разделы карточки — в две колонки с плотной укладкой.
+   Сетка (grid) здесь не годится: высоту строки задаёт самый высокий
+   блок, и рядом с «Основным» на 359 px оставалась дыра в полстроки.
+   Колоночная раскладка пакует блоки друг под другом без дыр, а
+   break-inside не даёт карточке разорваться между колонками.
+   Две колонки, а не три: в трёх таблице позиций достаётся 440 px и
+   она начинает ужиматься, в двух — 680. */
+.order-full__body > .mantine-Stack-root {
+  display: block !important;
+  column-count: 2;
+  column-gap: 12px;
 }
-@media (max-width: 1400px) {
-  .reg-split { grid-template-columns: minmax(0, 1fr) 360px; }
+.order-full__body > .mantine-Stack-root > * {
+  break-inside: avoid;
+  margin-bottom: 12px;
+}
+/* Обложка — во всю ширину над колонками */
+.order-full__body > .mantine-Stack-root > .passport-head { column-span: all; }
+
+@media (max-width: 1099px) {
+  .order-full__body > .mantine-Stack-root { column-count: 1; }
 }
 
 /* ---------------------------------------------------------------
@@ -2268,22 +2262,6 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
    и в таблицах 11 px уместны. */
 .passport-head .mantine-Badge-root { font-size: 13px !important; }
 
-/* Свернуть паспорт — вернуть реестру полную ширину и таблицу */
-.reg-split__collapse {
-  position: absolute;
-  top: 10px; right: 12px;
-  z-index: 2;
-  border: 0;
-  border-radius: 999px;
-  padding: 5px 12px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  color: var(--s-text-on-dark);
-  background: color-mix(in srgb, var(--s-text-on-dark) 16%, transparent);
-}
-.reg-split__collapse:hover { background: color-mix(in srgb, var(--s-text-on-dark) 26%, transparent); }
-.reg-split__collapse:focus-visible { outline: 2px solid var(--s-text-on-dark); outline-offset: 2px; }
 
 /* Сводка + выписка: карточки сверху, список снизу занимает остаток */
 .digest-with-list {
@@ -2349,3 +2327,97 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
     align-self: stretch;
   }
 }
+
+/* --- свёрнутая строка разделов (04.09.2026, просьба владельца) --- */
+
+/* Свёрнутая строка возвращает содержимому 40 px. Величину читает и
+   useFitHeight, поэтому таблицы честно вырастают, а не оставляют
+   пустую полосу. */
+:root[data-botnav='mini'] { --shell-bottom: 34px; }
+[data-botnav='mini'] .mantine-AppShell-main { padding-bottom: 24px !important; }
+
+/* Пилюля с текущим разделом: видно, где ты, и чем открыть остальное */
+.botnav__mini {
+  border: 0;
+  cursor: pointer;
+  color: var(--s-text-on-dark);
+  padding: 7px 14px 7px 13px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.botnav__mini:hover { background: color-mix(in srgb, var(--s-panel) 90%, transparent); }
+.botnav__mini:focus-visible { outline: 2px solid var(--s-panel); outline-offset: 3px; }
+.botnav__mini-label { white-space: nowrap; }
+
+/* Кнопка «свернуть» в конце развёрнутого ряда */
+.botnav__collapse {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
+  color: color-mix(in srgb, var(--s-text-on-panel) 74%, transparent);
+  background: color-mix(in srgb, var(--s-text-on-dark) 12%, transparent);
+}
+.botnav__collapse:hover {
+  color: var(--s-text-on-dark);
+  background: color-mix(in srgb, var(--s-text-on-dark) 22%, transparent);
+}
+.botnav__collapse:focus-visible { outline: 2px solid var(--s-text-on-dark); outline-offset: 2px; }
+
+/* --- свёрнутая шапка (04.09.2026) --- */
+
+/* Шапка скрыта, но смонтирована: общий поиск по Cmd/Ctrl+K продолжает
+   работать, потому что компонент остаётся в дереве. */
+[data-topbar='mini'] .mantine-AppShell-header { display: none !important; }
+[data-topbar='mini'] .mantine-AppShell-main { padding-top: 16px !important; }
+
+.topbar-toggle {
+  position: absolute;
+  right: 14px;
+  bottom: -11px;
+  z-index: 3;
+  width: 26px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0 0 999px 999px;
+  cursor: pointer;
+  color: var(--s-text-quiet);
+  background: var(--s-surface);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--s-text) 12%, transparent);
+}
+.topbar-toggle:hover { color: var(--s-text); }
+.topbar-toggle:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }
+
+/* Язычок возврата: то же стекло, что у строки разделов */
+.topbar-peek {
+  position: fixed;
+  top: 10px;
+  right: 26px;
+  z-index: 210;
+  width: 44px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 0 0 999px 999px;
+  cursor: pointer;
+  color: var(--s-text-quiet);
+  background: color-mix(in srgb, var(--s-surface) 78%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--s-text) 14%, transparent);
+}
+.topbar-peek:hover { color: var(--s-text); }
+.topbar-peek:focus-visible { outline: 2px solid var(--s-action); outline-offset: 2px; }

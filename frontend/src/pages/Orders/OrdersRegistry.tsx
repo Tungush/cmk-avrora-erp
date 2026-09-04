@@ -5,6 +5,7 @@ import {
 } from '@mantine/core';
 import {
   IconSearch, IconAlertTriangle, IconBookmark, IconBookmarkPlus, IconTrash,
+  IconArrowLeft,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { useMediaQuery } from '@mantine/hooks';
@@ -180,8 +181,9 @@ export function OrdersRegistry({ view, onViewChange }: {
   /* Паспорт показываем панелью справа, а не шторкой поверх списка
      (04.09.2026, эталон): список и карточка видны одновременно, и
      переход между заказами не требует закрывать-открывать. */
-  const splitFits = useMediaQuery('(min-width: 1100px)');
-  useInlineOrderCard(!!splitFits);
+  /* Карточка рисуется этим разделом на весь экран, поэтому общая
+     шторка поверх списка не нужна ни на какой ширине. */
+  useInlineOrderCard();
   // < 768px: таблица превращается в ленту карточек (§4.6)
   const isMobile = useMediaQuery('(max-width: 767px)');
   const [preset, setPreset] = useState<PresetCode>('core');
@@ -357,6 +359,11 @@ export function OrdersRegistry({ view, onViewChange }: {
         </DigestGrid>
       ) : (
       <>
+      {/* Фильтры и плитки списка прячутся, пока открыта карточка
+          (04.09.2026): они управляют СПИСКОМ, которого сейчас не видно,
+          и отнимают у карточки около 100 px. */}
+      {!openedId && (
+      <>
       {/* Компактно: здесь плитки переключают список, а не отчитываются */}
       <PulseRow
         compact
@@ -384,7 +391,10 @@ export function OrdersRegistry({ view, onViewChange }: {
           },
         ]}
       />
+      </>
+      )}
 
+      {!openedId && (
       <div className="toolbar-sticky">
         <Group justify="space-between" wrap="wrap" gap="sm">
           <Group gap="sm" wrap="wrap">
@@ -459,37 +469,36 @@ export function OrdersRegistry({ view, onViewChange }: {
           </Group>
         </Group>
       </div>
+      )}
 
-      {/* Список и паспорт рядом (эталон): слева реестр, справа живая
-          карточка выбранного заказа. Пока заказ не выбран — справа
-          подсказка, а не пустота. */}
-      <div className="reg-split">
-      <div className="reg-split__list">
+      {/* Заказ открыт — карточка во весь экран (04.09.2026, решение
+          владельца). Боковая панель на 420 px была тесной: в карточке
+          этапы по позициям, количества, деньги, подряд и себестоимость,
+          и всё это в узкой колонке читалось лентой. Порядок работы:
+          увидел список → выбрал заказ → делаешь всё в карточке. */}
+      {openedId ? (
+      <div className="order-full">
+        <div className="order-full__head">
+          <button type="button" className="order-full__back" onClick={closeCard}>
+            <IconArrowLeft aria-hidden size={16} />
+            Все заказы
+          </button>
+        </div>
+        <div className="order-full__body" ref={fit.ref as any} style={{ maxHeight: fit.height }}>
+          <OrderDetail id={openedId} onClose={closeCard} />
+        </div>
+      </div>
+      ) : (
+      <>
       <FadeSwap swapKey={isLoading ? 'loading' : `${preset}:${page}`}>
         <Card withBorder radius="md" padding={0}>
           {isLoading ? (
             <Stack gap={4} p="md">
               {[...Array(10)].map((_, i) => <Skeleton key={i} height={44} radius="sm" />)}
             </Stack>
-          /* Карточки, а не таблица, когда справа открыт паспорт
-             (04.09.2026): в колонке ~600 px семь столбцов не помещаются
-             и «Статус» обрезался до «Н…». Карточка в узкой колонке
-             читается целиком. Полная таблица возвращается кнопкой
-             «Свернуть» у паспорта. */
-          ) : (isMobile || (splitFits && openedId)) ? (
-            /* Мобильная лента (§4.6): № + статус, заказчик, суммы, план вывоза.
-               На телефоне высота не ограничена — там страница прокручивается.
-               Рядом с паспортом лента обязана крутиться ВНУТРИ себя тем же
-               замером, что и таблица: без этого 26 карточек вытягивали
-               колонку на 3978 px и уводили в прокрутку весь экран. */
-            <Stack
-              gap="sm"
-              p="sm"
-              ref={splitFits && openedId ? (fit.ref as any) : undefined}
-              style={splitFits && openedId
-                ? { maxHeight: fit.height, overflowY: 'auto', overscrollBehavior: 'contain' }
-                : undefined}
-            >
+          ) : isMobile ? (
+            /* Мобильная лента (§4.6): № + статус, заказчик, суммы, план вывоза */
+            <Stack gap="sm" p="sm">
               <Stagger>
                 {orders.map((o) => {
                   const qty = sumLines(o, 'qty');
@@ -595,30 +604,8 @@ export function OrdersRegistry({ view, onViewChange }: {
           sticky
         />
       </div>
-      </div>
-
-      {splitFits && (
-      <aside className="reg-split__card" aria-label="Паспорт заказа">
-        {openedId && (
-          <button type="button" className="reg-split__collapse" onClick={closeCard}
-            title="Свернуть паспорт и вернуть полную таблицу">
-            Свернуть
-          </button>
-        )}
-        <div className="reg-split__scroll">
-        {openedId ? (
-          <OrderDetail id={openedId} onClose={closeCard} />
-        ) : (
-          <div className="reg-split__hint">
-            <span className="reg-split__hint-title">Паспорт заказа</span>
-            <span>Выберите заказ в списке слева — здесь появятся заказчик,
-              объект, этапы по позициям, что изготовлено и что отгружено.</span>
-          </div>
-        )}
-        </div>
-      </aside>
+      </>
       )}
-      </div>
       </>
       )}
 
