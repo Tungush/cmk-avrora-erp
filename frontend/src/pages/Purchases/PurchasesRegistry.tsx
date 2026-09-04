@@ -18,8 +18,14 @@ import { MastLoader } from '../../components/Mast';
 const STATUS_LABELS: Record<string, string> = {
   UNPAID: 'Не оплачен', PARTIALLY_PAID: 'Частично', PAID: 'Оплачен', EXECUTED: 'Исполнен',
 };
+/* Кирпичный — только на то, что требует решения (04.09.2026).
+   Замер на этом экране: тревожный цвет стоял на 46 элементах — колонка
+   «Остаток» и бейдж «Не оплачен». Но неоплаченных документов 306 из
+   306: это обычное состояние закупа, а не тревога. Когда тревожным
+   цветом помечено всё, он перестаёт быть тревогой и просто давит.
+   Статус читается подписью, она и так есть. */
 const STATUS_COLORS: Record<string, string> = {
-  UNPAID: 'danger', PARTIALLY_PAID: 'warning', PAID: 'success', EXECUTED: 'gray',
+  UNPAID: 'gray', PARTIALLY_PAID: 'warning', PAID: 'success', EXECUTED: 'gray',
 };
 
 /**
@@ -137,7 +143,7 @@ export function PurchasesRegistry({ filters, onFiltersChange }: {
                         <Text size="sm" c="dimmed" lineClamp={1}>{d.businessDirection ?? '—'}</Text>
                       </Table.Td>
                       <Table.Td ta="right" ff="monospace" fw={600} style={{ whiteSpace: 'nowrap' }}>{formatMoney(d.totalAmount, d.currency)}</Table.Td>
-                      <Table.Td ta="right" ff="monospace" c={d.unpaidAmount > 0 ? 'danger.7' : undefined} style={{ whiteSpace: 'nowrap' }}>
+                      <Table.Td ta="right" ff="monospace" style={{ whiteSpace: 'nowrap' }}>
                         {d.unpaidAmount > 0 ? formatMoney(d.unpaidAmount, d.currency) : '—'}
                       </Table.Td>
                       <Table.Td>

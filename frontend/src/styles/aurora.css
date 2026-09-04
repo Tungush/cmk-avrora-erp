@@ -1124,6 +1124,14 @@ a:hover > .mantine-Card-root,
 .digest-card__value { color: var(--ref-ink); }
 .digest-card[data-tone='brand'] .digest-card__value { color: var(--s-text-on-panel); }
 
+/* Тревожный цвет достаётся ЧИСЛУ, а не полоске сбоку (04.09.2026).
+   Раньше тон карточки показывался только кромкой слева, а кирпичный
+   тратился на 46 обычных ячеек таблицы. Освободив его там, отдаём сюда:
+   «Висит больше 30 дней — 362,2 млн» и «Закуп за 30 дней» больше не
+   выглядят одинаково. Один указатель на экран, как и должно быть. */
+.digest-card[data-tone='danger'] .digest-card__value { color: var(--s-attention); }
+.digest-card[data-tone='warn'] .digest-card__value { color: var(--s-attention); }
+
 .digest-card__body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .digest-item {
   display: grid;
