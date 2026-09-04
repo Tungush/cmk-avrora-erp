@@ -2039,10 +2039,12 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   top: 10px !important;
   width: auto !important;
   border-radius: 26px 26px 0 0;
-  background: transparent !important;
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
-  border-bottom: 1px solid var(--ref-line) !important;
+  /* Светлое стекло: под шапкой проезжает содержимое раздела */
+  background: color-mix(in srgb, var(--s-surface) 72%, transparent) !important;
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
+  border-bottom: 1px solid color-mix(in srgb, var(--s-text) 8%, transparent) !important;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent);
 }
 
 /* Меню слева больше нет — содержимому достаётся вся ширина плашки.
@@ -2077,9 +2079,22 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   gap: 2px;
   padding: 5px;
   border-radius: 999px;
-  background: var(--s-panel);
+  /* Liquid glass (04.09.2026, просьба владельца). Стекло имеет смысл
+     только там, где элемент лежит ПОВЕРХ содержимого — строка разделов
+     висит над списком, и сквозь неё видно, что там внизу.
+     Непрозрачность 82 %, а не 60: под строкой проезжают таблицы, и на
+     более прозрачной подложке белые подписи падали ниже 4.5:1.
+     saturate поднимает цвет проступающего содержимого — без него
+     стекло выглядит грязно-серым. */
+  background: color-mix(in srgb, var(--s-panel) 82%, transparent);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  backdrop-filter: blur(22px) saturate(180%);
   box-shadow: 0 2px 8px color-mix(in srgb, var(--s-text) 16%, transparent),
-              0 18px 44px -12px color-mix(in srgb, var(--s-text) 42%, transparent);
+              0 18px 44px -12px color-mix(in srgb, var(--s-text) 42%, transparent),
+              /* блик по верхней кромке — то, что отличает стекло от
+                 просто полупрозрачной плашки */
+              inset 0 1px 0 color-mix(in srgb, #fff 26%, transparent),
+              inset 0 -1px 0 color-mix(in srgb, #000 12%, transparent);
   max-width: calc(100vw - 40px);
   overflow-x: auto;
   scrollbar-width: none;
