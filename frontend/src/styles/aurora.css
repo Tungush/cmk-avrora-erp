@@ -782,7 +782,7 @@ a:hover > .mantine-Card-root,
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.site-card__sub { font-size: 13px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-card__sub { line-height: 1.25; font-size: 13px; color: var(--ref-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .site-card__stat { margin-top: 6px; font-family: var(--ff-num); white-space: nowrap; }
 .site-card__stat b { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
 .site-card__stat span { font-size: 13px; color: var(--ref-muted); margin-left: 3px; }

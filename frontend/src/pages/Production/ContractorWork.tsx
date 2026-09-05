@@ -1240,12 +1240,12 @@ function RequestsTab() {
                     )}
                   </Table.Th>
                   <Table.Th w={260}>Заявка</Table.Th>
-                  <Table.Th w={150}>Вид работ</Table.Th>
-                  <Table.Th w={190}>Подрядчик</Table.Th>
-                  <Table.Th ta="right" w={170}>Объём и ставка</Table.Th>
-                  <Table.Th ta="right" w={130}>Сумма</Table.Th>
-                  <Table.Th ta="right" w={176}>Разнесено · остаток</Table.Th>
-                  <Table.Th style={stickyActions(false)} />
+                  <Table.Th w={130}>Вид работ</Table.Th>
+                  <Table.Th w={160}>Подрядчик</Table.Th>
+                  <Table.Th ta="right" w={156}>Объём и ставка</Table.Th>
+                  <Table.Th ta="right" w={118}>Сумма</Table.Th>
+                  <Table.Th ta="right" w={168}>Разнесено · остаток</Table.Th>
+                  <Table.Th w={172} style={stickyActions(false)} />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -1288,7 +1288,7 @@ function RequestsTab() {
                           </Group>
                           {/* Второй строкой, не в одну: три бейджа рядом с
                               номером сплющивались в нечитаемые точки */}
-                          <Group gap={4} ml={28} mt={2} wrap="wrap" maw={200}>
+                          <Group gap={4} ml={28} mt={2} mih={22} wrap="nowrap" maw={224} style={{ overflow: 'hidden' }}>
                             {r.bitrixDealId && (
                               <Tooltip label={`Сделка в воронке «Заказ на Работы»`
                                 + (sentDays != null ? `, в Б24 ${sentDays} ${daysWord(sentDays)}` : '')}>
@@ -1315,7 +1315,7 @@ function RequestsTab() {
                               </Tooltip>
                             )}
                           </Group>
-                          <Text size="xs" c="dimmed" ml={28} lineClamp={2} maw={200}>
+                          <Text size="xs" c="dimmed" ml={28} lineClamp={1} maw={224}>
                             {/* пока описания не пришли — многоточие, а не пустота */}
                             {descriptions ? descriptions[r.id] ?? formatDate(r.createdAt) : '…'}
                           </Text>
@@ -1350,7 +1350,7 @@ function RequestsTab() {
                           {r.actualQty != null && <Text span size="xs" c="dimmed"> по акту</Text>}
                           <Text size="xs" c="dimmed">
                             {r.rate != null
-                              ? `${formatCurrency(r.rate)} ${RATE_SUFFIXES[r.rateType] ?? ''}`
+                              ? `${formatNumber(r.rate, 0)} ${RATE_SUFFIXES[r.rateType] ?? ''}`
                               : 'ставки нет'}
                           </Text>
                         </Table.Td>

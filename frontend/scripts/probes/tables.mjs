@@ -1,5 +1,5 @@
 /** Обход всех таблиц сервиса: переполнение контейнера, сдвиг влево, обрезанный многоточием текст */
-const MEASURE = `(()=>{
+export const MEASURE = `(()=>{
   const vis=e=>{const r=e.getBoundingClientRect(); return r.width>0&&r.height>0;};
   const out=[]; const tables=[...document.querySelectorAll('table')].filter(vis);
   for (const t of tables){
@@ -14,7 +14,7 @@ const MEASURE = `(()=>{
   return {tables:tables.length, problems:out};
 })()`;
 
-const STATES = [
+export const STATES = [
   ['director', '/dashboard/director', ['.panel__tab']],
   ['orders', '/orders?tab=registry', []],
   ['orders-card', '/orders?tab=registry', ['ROW:.mantine-Table-tbody tr']],
