@@ -1215,9 +1215,9 @@ function RequestsTab() {
           </Stack>
         ) : (
           <div ref={fit.ref} className="fin__wrap">
-          <TableScroll minWidth={960} stickyFirstColumn={false}>
+          <TableScroll minWidth={1190} stickyFirstColumn={false}>
             <FadeSwap swapKey={paged.page}>
-            <Table highlightOnHover verticalSpacing="sm" layout="fixed">
+            <Table highlightOnHover verticalSpacing="sm" layout="fixed" className="req-table">
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={40}>
@@ -1229,12 +1229,12 @@ function RequestsTab() {
                       />
                     )}
                   </Table.Th>
-                  <Table.Th w={218}>Заявка</Table.Th>
-                  <Table.Th w={134}>Вид работ</Table.Th>
-                  <Table.Th w={180}>Подрядчик</Table.Th>
-                  <Table.Th ta="right" w={162}>Объём и ставка</Table.Th>
-                  <Table.Th ta="right" w={116}>Сумма</Table.Th>
-                  <Table.Th ta="right" w={190}>Разнесено</Table.Th>
+                  <Table.Th w={296}>Заявка</Table.Th>
+                  <Table.Th w={140} data-priority="3">Вид работ</Table.Th>
+                  <Table.Th w={214}>Подрядчик</Table.Th>
+                  <Table.Th ta="right" w={160}>Объём и ставка</Table.Th>
+                  <Table.Th ta="right" w={120}>Сумма</Table.Th>
+                  <Table.Th ta="right" w={200}>Разнесено</Table.Th>
                   <Table.Th w={168} style={stickyActions(false)} />
                 </Table.Tr>
               </Table.Thead>
@@ -1307,8 +1307,8 @@ function RequestsTab() {
                           </Group>
                         </Table.Td>
 
-                        <Table.Td>
-                          {/* Коротко: полная подпись вида работ — в раскрытой строке */}
+                        <Table.Td data-priority="3">
+                          {/* Коротко: полная подпись вида работ — в раскрытой строке; уже 1320 px колонка скрыта */}
                           <Text size="sm">{STAGE_SHORT[r.routingStage] ?? r.stageLabel}</Text>
                           {r.workLocation === 'OUR_SHOP' && (
                             <Text size="xs" c="dimmed">в нашем цеху</Text>
@@ -1368,7 +1368,7 @@ function RequestsTab() {
                             style={{ whiteSpace: 'nowrap' }}
                           >
                             {r.needsAllocation
-                              ? `висит ${formatCompactMoney(r.unallocatedAmount)}${r.isStale && r.daysSinceAccepted != null ? ` · ${r.daysSinceAccepted} дн` : ''}`
+                              ? `висит ${formatCompactMoney(r.unallocatedAmount)}${r.isStale && r.daysSinceAccepted != null ? `·${r.daysSinceAccepted} дн` : ''}`
                               : r.ordersCount > 0
                                 ? `${r.ordersCount} ${plural(r.ordersCount, 'заказ', 'заказа', 'заказов')}`
                                 : 'нет заказов'}
