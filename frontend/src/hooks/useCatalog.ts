@@ -117,3 +117,12 @@ export function useDecideNomenclatureRequest() {
     },
   });
 }
+
+/** Одно изделие по id — для карточки, открытой ссылкой (/specs?article=…), когда его нет на текущей странице списка */
+export function useArticle(id: string | null) {
+  return useQuery({
+    queryKey: ['article', id],
+    enabled: !!id,
+    queryFn: () => articlesApi.get(id!).then((res) => res.data),
+  });
+}

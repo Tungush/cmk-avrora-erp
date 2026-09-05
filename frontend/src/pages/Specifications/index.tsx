@@ -1,17 +1,17 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
-  Stack, Group, Text, Card, NumberInput, Select, Button, Badge,
+  Stack, Group, Text, Card, NumberInput, Select, Button, Badge, TextInput,
   Skeleton, Box, Divider, ActionIcon, Tooltip, Modal, Table, Tabs,
   Popover, UnstyledButton,
 } from '@mantine/core';
 import {
   IconLock, IconRefresh, IconCheck, IconAlertTriangle,
   IconArrowUp, IconScissors, IconFlame, IconBrush, IconHelpCircle,
-  IconHistory, IconChevronDown, IconChevronUp,
+  IconHistory, IconChevronDown, IconChevronUp, IconArrowLeft, IconSearch,
 } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
-import { useMediaQuery } from '@mantine/hooks';
-import { useArticles, useArticleGaps } from '../../hooks/useCatalog';
+import { useArticles, useArticleGaps, useArticle } from '../../hooks/useCatalog';
 import {
   useRouting, useCosting, useSaveNorm, useSaveActual, usePromoteActual,
   usePreviewNorm, useUsage, useNormHistory, useCostingHistory, useRequestPriceReview,
@@ -20,7 +20,6 @@ import { useAuthStore } from '../../store/auth';
 import { useLiveCostUpdates } from '../../hooks/useLiveEvents';
 import { BomPanel } from './BomPanel';
 import { NomenclatureRequestsButton } from './NomenclaturePanel';
-import { ArticleListPane, ARTICLE_ROW_H } from './ArticleList';
 import { FitScreen, useFitRows } from '../../components/FitScreen';
 import { SectionHead } from '../../components/SectionHeader';
 import { TableScroll } from '../../components/TableScroll';
@@ -828,201 +827,207 @@ function HistoryModal({
   );
 }
 
+/** Высота строки таблицы изделий */
+const ROW_H = 40;
+
+const QUEUES = [
+  { v: '', label: 'Все', key: 'total' },
+  { v: 'empty', label: 'Пустые', key: 'empty' },
+  { v: 'nobom', label: 'Без состава', key: 'nobom' },
+  { v: 'nonorms', label: 'Без норм', key: 'nonorms' },
+  { v: 'noprice', label: 'Без цены', key: 'noprice' },
+] as const;
+
+const devTone = (dev: number | null | undefined) =>
+  dev == null ? undefined : Math.abs(dev) <= 5 ? 'var(--p-emerald-ink)' : Math.abs(dev) <= 15 ? 'var(--p-amber-ink)' : 'var(--p-rose-ink)';
+
+/**
+ * Изделия (переписано 05.09.2026 по просьбе владельца: «полностью
+ * переделать — неудобно, очень перегружено»).
+ *
+ * Было: список слева, справа сразу редактор — три карточки норм с
+ * полями, полоса фактов, раскрывающиеся панели; всё на одном экране
+ * независимо от того, нужно ли оно сейчас. Стало: два слоя, как в Цехе
+ * и Заказах.
+ *   1. Таблица изделий во всю ширину: артикул, название, состав, цены,
+ *      отклонение, вес. Очередь работы (пустые / без состава / без норм /
+ *      без цены) — пилюли над таблицей, они же фильтры.
+ *   2. Нажатие на строку — карточка изделия во весь экран: нормы труда
+ *      тремя СТРОКАМИ (не тремя карточками), справа три числа итога и то,
+ *      что раскрыто по клику: состав, разбор формулы, применение.
+ * Ссылка /specs?article=… открывает карточку сразу (так ведёт Цех).
+ */
 export function Specifications() {
-  // Пересчёт из другого окна (мастер зафиксировал факт) виден сразу (§3.4)
   useLiveCostUpdates();
-  // Две панели рядом держатся до 1024 px: список 320 + редактор 660 — три
-  // передела в ряд помещаются. Раньше порог был 1200, и на ноутбуке экран
-  // раскладывался в столбик, отчего возвращалась вертикальная прокрутка
-  const stacked = useMediaQuery('(max-width: 1023px)', false, { getInitialValueInEffect: false });
+  const [params, setParams] = useSearchParams();
+  const openedId = params.get('article');
+  const setOpened = (id: string | null) => setParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (id) next.set('article', id); else next.delete('article');
+    return next;
+  }, { replace: true });
+
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Карточка выбранного изделия хранится отдельно: после перехода на другую
-  // страницу списка её там уже нет, а шапка редактора должна остаться
-  const [selectedArticle, setSelectedArticle] = useState<Article | null>(null);
-  const [historyOpened, setHistoryOpened] = useState(false);
-  /** Какая подробность раскрыта: null — экран чистый, только работа */
-  const [openDetail, setOpenDetail] = useState<string | null>(null);
-  /**
-   * Очередь работы (04.09.2026, просьба владельца пересмотреть страницу).
-   *
-   * Инженер приходит сюда не листать каталог, а закрывать пробелы: из
-   * 2152 изделий 453 без состава, 477 без норм, 445 без того и другого.
-   * Раньше список показывал все 2152 подряд, и найти незаполненное можно
-   * было только глазами. Теперь очередь выбирается явно и видно, сколько
-   * в ней осталось.
-   */
   const [gap, setGap] = useState<string>('');
+  const [historyOpened, setHistoryOpened] = useState(false);
+  const [detail, setDetail] = useState<string | null>(null);
 
-  // Список изделий занимает ровно ту высоту, что осталась от окна: сколько
-  // строк влезло — столько и запрашиваем с сервера (02.09.2026)
-  // 4 px — зазор между строками; своей шапки у списка нет, отсюда chrome = 0
-  const fit = useFitRows(ARTICLE_ROW_H + 4, 5, 40, 0);
-
-  // «Изделия» — каталог ТОЛЬКО продукции. Сырьё, услуги и прочее, что завод
-  // не изготавливает, сюда не попадает вовсе: переключателя нет намеренно
-  // (26.08.2026 — «удали тут всё что сырьё и убери кнопку показать сырьё»).
-  // Сырьё живёт в разделе «Материалы».
+  // Сколько строк влезло: 40 px строка, 40 px шапка таблицы
+  const fit = useFitRows(ROW_H, 5, 60, 40);
   const { data: articlesData, isLoading: articlesLoading } = useArticles({
     search, page, pageSize: fit.rows, ...(gap ? { gap } : {}),
   });
   const { data: gaps } = useArticleGaps();
   const articles = articlesData?.data ?? [];
-  const articlesTotal = articlesData?.meta?.total;
-  const activeId = selectedId ?? articles[0]?.id ?? null;
-  const activeArticle = useMemo(
-    () => articles.find((a) => a.id === activeId)
-      ?? (selectedArticle && selectedArticle.id === activeId ? selectedArticle : undefined),
-    [articles, activeId, selectedArticle],
-  );
+  const total = articlesData?.meta?.total;
 
-  const { data: routing, isLoading: routingLoading, refetch } = useRouting(activeId);
+  const fromList = articles.find((a) => a.id === openedId);
+  const { data: fetched } = useArticle(openedId && !fromList ? openedId : null);
+  const article = fromList ?? (fetched && fetched.id === openedId ? fetched : undefined);
+  const { data: routing, isLoading: routingLoading, refetch } = useRouting(openedId);
 
-  const handleSearch = (value: string) => {
-    setSearch(value);
-    setPage(1);
-    setSelectedId(null);
-    setSelectedArticle(null);
-  };
+  /* ---- карточка изделия во весь экран ---- */
+  if (openedId) {
+    const noBom = article && !article.isMaterialResale && !article.bomItems?.length;
+    return (
+      <FitScreen>
+        <HistoryModal articleId={openedId} opened={historyOpened} onClose={() => setHistoryOpened(false)} />
+        <Card withBorder radius="lg" padding={0} className="specs-card">
+          <div className="specs-card__head">
+            <Button
+              variant="default" size="sm" radius="xl" leftSection={<IconArrowLeft aria-hidden size={16} />}
+              onClick={() => { setOpened(null); setDetail(null); }}
+            >
+              Все изделия
+            </Button>
+            {article ? (
+              <>
+                <Badge variant="filled" color="dark" radius="md" size="lg" ff="var(--ff-num)" style={{ flexShrink: 0 }}>
+                  {article.articleCode}
+                </Badge>
+                <Text fw={700} size="md" className="specs-card__name" lineClamp={1}>{article.name}</Text>
+                {noBom && <span className="worklist__chip" data-tone="danger">нет состава</span>}
+                <button
+                  type="button" className="specs-usage-link"
+                  aria-expanded={detail === 'usage'} data-active={detail === 'usage' ? 'true' : undefined}
+                  onClick={() => setDetail(detail === 'usage' ? null : 'usage')}
+                >
+                  где применяется
+                </button>
+              </>
+            ) : <Skeleton height={28} width={320} radius="sm" />}
+            <div className="specs-card__actions">
+              <Button variant="default" size="sm" leftSection={<IconHistory aria-hidden size={16} />} onClick={() => setHistoryOpened(true)}>
+                История
+              </Button>
+              <Button variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />} onClick={() => refetch()}>
+                Пересчитать
+              </Button>
+            </div>
+          </div>
 
-  const handleSelect = (a: Article) => {
-    setSelectedId(a.id);
-    setSelectedArticle(a);
-  };
+          <div className="specs-card__body">
+            <section className="specs-card__norms" aria-label="Нормы труда">
+              <h2 className="specs-card__h">Нормы труда</h2>
+              {routingLoading || !routing
+                ? <Skeleton height={180} radius="lg" />
+                : <StageTable stages={routing.stages} articleId={openedId} />}
+            </section>
+            <section className="specs-card__cost" aria-label="Себестоимость">
+              <h2 className="specs-card__h">Себестоимость</h2>
+              <CostStrip articleId={openedId} open={detail} onOpen={setDetail} />
+              {detail && (
+                <div className="specs-detail">
+                  <FadeSwap swapKey={`${openedId}-${detail}`} style={{ height: '100%' }}>
+                    {detail === 'bom' ? <BomPanel articleId={openedId} />
+                      : detail === 'cost' ? <CostingPanel articleId={openedId} />
+                        : <UsagePanel articleId={openedId} />}
+                  </FadeSwap>
+                </div>
+              )}
+            </section>
+          </div>
+        </Card>
+      </FitScreen>
+    );
+  }
 
-  const noBom = activeArticle && !activeArticle.isMaterialResale && !activeArticle.bomItems?.length;
-
-  /* Общая шапка раздела (04.09.2026): здесь вкладок нет — они внутри
-     панели изделия, — но название, пояснение и кнопки идут через тот же
-     компонент, что и в остальных разделах. Одинаковая шапка везде важнее
-     мелкой экономии: человек не должен заново искать глазами, где что. */
+  /* ---- таблица изделий ---- */
   const header = (
-    <SectionHead
-      title="Изделия"
-      subtitle="нормы труда и себестоимость по каждому артикулу"
-      actions={(
-        <>
-          <NomenclatureRequestsButton />
-          <Button variant="default" size="sm" leftSection={<IconHistory aria-hidden size={16} />}
-            onClick={() => setHistoryOpened(true)} disabled={!activeId}>
-            История
-          </Button>
-          <Button variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />} onClick={() => refetch()}>
-            Пересчитать
-          </Button>
-        </>
-      )}
-    />
+    <Stack gap="sm">
+      <SectionHead title="Изделия" subtitle="нормы труда и себестоимость по каждому артикулу" actions={<NomenclatureRequestsButton />} />
+      <Group gap="sm" wrap="nowrap" justify="space-between">
+        <div className="specs-queue" role="tablist" aria-label="Очередь работы">
+          {QUEUES.map((q) => (
+            <button
+              key={q.v || 'all'} type="button" role="tab"
+              aria-selected={gap === q.v} data-active={gap === q.v ? 'true' : undefined}
+              onClick={() => { setGap(q.v); setPage(1); }}
+            >
+              {q.label}
+              {gaps && <span className="specs-queue__n">{gaps[q.key].toLocaleString('ru-RU')}</span>}
+            </button>
+          ))}
+        </div>
+        <TextInput
+          placeholder="Артикул или название…" leftSection={<IconSearch aria-hidden size={16} />}
+          value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+          size="sm" style={{ flex: '0 1 320px' }}
+        />
+      </Group>
+    </Stack>
+  );
+  const footer = (
+    <PaginationBar page={page} total={total ?? 0} pageSize={Math.max(1, fit.rows)} onPageChange={setPage} noun="изделий" />
   );
 
   return (
-    <FitScreen header={header}>
-      {activeId && (
-        <HistoryModal articleId={activeId} opened={historyOpened} onClose={() => setHistoryOpened(false)} />
-      )}
-
-      {/* ОЧЕРЕДЬ РАБОТЫ (04.09.2026). Инженер приходит закрывать пробелы,
-          а не листать каталог: из 2152 изделий 453 без состава, 477 без
-          норм, 445 без того и другого. Пилюля показывает, сколько
-          осталось в очереди, и переключает список на неё. */}
-      <div className="specs-queue" role="tablist" aria-label="Очередь работы">
-        {[
-          { v: '', label: 'Все', n: gaps?.total },
-          { v: 'empty', label: 'Пустые', n: gaps?.empty },
-          { v: 'nobom', label: 'Без состава', n: gaps?.nobom },
-          { v: 'nonorms', label: 'Без норм', n: gaps?.nonorms },
-          { v: 'noprice', label: 'Без цены', n: gaps?.noprice },
-        ].map((q) => (
-          <button
-            key={q.v || 'all'}
-            type="button"
-            role="tab"
-            aria-selected={gap === q.v}
-            data-active={gap === q.v ? 'true' : undefined}
-            onClick={() => { setGap(q.v); setPage(1); }}
-          >
-            {q.label}
-            {q.n != null && <span className="specs-queue__n">{q.n.toLocaleString('ru-RU')}</span>}
-          </button>
-        ))}
-      </div>
-
-      <div className="specs-split" data-stacked={stacked ? 'true' : undefined}>
-        {/* Список артикулов — ровно по высоте окна */}
-        <ArticleListPane
-          articles={articles}
-          loading={articlesLoading}
-          total={articlesTotal}
-          page={page}
-          pageSize={fit.rows}
-          onPageChange={setPage}
-          search={search}
-          onSearchChange={handleSearch}
-          activeId={activeId}
-          onSelect={handleSelect}
-          stacked={stacked}
-          listRef={fit.ref}
-          emptyText={gap ? 'В этой очереди пусто — заполнять нечего' : undefined}
-        />
-
-        {/* Редактор: всё об изделии на одном экране, разделами-вкладками.
-            Раньше нормы, себестоимость и «где применяется» лежали в столбик
-            на полторы тысячи пикселей — до покраски надо было прокрутить */}
-        <div className="specs-editor">
-          {activeArticle ? (
-            <Group gap="sm" wrap="nowrap" style={{ minWidth: 0 }} mb="xs">
-              <Badge variant="filled" color="dark" radius="md" size="lg" ff="var(--ff-num)" style={{ flexShrink: 0 }}>
-                {activeArticle.articleCode}
-              </Badge>
-              <Text fw={700} size="md" style={{ minWidth: 0 }} lineClamp={1}>
-                {activeArticle.name}
-              </Text>
-              {noBom && (
-                <span className="worklist__chip" data-tone="danger">нет состава</span>
-              )}
-              <button
-                type="button"
-                className="specs-usage-link"
-                aria-expanded={openDetail === 'usage'}
-                data-active={openDetail === 'usage' ? 'true' : undefined}
-                onClick={() => setOpenDetail(openDetail === 'usage' ? null : 'usage')}
-              >
-                где применяется
-              </button>
-            </Group>
-          ) : <Skeleton height={28} width={320} radius="sm" mb="xs" />}
-
-
-
-          <div className="specs-editor__body">
-            {!activeId ? null : (
-              <div className="specs-work">
-                {/* Нормы — это и есть работа: они на экране всегда */}
-                <div className="specs-work__norms">
-                  {routingLoading || !routing
-                    ? <Skeleton height={220} radius="lg" />
-                    : <StageTable stages={routing.stages} articleId={activeId} />}
-                </div>
-
-                <CostStrip articleId={activeId} open={openDetail} onOpen={setOpenDetail} />
-
-                {/* Подробность по требованию. Пока ничего не раскрыто,
-                    место не занимается вовсе — экран остаётся чистым */}
-                {openDetail && (
-                  <div className="specs-detail">
-                    <FadeSwap swapKey={`${activeId}-${openDetail}`} style={{ height: '100%' }}>
-                      {openDetail === 'bom' ? <BomPanel articleId={activeId} />
-                        : openDetail === 'cost' ? <CostingPanel articleId={activeId} />
-                          : <UsagePanel articleId={activeId} />}
-                    </FadeSwap>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+    <FitScreen header={header} footer={footer}>
+      <Card withBorder radius="lg" padding={0} className="specs-table-card">
+        <div ref={fit.ref} className="specs-table-wrap">
+          <table className="dense specs-table">
+            <thead>
+              <tr>
+                <th style={{ width: 124 }}>Артикул</th>
+                <th>Название</th>
+                <th style={{ width: 112 }}>Состав</th>
+                <th className="num" style={{ width: 136 }}>Утв. цена</th>
+                <th className="num" style={{ width: 136 }}>Расч. цена</th>
+                <th className="num" style={{ width: 84 }}>Откл.</th>
+                <th className="num" style={{ width: 90 }}>Вес, кг</th>
+              </tr>
+            </thead>
+            <tbody>
+              {articlesLoading ? (
+                [...Array(Math.max(4, fit.rows))].map((_, i) => (
+                  <tr key={i}><td colSpan={7}><Skeleton height={16} radius="sm" /></td></tr>
+                ))
+              ) : articles.length === 0 ? (
+                <tr><td colSpan={7}>
+                  <Text size="sm" c="dimmed" py="md" ta="center">
+                    {gap ? 'В этой очереди пусто — заполнять нечего' : 'Артикула нет в справочнике'}
+                  </Text>
+                </td></tr>
+              ) : articles.map((a) => {
+                const bom = a.isMaterialResale ? 'перепродажа' : a.bomItems?.length ? `${a.bomItems.length} поз.` : null;
+                const dev = a.priceDeviationPct;
+                return (
+                  <tr key={a.id} className="dense__link" onClick={() => setOpened(a.id)}>
+                    <td className="num" style={{ textAlign: 'left', fontWeight: 700 }}>{a.articleCode}</td>
+                    <td title={a.name}>{a.name}</td>
+                    <td>{bom ?? <span className="worklist__chip" data-tone="danger">нет</span>}</td>
+                    <td className="num">{a.approvedPrice ? formatCurrency(a.approvedPrice) : '—'}</td>
+                    <td className="num">{a.specPrice ? formatCurrency(a.specPrice) : '—'}</td>
+                    <td className="num" style={{ color: devTone(dev) }}>{dev == null ? '—' : `${dev > 0 ? '+' : ''}${num(dev, 0)} %`}</td>
+                    <td className="num">{a.weightKg ? num(a.weightKg, 1) : '—'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      </div>
+      </Card>
     </FitScreen>
   );
 }
