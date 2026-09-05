@@ -6,7 +6,6 @@ import { SectionHead } from '../../components/SectionHeader';
 import { PurchasesDashboard } from './PurchasesDashboard';
 import { PurchasesRegistry } from './PurchasesRegistry';
 import { PurchaseQueue } from './PurchaseQueue';
-import { PurchasesDigest } from './PurchasesDigest';
 import { FitScreen } from '../../components/FitScreen';
 import { TextReveal } from '../../components/motion';
 import { FadeSwap } from '../../components/motion';
@@ -20,7 +19,7 @@ export function Purchases() {
   const [params, setParams] = useSearchParams();
   // Раздел открывается сводкой: три таблицы подряд заставляли прокручивать
   // экран, а ответ на «кому мы должны» был в самом низу (03.09.2026)
-  const tab = params.get('tab') ?? 'digest';
+  const tab = params.get('tab') ?? 'registry';
   const [filters, setFilters] = useState<Record<string, string>>({});
 
   const setTab = (v: string) => setParams((prev) => {
@@ -43,7 +42,6 @@ export function Purchases() {
       value={tab}
       onChange={setTab}
       tabs={[
-        { value: 'digest', label: 'Что требует решения', icon: <IconLayoutGrid aria-hidden size={16} /> },
         { value: 'dashboard', label: 'Разрезы', icon: <IconChartBar aria-hidden size={16} /> },
         { value: 'registry', label: 'Все заказы поставщику', icon: <IconFileInvoice aria-hidden size={16} /> },
         { value: 'queue', label: 'На закуп', icon: <IconShoppingCartPlus aria-hidden size={16} /> },
@@ -56,7 +54,7 @@ export function Purchases() {
 
       <Tabs
         value={tab}
-        onChange={(v) => setTab(v ?? 'digest')}
+        onChange={(v) => setTab(v ?? 'registry')}
         radius="md"
         keepMounted={false}
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
@@ -65,9 +63,6 @@ export function Purchases() {
             они прокручиваются ВНУТРИ панели, страница остаётся неподвижной */}
         <div className="section-body">
         <FadeSwap swapKey={tab}>
-          <Tabs.Panel value="digest">
-            <PurchasesDigest onOpenRegistry={openRegistry} onGoTab={setTab} />
-          </Tabs.Panel>
           <Tabs.Panel value="dashboard">
             <PurchasesDashboard onOpenRegistry={openRegistry} />
           </Tabs.Panel>

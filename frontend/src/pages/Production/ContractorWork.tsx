@@ -34,7 +34,6 @@ import { TableScroll } from '../../components/TableScroll';
 import { SectionHead } from '../../components/SectionHeader';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
-import { ContractorDigest } from './ContractorDigest';
 import { FitScreen } from '../../components/FitScreen';
 import { TextReveal } from '../../components/motion';
 
@@ -1805,7 +1804,7 @@ export function ContractorWork() {
   const [params, setParams] = useSearchParams();
   const raw = params.get('tab');
   // Раздел открывается сводкой: подряд — это деньги наружу, а не два реестра
-  const tab = raw === 'allocated' || raw === 'requests' ? raw : 'digest';
+  const tab = raw === 'allocated' || raw === 'requests' ? raw : 'requests';
 
   const setTab = (v: string) => setParams((prev) => {
     const next = new URLSearchParams(prev);
@@ -1822,7 +1821,6 @@ export function ContractorWork() {
       value={tab}
       onChange={setTab}
       tabs={[
-        { value: 'digest', label: 'Что требует решения', icon: <IconLayoutGrid aria-hidden size={16} /> },
         { value: 'requests', label: 'Заявки', icon: <IconClipboardList aria-hidden size={16} /> },
         { value: 'allocated', label: 'Разнесено по заказам', icon: <IconListDetails aria-hidden size={16} /> },
       ]}
@@ -1834,13 +1832,12 @@ export function ContractorWork() {
 
       <Tabs
         value={tab}
-        onChange={(v) => setTab(v ?? 'digest')}
+        onChange={(v) => setTab(v ?? 'requests')}
         radius="md"
         keepMounted={false}
         style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}
       >
         <div className="section-body">
-          <Tabs.Panel value="digest"><ContractorDigest onGoTab={setTab} /></Tabs.Panel>
           <Tabs.Panel value="requests"><RequestsTab /></Tabs.Panel>
           <Tabs.Panel value="allocated"><AllocatedTab /></Tabs.Panel>
         </div>

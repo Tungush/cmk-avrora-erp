@@ -20,18 +20,18 @@ import './Dashboard.css';
  * Экран директора, переписан с чистого листа (05.09.2026).
  *
  * Три слоя раскрытия (Smashing 09.2025, NN/g):
- *   1. ПЯТЬ карточек-показателей — и ни одной больше. Число крупно,
+ *   1. ЧЕТЫРЕ карточки-показателя — и ни одной больше. Число крупно,
  *      микрографик подложкой (модель Grafana Stat), а не соседом.
  *   2. Кольца и свёрнутые секции с итогом в заголовке.
  *   3. Таблицы — внутри секций, по требованию.
  *
- * Все четыре вопроса директора («зарабатываем?», «что ждёт решения?»,
- * «где деньги?», «что отгрузили?») связаны в одну систему: карточка,
+ * Три вопроса директора («зарабатываем?», «где деньги?», «что
+ * отгрузили?») связаны в одну систему: карточка,
  * кольцо и вкладка одного вопроса — один ключ. Нажатие на любое из них
  * переключает вкладку справа; наведение только подсвечивает и меняет
  * центр колец. Справа — четыре простые вкладки, а не гармошка секций:
  * владелец 05.09 назвал секции справа от кольца неудобными, а список
- * «требует решения» на весь столбец — неуместным. Маржа по заказам
+ * «требует решения» — вовсе убрать (05.09). Маржа по заказам
  * открыта по умолчанию — это главный вопрос директора.
  *
  * Микрографики только там, где есть настоящий ряд: помесячная отгрузка
@@ -39,10 +39,10 @@ import './Dashboard.css';
  * там графика нет, а не выдуманная линия.
  */
 
-type Key = 'decisions' | 'margin' | 'supplier' | 'customer' | 'shipping';
-type Tab = 'margin' | 'money' | 'overdue' | 'decisions';
+type Key = 'margin' | 'supplier' | 'customer' | 'shipping';
+type Tab = 'margin' | 'money' | 'overdue';
 /* Карточка и кольцо одного вопроса ведут на одну вкладку справа */
-const TAB_OF: Record<Key, Tab> = { decisions: 'decisions', margin: 'margin', supplier: 'money', customer: 'money', shipping: 'overdue' };
+const TAB_OF: Record<Key, Tab> = { margin: 'margin', supplier: 'money', customer: 'money', shipping: 'overdue' };
 
 const HEALTH: Record<string, { label: string; tone?: 'ok' | 'warn' | 'danger' }> = {
   OK: { label: 'в норме', tone: 'ok' }, WARN: { label: 'ниже цели', tone: 'warn' },
@@ -50,7 +50,7 @@ const HEALTH: Record<string, { label: string; tone?: 'ok' | 'warn' | 'danger' }>
 };
 
 export function DirectorDashboard() {
-  const [active, setActive] = useState<Key>('decisions');
+  const [active, setActive] = useState<Key>('margin');
   const [peek, setPeek] = useState<Key | null>(null);
   const [tab, setTab] = useState<Tab>('margin');
   const card = useOrderCard();
@@ -72,26 +72,14 @@ export function DirectorDashboard() {
 
   const margin = data?.margin;
   const money = data?.money ?? { totalContracted: 0, totalPaid: 0, totalUnpaid: 0 };
-  const nd = data?.needsDecision;
   const months = series?.months ?? [];
   const shipped = months.map((m) => m.shipped);
   const lastMonth = months[months.length - 1];
-
-  const decisions = useMemo(() => (nd ? [
-    { icon: <IconGavel size={18} aria-hidden />, label: 'Перехваты партий ждут решения', short: 'перехваты', count: nd.batchOverrides, to: '/warehouse?tab=batches', hue: 'rose' },
-    { icon: <IconReceipt size={18} aria-hidden />, label: 'Заявки на пересмотр цены', short: 'цены', count: nd.priceReviews, to: '/prices', hue: 'amber' },
-    { icon: <IconClockExclamation size={18} aria-hidden />, label: 'Заявки на номенклатуру просрочили SLA', short: 'номенклатура', count: nd.nomenclatureStuck, to: '/settings', hue: 'amber' },
-    { icon: <IconFlask size={18} aria-hidden />, label: 'Партии в карантине цен', short: 'карантин', count: nd.quarantineBatches, to: '/warehouse?tab=batches', hue: 'amber' },
-    { icon: <IconClockExclamation size={18} aria-hidden />, label: 'Резервы истекают в 3 дня', short: 'резервы', count: nd.expiringReservations, to: '/warehouse?tab=batches', hue: 'amber' },
-    { icon: <IconInbox size={18} aria-hidden />, label: 'Новые заказы из 1С ждут приёма', short: 'из 1С', count: nd.inboxOrders, to: '/orders/inbox', hue: 'indigo' },
-  ].filter((d) => d.count > 0) : []), [nd]);
-  const decisionsTotal = decisions.reduce((s, d) => s + d.count, 0);
 
   const tabs: Array<{ key: Tab; label: string; summary?: string }> = [
     { key: 'margin', label: 'Маржа по заказам', summary: margin ? `${margin.ordersShown} из ${margin.ordersTotal} · ${margin.actualPct ?? '—'}%` : undefined },
     { key: 'money', label: 'Деньги', summary: `должны ${formatCompactMoney(money.totalUnpaid)} · нам ${cash ? formatCompactMoney(cash.receivables.owed) : '…'}` },
     { key: 'overdue', label: 'Просрочено', summary: data ? String(data.overdue.length) : undefined },
-    { key: 'decisions', label: 'Решения', summary: decisions.length ? `${decisions.length} видов · ${decisionsTotal}` : 'всё разобрано' },
   ];
 
   /* Нажатие на карточку или кольцо: выбрать вопрос и раскрыть его секцию */
@@ -104,16 +92,11 @@ export function DirectorDashboard() {
   const paidPct = pct(money.totalPaid, money.totalContracted);
   const custPct = cash ? pct(cash.receivables.paid, cash.receivables.contracted) : 0;
 
-  /* Первый слой: ровно пять карточек */
+  /* Первый слой: четыре карточки — «требует решения» владелец велел убрать 05.09 */
   const stats: Array<{
     key: Key; hue: 'rose' | 'indigo' | 'amber' | 'emerald'; label: string; value: string; hint: string;
     spark?: number[]; neutral?: boolean; peek: React.ReactNode; to: string;
   }> = [
-    {
-      key: 'decisions', hue: 'rose', label: 'Требует решения', value: decisionsTotal.toLocaleString('ru-RU'),
-      hint: decisions.length ? decisions.slice(0, 3).map((d) => d.short).join(' · ') : 'всё разобрано', to: '/warehouse?tab=batches',
-      peek: <>{decisions.map((d) => <PeekRow key={d.label} label={d.label} value={d.count} />)}{decisions.length === 0 && <Text size="sm" c="dimmed">Решений не ждёт ничего</Text>}</>,
-    },
     {
       key: 'margin', hue: 'indigo', label: 'Маржа портфеля',
       value: margin?.actualPct != null ? `${margin.actualPct}%` : '—',
@@ -170,7 +153,7 @@ export function DirectorDashboard() {
     <FitScreen header={header}>
       <PeekWarmProvider>
         {/* Слой 1 */}
-        <div className="stat-row" style={{ gridTemplateColumns: 'repeat(5, minmax(0, 1fr))' }}>
+        <div className="stat-row" style={{ gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' }}>
           {stats.map((s) => (
             <SmartPeekCard
               key={s.key}
@@ -205,7 +188,7 @@ export function DirectorDashboard() {
             <RingDashboard
               active={active}
               onSelect={(k) => select(k as Key)}
-              center={{ value: decisionsTotal.toLocaleString('ru-RU'), label: 'ждут решения', hue: 'rose' }}
+              center={{ value: margin?.actualPct != null ? `${margin.actualPct}%` : '—', label: 'маржа портфеля', hue: 'indigo' }}
               rings={[
                 { key: 'margin', hue: 'indigo', label: 'Маржа к цели', short: 'маржа', value: margin?.actualPct ?? 0, max: margin?.targetPct ?? 35, caption: margin?.actualPct != null ? `${margin.actualPct} % из ${margin.targetPct} %` : 'нет калькуляции' },
                 { key: 'supplier', hue: 'amber', label: 'Оплачено поставщикам', short: 'поставщики', value: money.totalPaid, max: money.totalContracted, caption: `${formatCompactMoney(money.totalPaid)} из ${formatCompactMoney(money.totalContracted)}` },
@@ -301,21 +284,6 @@ export function DirectorDashboard() {
                 )
               )}
 
-              {tab === 'decisions' && (
-                decisions.length === 0 ? (
-                  <Text c="dimmed" size="sm">Всё разобрано — решений не ждёт ничего.</Text>
-                ) : (
-                  <div className="dd-decisions dd-decisions--grid">
-                    {decisions.map((d) => (
-                      <Link to={d.to} key={d.label} className="dd-decision" data-hue={d.hue}>
-                        <span className="dd-decision__icon">{d.icon}</span>
-                        <Text size="md" fw={600} lineClamp={1}>{d.label}</Text>
-                        <span className="dd-decision__count">{d.count}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )
-              )}
             </div>
           </div>
         </div>

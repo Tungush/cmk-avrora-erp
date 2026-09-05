@@ -74,7 +74,7 @@ function SiteCell({ orderId, line, canEdit }: { orderId: string; line: any; canE
       style={canEdit ? { cursor: 'pointer' } : undefined}
       onClick={canEdit ? () => { setValue(line.siteCode ?? ''); setEditing(true); } : undefined}
     >
-      {line.siteCode ?? (canEdit ? '— указать' : '—')}
+      {line.siteCode ?? (canEdit ? <span className="peek__inline">указать объект</span> : '—')}
     </Text>
   );
 }
@@ -668,14 +668,14 @@ export function OrderDetail({
           <>
           <FadeSwap swapKey={linesPaged.page}>
             <TableScroll minWidth={560}>
-                <Table highlightOnHover verticalSpacing="xs">
+                <Table highlightOnHover verticalSpacing="xs" style={{ tableLayout: 'fixed' }}>
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>Артикул</Table.Th>
-                      <Table.Th>Объект / БС</Table.Th>
-                      <Table.Th ta="right">Кол-во</Table.Th>
-                      {canCommercial && <Table.Th ta="right">Цена</Table.Th>}
-                      {canCommercial && <Table.Th ta="right">Сумма с НДС</Table.Th>}
+                      <Table.Th w={150}>Объект / БС</Table.Th>
+                      <Table.Th ta="right" w={90}>Кол-во</Table.Th>
+                      {canCommercial && <Table.Th ta="right" w={130}>Цена</Table.Th>}
+                      {canCommercial && <Table.Th ta="right" w={150}>Сумма с НДС</Table.Th>}
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>

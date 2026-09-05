@@ -93,7 +93,7 @@ export function WarehouseDigest({ onGoTab }: { onGoTab: (tab: string) => void })
       tone: 'brand',
       icon: <IconGavel size={19} aria-hidden />,
       value: overrideRows.length,
-      caption: 'ждут решения директора: чей заказ получит партию',
+      caption: 'ждут распределения: чей заказ получит партию',
       items: overrideRows.slice(0, 4).map((r: any) => ({
         id: r.id,
         label: r.material?.materialCode ?? r.materialCode ?? 'партия',

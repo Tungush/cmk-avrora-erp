@@ -131,7 +131,7 @@ export function PriceReviewsPanel() {
     <Card withBorder radius="md" padding="md">
       <Group gap="xs" mb="sm">
         <Icon icon={IconCoin} size={20} style={{ color: 'var(--mantine-color-warning-6)' }} />
-        <Text fw={700} size="sm">Пересмотр цен — ждут решения</Text>
+        <Text fw={700} size="sm">Пересмотр цен — заявки</Text>
         <Badge variant="light" color="warning" radius="xl">{reviews.length}</Badge>
       </Group>
       <Stack gap="xs">
