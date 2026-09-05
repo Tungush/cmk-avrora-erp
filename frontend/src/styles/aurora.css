@@ -2342,14 +2342,9 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .peek__inline[data-tone='warn']   { color: var(--p-amber-ink); }
 .peek__inline[data-tone='ok']     { color: var(--p-emerald-ink); }
 
-/* ---- ручка-грабер: одна кнопка сворачивает верхнее меню (05.09.2026) ---- */
+/* свёрнутая шапка (05.09.2026): пустая полоса 16 px, раскрывается наведением; переключатель — в меню аккаунта */
 .topbar { position: relative; }
-.topbar__grip { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 64px; height: 12px; padding: 0; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.topbar__grip span { display: block; width: 36px; height: 4px; border-radius: 999px; background: var(--s-line-strong); transition: background-color .15s var(--ease-out), width .15s var(--ease-out); }
-.topbar__grip:hover span { background: var(--s-text-quiet); width: 44px; }
-.topbar__grip:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; border-radius: 6px; }
 .topbar[data-hidden] { padding: 0; }
-.topbar[data-hidden] .topbar__grip { bottom: 2px; }
 
 /* ---- вкладки справа от кольца (05.09.2026): вместо гармошки секций — владелец назвал её неудобной ---- */
 .panel { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 16px; background: var(--s-surface); border: 1px solid var(--s-line); container-type: inline-size; }
@@ -2435,14 +2430,15 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .badge--wrap .mantine-Badge-label { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
 
 /* ---- свёрнутая шапка раскрывается при наведении и уходит, когда курсор ушёл (05.09, просьба владельца) ---- */
-.topbar[data-hidden] > :not(.topbar__grip) { display: none; }
-[data-chrome='hidden'] .mantine-AppShell-header { transition: height .18s var(--ease-out), box-shadow .18s var(--ease-out); overflow: visible; }
-[data-chrome='hidden'] .mantine-AppShell-header:hover,
-[data-chrome='hidden'] .mantine-AppShell-header:focus-within { height: 56px !important; box-shadow: 0 10px 28px -14px rgba(15, 23, 42, .22); }
-[data-chrome='hidden'] .mantine-AppShell-header:hover .topbar[data-hidden],
+.topbar[data-hidden] > * { display: none; }
+[data-chrome='hidden'] .mantine-AppShell-header { height: 0 !important; overflow: hidden; border-bottom: 0 !important; transition: height .18s var(--ease-out); }
+[data-chrome='hidden'] .mantine-AppShell-header[data-peek='true'],
+[data-chrome='hidden'] .mantine-AppShell-header:focus-within { height: 56px !important; overflow: visible; border-bottom: 1px solid var(--s-line) !important; box-shadow: 0 10px 28px -14px rgba(15, 23, 42, .22); }
+[data-chrome='hidden'] .mantine-AppShell-header[data-peek='true'] .topbar[data-hidden],
 [data-chrome='hidden'] .mantine-AppShell-header:focus-within .topbar[data-hidden] { padding: 0 12px 0 14px; }
-[data-chrome='hidden'] .mantine-AppShell-header:hover .topbar[data-hidden] > :not(.topbar__grip),
-[data-chrome='hidden'] .mantine-AppShell-header:focus-within .topbar[data-hidden] > :not(.topbar__grip) { display: flex; }
+[data-chrome='hidden'] .mantine-AppShell-header[data-peek='true'] .topbar[data-hidden] > *,
+[data-chrome='hidden'] .mantine-AppShell-header:focus-within .topbar[data-hidden] > * { display: flex; }
+.chrome-hotzone { position: fixed; top: 0; left: 0; right: 0; height: 12px; z-index: 300; }
 /* кольцо фокуса на уже тёмной активной пилюле — белое внутри, а не синее снаружи */
 .topnav__item[data-active]:focus-visible { outline: 2px solid var(--s-inverse-fg); outline-offset: -4px; }
 

@@ -3,7 +3,7 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { ActionIcon, Kbd, Menu } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'framer-motion';
-import { IconSearch, IconBell, IconLogout, IconSettings, IconUserCircle } from '@tabler/icons-react';
+import { IconSearch, IconBell, IconLogout, IconSettings, IconUserCircle, IconChevronUp, IconChevronDown } from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
 import { GlobalSearch, useGlobalSearchHotkey } from '../GlobalSearch';
 import { useAuthStore } from '../../store/auth';
@@ -29,6 +29,10 @@ import { NAV_ITEMS } from './navItems';
  *
  * Уже 1180 px подписи разделов прячутся, остаются значки с подсказкой
  * (container query по ширине шапки, не по окну).
+ *
+ * Сворачивание шапки — пунктом в меню аккаунта, не ручкой на кромке:
+ * владелец 05.09 спросил про полосу-грабер «непонятно, что происходит,
+ * нужно ли это». В свёрнутом виде шапка раскрывается наведением.
  */
 export function TopBar({ hidden = false, onToggle }: { hidden?: boolean; onToggle?: () => void }) {
   const logout = useAuthStore((s) => s.logout);
@@ -110,22 +114,18 @@ export function TopBar({ hidden = false, onToggle }: { hidden?: boolean; onToggl
               {canSettings && (
                 <Menu.Item component={Link} to="/settings" leftSection={<IconSettings size={16} aria-hidden />}>Настройки</Menu.Item>
               )}
+              <Menu.Item
+                leftSection={hidden ? <IconChevronDown size={16} aria-hidden /> : <IconChevronUp size={16} aria-hidden />}
+                onClick={onToggle}
+              >
+                {hidden ? 'Показывать меню всегда' : 'Скрыть меню (выезжает при наведении)'}
+              </Menu.Item>
+              <Menu.Divider />
               <Menu.Item leftSection={<IconLogout size={16} aria-hidden />} onClick={handleLogout}>Выйти</Menu.Item>
             </Menu.Dropdown>
           </Menu>
         </div>
         </>
-        {/* Одна ручка вместо двух стрелок: тянуть за грабер понятно без подписи */}
-        <button
-          type="button"
-          className="topbar__grip"
-          onClick={(e) => { onToggle?.(); e.currentTarget.blur(); }}
-          aria-expanded={!hidden}
-          aria-label={hidden ? 'Показать меню' : 'Скрыть меню'}
-          title={hidden ? 'Показать меню' : 'Скрыть меню'}
-        >
-          <span aria-hidden />
-        </button>
       </div>
       <GlobalSearch opened={searchOpened} onClose={closeSearch} />
     </>

@@ -27,8 +27,12 @@ export function Layout() {
   const { pathname } = useLocation();
   const reduced = useMotionOff();
 
-  // Меню сверху сворачивается одной ручкой-грабером (просьба владельца 05.09):
-  // шапка сжимается до полосы 16 px, высота содержимого пересчитывается CSS
+  // Шапку можно скрыть совсем (меню аккаунта → «Скрыть меню», 05.09):
+  // в скрытом виде её не видно, содержимое начинается от верха плашки, а
+  // при подведении курсора к верхнему краю она выезжает поверх и уходит,
+  // когда курсор ушёл. На планшете наведения нет — там шапка всегда видна.
+  const canHide = typeof window !== 'undefined' && !window.matchMedia('(hover: none)').matches;
+  const [peek, setPeek] = useState(false);
   const [chromeHidden, setChromeHidden] = useState<boolean>(() => {
     try { return localStorage.getItem('ui-chrome') === 'hidden'; } catch { return false; }
   });
@@ -37,7 +41,8 @@ export function Layout() {
     try { localStorage.setItem('ui-chrome', next ? 'hidden' : 'shown'); } catch { /* приватный режим */ }
     return next;
   }), []);
-  useEffect(() => { document.documentElement.dataset.chrome = chromeHidden ? 'hidden' : 'shown'; }, [chromeHidden]);
+  const hidden = chromeHidden && canHide;
+  useEffect(() => { document.documentElement.dataset.chrome = hidden ? 'hidden' : 'shown'; if (!hidden) setPeek(false); }, [hidden]);
 
 
   if (!token) {
@@ -53,15 +58,24 @@ export function Layout() {
         заказчика открывают из любого раздела и из шторки заказа тоже */}
     <EntityProvider>
     <AppShell
-      header={{ height: chromeHidden ? 16 : 56 }}
+      header={{ height: hidden ? 0 : 56 }}
       padding={{ base: 16, md: 24 }}
       bg="transparent"
       transitionDuration={reduced ? 0 : 240}
       transitionTimingFunction="cubic-bezier(0.25, 1, 0.5, 1)"
     >
-      <AppShell.Header withBorder={false}>
-        <TopBar hidden={chromeHidden} onToggle={toggleChrome} />
+      <AppShell.Header withBorder={false} data-peek={hidden && peek ? 'true' : undefined} onMouseLeave={() => setPeek(false)}>
+        <TopBar hidden={hidden} onToggle={toggleChrome} />
       </AppShell.Header>
+      {/* Невидимая зона у верхнего края: подвёл курсор — шапка выехала поверх */}
+      {hidden && (
+        <div
+          className="chrome-hotzone" aria-hidden
+          onMouseEnter={() => setPeek(true)}
+          // курсор ушёл из зоны не в шапку — прячем сразу; в шапку — прячет её собственный onMouseLeave
+          onMouseLeave={(e) => { const h = document.querySelector('.mantine-AppShell-header'); if (!(h && e.relatedTarget instanceof Node && h.contains(e.relatedTarget))) setPeek(false); }}
+        />
+      )}
 
 
       {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить

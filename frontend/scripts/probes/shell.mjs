@@ -21,15 +21,16 @@ export default async function (b) {
   return out;
 }
 
-/** Грабер: сворачивание шапки и пересчёт высоты содержимого */
+/** Скрытая шапка: переключение через меню аккаунта, выезд по верхнему краю */
 export async function grip(b) {
   await b.viewport(1440, 900);
-  await b.goto('http://localhost:5173/dashboard/director?design=1'); await b.waitFor('.topbar__grip'); await b.wait(1200);
-  const m = () => b.eval(`({header:Math.round(document.querySelector('.mantine-AppShell-header').getBoundingClientRect().height), fit:Math.round(document.querySelector('.fit-screen').getBoundingClientRect().height), fitTop:Math.round(document.querySelector('.fit-screen').getBoundingClientRect().top), navItems:document.querySelectorAll('.topnav__item').length, chrome:document.documentElement.dataset.chrome, pageScroll:document.documentElement.scrollHeight-innerHeight, gripLabel:document.querySelector('.topbar__grip').getAttribute('aria-label')})`);
+  await b.goto("http://localhost:5173/dashboard/director?design=1"); await b.waitFor(".topnav__item"); await b.wait(1200);
+  const m = () => b.eval(`({header:Math.round(document.querySelector(".mantine-AppShell-header").getBoundingClientRect().height), fitTop:Math.round(document.querySelector(".fit-screen").getBoundingClientRect().top), navVisible:[...document.querySelectorAll(".topnav__item")].filter(e=>e.getBoundingClientRect().height>0).length, chrome:document.documentElement.dataset.chrome, pageScroll:document.documentElement.scrollHeight-innerHeight})`);
+  const toggle = async () => { const acc = await b.rect("button[aria-label=\"Аккаунт\"]"); await b.click(acc.cx, acc.cy); await b.wait(400); const item = await b.eval(`(()=>{const el=[...document.querySelectorAll(".mantine-Menu-item")].find(e=>/меню/.test(e.textContent)); if(!el) return null; const r=el.getBoundingClientRect(); return {cx:r.x+r.width/2, cy:r.y+r.height/2, text:el.textContent};})()`); if (!item) throw new Error("нет пункта меню"); await b.click(item.cx, item.cy); await b.wait(500); return item.text; };
   const before = await m();
-  const g = await b.rect('.topbar__grip'); await b.click(g.cx, g.cy); await b.wait(600);
-  const hidden = await m(); await b.shot('grip-hidden.png');
-  const g2 = await b.rect('.topbar__grip'); await b.click(g2.cx, g2.cy); await b.wait(600);
-  const back = await m();
-  return { before, hidden, back };
+  const t1 = await toggle(); await b.move(700, 500); await b.wait(500); const hidden = await m(); await b.shot("chrome-hidden.png");
+  await b.move(700, 4); await b.wait(500); const peek = await m(); await b.shot("chrome-peek.png");
+  await b.move(700, 500); await b.wait(500); const gone = await m();
+  await b.move(700, 4); await b.wait(400); const t2 = await toggle(); await b.move(700, 500); await b.wait(400); const back = await m();
+  return { before, t1, hidden, peek, gone, t2, back };
 }
