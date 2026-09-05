@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
 import { TopBar } from './TopBar';
@@ -27,6 +27,18 @@ export function Layout() {
   const { pathname } = useLocation();
   const reduced = useMotionOff();
 
+  // Меню сверху сворачивается одной ручкой-грабером (просьба владельца 05.09):
+  // шапка сжимается до полосы 16 px, высота содержимого пересчитывается CSS
+  const [chromeHidden, setChromeHidden] = useState<boolean>(() => {
+    try { return localStorage.getItem('ui-chrome') === 'hidden'; } catch { return false; }
+  });
+  const toggleChrome = useCallback(() => setChromeHidden((v) => {
+    const next = !v;
+    try { localStorage.setItem('ui-chrome', next ? 'hidden' : 'shown'); } catch { /* приватный режим */ }
+    return next;
+  }), []);
+  useEffect(() => { document.documentElement.dataset.chrome = chromeHidden ? 'hidden' : 'shown'; }, [chromeHidden]);
+
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -41,14 +53,14 @@ export function Layout() {
         заказчика открывают из любого раздела и из шторки заказа тоже */}
     <EntityProvider>
     <AppShell
-      header={{ height: 56 }}   /* 64 -> 56: полоса поиска не нуждается в такой высоте */
+      header={{ height: chromeHidden ? 16 : 56 }}
       padding={{ base: 16, md: 24 }}
       bg="transparent"
       transitionDuration={reduced ? 0 : 240}
       transitionTimingFunction="cubic-bezier(0.25, 1, 0.5, 1)"
     >
       <AppShell.Header withBorder={false}>
-        <TopBar />
+        <TopBar hidden={chromeHidden} onToggle={toggleChrome} />
       </AppShell.Header>
 
 

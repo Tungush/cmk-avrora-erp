@@ -1985,7 +1985,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   padding-bottom: 24px !important;   /* 64 -> 24 (05.09): нижней строки разделов нет */
   /* Mantine кладёт сверху высоту шапки плюс свои 24 px. Между шапкой и
      названием раздела столько воздуха не нужно — 12 достаточно. */
-  padding-top: 76px !important;   /* 68 -> 76: было тесно под шапкой */
+  padding-top: calc(var(--app-shell-header-height, 56px) + 20px) !important;   /* шапка сворачивается грабером: отступ следует за её высотой (05.09) */
   /* Mantine ставит сюда min-height:100dvh. Внутри плашки это на 10 px
      больше, чем есть места (плашка отступает от края), и страница
      уходила в прокрутку ровно на это поле. */
@@ -2466,3 +2466,12 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .peek__inline[data-tone='danger'] { color: var(--p-rose-ink); }
 .peek__inline[data-tone='warn']   { color: var(--p-amber-ink); }
 .peek__inline[data-tone='ok']     { color: var(--p-emerald-ink); }
+
+/* ---- ручка-грабер: одна кнопка сворачивает верхнее меню (05.09.2026) ---- */
+.topbar { position: relative; }
+.topbar__grip { position: absolute; left: 50%; bottom: 0; transform: translateX(-50%); width: 64px; height: 12px; padding: 0; border: 0; background: transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.topbar__grip span { display: block; width: 36px; height: 4px; border-radius: 999px; background: var(--s-line-strong); transition: background-color .15s var(--ease-out), width .15s var(--ease-out); }
+.topbar__grip:hover span { background: var(--s-text-quiet); width: 44px; }
+.topbar__grip:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; border-radius: 6px; }
+.topbar[data-hidden] { padding: 0; }
+.topbar[data-hidden] .topbar__grip { bottom: 2px; }

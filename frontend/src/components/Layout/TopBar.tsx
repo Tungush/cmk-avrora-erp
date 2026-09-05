@@ -30,7 +30,7 @@ import { NAV_ITEMS } from './navItems';
  * Уже 1180 px подписи разделов прячутся, остаются значки с подсказкой
  * (container query по ширине шапки, не по окну).
  */
-export function TopBar() {
+export function TopBar({ hidden = false, onToggle }: { hidden?: boolean; onToggle?: () => void }) {
   const logout = useAuthStore((s) => s.logout);
   const permissions = useAuthStore((s) => s.permissions);
   const { pathname } = useLocation();
@@ -49,7 +49,8 @@ export function TopBar() {
 
   return (
     <>
-      <div className="topbar">
+      <div className="topbar" data-hidden={hidden ? 'true' : undefined}>
+        {!hidden && <>
         <Link to="/" className="topbar__brand" aria-label="Моя работа">ЦМК</Link>
 
         <nav className="topnav" aria-label="Разделы">
@@ -113,6 +114,18 @@ export function TopBar() {
             </Menu.Dropdown>
           </Menu>
         </div>
+        </>}
+        {/* Одна ручка вместо двух стрелок: тянуть за грабер понятно без подписи */}
+        <button
+          type="button"
+          className="topbar__grip"
+          onClick={onToggle}
+          aria-expanded={!hidden}
+          aria-label={hidden ? 'Показать меню' : 'Скрыть меню'}
+          title={hidden ? 'Показать меню' : 'Скрыть меню'}
+        >
+          <span aria-hidden />
+        </button>
       </div>
       <GlobalSearch opened={searchOpened} onClose={closeSearch} />
     </>
