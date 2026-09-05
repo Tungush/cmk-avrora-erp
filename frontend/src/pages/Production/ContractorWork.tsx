@@ -26,7 +26,7 @@ import type {
 } from '../../api/contractorRequests';
 import { useAuthStore } from '../../store/auth';
 import {
-  formatCurrency, formatDate, formatNumber, ROUTING_STAGE_LABELS,
+  formatCurrency, formatCompactMoney, formatDate, formatNumber, ROUTING_STAGE_LABELS,
 } from '../../utils/formatters';
 import { OrderRef } from '../../components/OrderCard/OrderCardProvider';
 import { Ref } from '../../components/EntityRef';
