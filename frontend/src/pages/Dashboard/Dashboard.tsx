@@ -157,7 +157,7 @@ export function Dashboard() {
           usePointStyle: true,
           boxWidth: 6,
           padding: 16,
-          font: { size: 11, family: 'Onest Variable, Onest, sans-serif' },
+          font: { size: 11, family: 'Golos Text, Manrope Variable, sans-serif' },
           color: chart.tick,
         },
       },
@@ -166,14 +166,14 @@ export function Dashboard() {
       x: {
         grid: { display: false },
         ticks: {
-          font: { size: 11, family: 'Onest Variable, Onest, sans-serif' },
+          font: { size: 11, family: 'Golos Text, Manrope Variable, sans-serif' },
           color: chart.tick,
         },
       },
       y: {
         grid: { color: chart.grid },
         ticks: {
-          font: { size: 11, family: 'Onest Variable, Onest, sans-serif' },
+          font: { size: 11, family: 'Golos Text, Manrope Variable, sans-serif' },
           color: chart.tick,
         },
       },

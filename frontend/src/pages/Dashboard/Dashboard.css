@@ -10,14 +10,14 @@
 
 /* Список решений: строка постоянной высоты, чтобы шесть пунктов
    гарантированно влезали и на 1280×800 */
-.dd-decisions { display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.dd-decisions { display: flex; flex-direction: column; gap: 4px; min-height: 0; }
 
 .dd-decision {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  height: 54px;
+  height: 44px;
   padding: 0 14px;
   border-radius: var(--r-md, 10px);
   background: var(--ref-surface-sub);

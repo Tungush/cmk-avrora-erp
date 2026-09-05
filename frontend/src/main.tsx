@@ -6,8 +6,12 @@ import { DatesProvider } from '@mantine/dates';
 import 'dayjs/locale/ru';
 // Локальные вариативные шрифты — без CDN: в цехе интернет не гарантирован.
 // Golos Text — гротеск с образцовой кириллицей (Paratype).
-// Onest — замена Urbanist из референса: та же геометрия, но с кириллицей
-import '@fontsource-variable/onest';
+// Golos Text (текст) + Manrope (заголовки): характерная пара с полной кириллицей (05.09.2026)
+import '@fontsource-variable/manrope';
+import '@fontsource/golos-text/400.css';
+import '@fontsource/golos-text/500.css';
+import '@fontsource/golos-text/600.css';
+import '@fontsource/golos-text/700.css';
 import '@fontsource-variable/jetbrains-mono';
 import App from './App.tsx';
 import '@mantine/core/styles.css';
@@ -36,16 +40,16 @@ type Scale = [string, string, string, string, string, string, string, string, st
    dark[7] — холст. Значения совпадают с tokens.css: карточка #1E293B,
    холст #0F172A, вторичный текст #A3B1C6 (6,73:1). */
 const SLATE: Scale = [
-  '#E2E8F0', '#CBD5E1', '#A3B1C6', '#94A3B8', '#334155',
-  '#273449', '#1E293B', '#0F172A', '#0B1220', '#070D1A',
+  '#F8FAFC', '#F1F5F9', '#E2E8F0', '#CBD5E1', '#94A3B8',
+  '#64748B', '#475569', '#334155', '#1E293B', '#0F172A',
 ];
 /* Четыре пастельных акцента — по категории, не по статусу. Ступень 4
    (индекс) — рабочая на тёмном: indigo 4,90:1, rose 5,44, emerald 7,61,
    amber 8,76 к карточке. autoContrast сам ставит тёмный текст на них. */
 const INDIGO: Scale = ['#EEF2FF', '#E0E7FF', '#C7D2FE', '#A5B4FC', '#818CF8', '#6366F1', '#4F46E5', '#4338CA', '#3730A3', '#312E81'];
 const ROSE: Scale    = ['#FFF1F2', '#FFE4E6', '#FECDD3', '#FDA4AF', '#FB7185', '#F43F5E', '#E11D48', '#BE123C', '#9F1239', '#881337'];
-const EMERALD: Scale = ['#ECFDF5', '#D1FAE5', '#A7F3D0', '#6EE7B7', '#34D399', '#10B981', '#059669', '#047857', '#065F46', '#064E3B'];
-const AMBER: Scale   = ['#FFFBEB', '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B', '#D97706', '#B45309', '#92400E', '#78350F'];
+const EMERALD: Scale = ['#ECFDF5', '#D1FAE5', '#A7F3D0', '#6EE7B7', '#34D399', '#10B981', '#047857', '#065F46', '#064E3B', '#022C22'];
+const AMBER: Scale   = ['#FFFBEB', '#FEF3C7', '#FDE68A', '#FCD34D', '#FBBF24', '#F59E0B', '#B45309', '#92400E', '#78350F', '#451A03'];
 
 const theme = createTheme({
   // Действие в референсе — чёрная пилюля, поэтому основной цвет чернильный.
@@ -59,8 +63,8 @@ const theme = createTheme({
      компонентов не доходил: замер на «Закупках» показал чистый чёрный на
      135 элементах — таблицы, тексты, бейджи. Отсюда и ощущение, что
      интерфейс давит: контраст был жёстче задуманного. */
-  black: '#0F172A',
-  white: '#E2E8F0',
+  black: '#1E293B',
+  white: '#FFFFFF',
   colors: {
     /* accent — индиго: главное действие, фокус, ссылка */
     accent: INDIGO,
@@ -76,7 +80,7 @@ const theme = createTheme({
     blue: INDIGO, cyan: INDIGO, indigo: INDIGO, violet: INDIGO, grape: INDIGO,
   },
 
-  fontFamily: "'Onest Variable', 'Onest', -apple-system, 'Segoe UI', sans-serif",
+  fontFamily: "'Golos Text', 'Manrope Variable', -apple-system, 'Segoe UI', sans-serif",
   // 02.09.2026: шаг вверх по всей шкале — xs 12→13, sm 14→15, md 16, lg 18, xl 22.
   // Тексту size="xs" (подписи, второстепенное) 12 px не хватало на мониторе цеха.
   /* Mantine берёт --mantine-color-dimmed со ступени 6 своей серой
@@ -87,7 +91,7 @@ const theme = createTheme({
   lineHeights: { xs: '1.4', sm: '1.45', md: '1.5', lg: '1.5', xl: '1.45' },
   fontFamilyMonospace: "'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace",
   headings: {
-    fontFamily: "'Onest Variable', 'Onest', sans-serif",
+    fontFamily: "'Manrope Variable', 'Golos Text', sans-serif",
     fontWeight: '700',
   },
   // Референс 02.09.2026 (Behance «ERP UI – POS»): крупные скругления,
@@ -194,7 +198,7 @@ if (isDesignMode()) enterDesignMode();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="dark">
+    <MantineProvider theme={theme} forceColorScheme="light">
       <DatesProvider settings={{ locale: 'ru', firstDayOfWeek: 1 }}>
         <Notifications position="top-right" zIndex={9999} />
         <App />

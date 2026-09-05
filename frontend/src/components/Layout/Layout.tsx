@@ -2,7 +2,6 @@ import React from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
 import { TopBar } from './TopBar';
-import { BottomNav } from './BottomNav';
 import { useAuthStore } from '../../store/auth';
 import { OrderCardProvider } from '../OrderCard/OrderCardProvider';
 import { ReceiptCardProvider } from '../ReceiptCard/ReceiptCardProvider';
@@ -13,19 +12,15 @@ import { SectionErrorBoundary } from '../ErrorBoundary';
 import { EntityProvider } from '../EntityRef';
 
 /**
- * Оболочка приложения (04.09.2026).
+ * Оболочка приложения (05.09.2026).
  *
- * Боковое меню убрано: разделы живут в плавающей строке внизу
- * (BottomNav). Вместе с ним ушли сворачивание в рейку, запоминание
- * выбора в localStorage и выезжающее меню на телефоне — нижняя строка
- * одинаково работает на всех ширинах и не отнимает у содержимого 260 px
- * по всей высоте.
+ * Разделы живут в шапке (TopBar) — единственной постоянной полосе.
+ * Боковое меню ушло 04.09 (260 px по всей высоте), нижняя плавающая
+ * строка — 05.09: на ноутбуке она съедала 74 px высоты и мешала
+ * (снимки владельца). Низ экрана теперь целиком под содержимое.
  *
- * Сворачивание ШАПКИ убрано 04.09.2026: оно требовало двух отдельных
- * кнопок — одной в шапке, другой язычком поверх экрана, — и владелец
- * дважды указал на них как на лишние. Ради 56 px это дорого, тем более
- * что жалоба была на тесноту, а не на нехватку места. Строка разделов
- * сворачивается по-прежнему: у неё один понятный элемент.
+ * Сворачивание шапки убрано 04.09.2026: требовало двух кнопок, владелец
+ * дважды назвал их лишними; ради 56 px это дорого.
  */
 export function Layout() {
   const token = useAuthStore((state) => state.token);
@@ -58,7 +53,7 @@ export function Layout() {
 
 
       {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить
-          одиннадцать разделов нижней строки на каждом экране */}
+          одиннадцать разделов шапки на каждом экране */}
       <a href="#main" className="skip-link">К содержимому</a>
 
       {/* Полоса загрузки и зерно живут поверх всего приложения */}
@@ -84,8 +79,6 @@ export function Layout() {
         </Box>
       </AppShell.Main>
 
-      {/* Разделы — плавающей строкой внизу, поверх содержимого */}
-      <BottomNav />
     </AppShell>
     </EntityProvider>
     </ReceiptCardProvider>
