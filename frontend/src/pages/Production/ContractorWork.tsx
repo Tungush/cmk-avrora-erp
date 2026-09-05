@@ -1081,8 +1081,8 @@ function RequestsTab() {
     [rows],
   );
   // 25 заявок на страницу: непринятые всё равно сверху, дальше — листать
-  // Строк ровно столько, сколько влезло: 58 px строка, 44 px шапка таблицы (05.09)
-  const fit = useFitRows(58, 4, 60, 44);
+  // Строк ровно столько, сколько влезло: 63 px строка, 44 px шапка таблицы (05.09)
+  const fit = useFitRows(63, 4, 60, 44);
   const paged = usePagedList(sorted, fit.rows, `${sorted.length}|${fit.rows}`);
 
   const drafts = sorted.filter((r) => r.status === 'DRAFT');
