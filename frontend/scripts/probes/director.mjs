@@ -35,7 +35,7 @@ export default async function (b) {
   out.focusPeekGone = await b.eval(`!document.querySelector('.peek--hover')`);
 
   // карточка «Долг поставщикам» → вкладка «Деньги»; кольцо → та же связка; строка легенды → центр
-  const stat = await b.rect('.stat-row .peek__target', 2); await b.click(stat.cx, stat.cy); await b.wait(400);
+  const stat = await b.rect('.stat-row .peek__target', 1); await b.click(stat.cx, stat.cy); await b.wait(400);
   out.statSelect = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,12), activeStat:document.querySelector('.stat[data-active]')?.dataset.hue||null})`);
   const row = await b.rect('.ringdash__row', 0); await b.move(row.cx, row.cy); await b.wait(250);
   out.ringPeekCenter = await b.eval(`document.querySelector('.ringdash__center-value').textContent+' / '+document.querySelector('.ringdash__center-label').textContent`);
@@ -43,7 +43,7 @@ export default async function (b) {
   out.ringSelect = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,12), activeStat:document.querySelector('.stat[data-active]')?.dataset.hue||null})`);
   await b.move(900, 100); await b.wait(400);
   out.restCenter = await b.eval(`document.querySelector('.ringdash__center-value').textContent+' / '+document.querySelector('.ringdash__center-label').textContent`);
-  for (const i of [3, 1, 2]) { const t = await b.rect('.panel__tab', i); await b.click(t.cx, t.cy); await b.wait(350); out['tab' + i] = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,10), rows:document.querySelectorAll('.panel__body tr, .panel__body .dd-decision, .panel__body .peek__row').length, bodyScroll:(b=>b.scrollHeight-b.clientHeight)(document.querySelector('.panel__body'))})`); }
+  for (const i of [1, 2, 0]) { const t = await b.rect('.panel__tab', i); await b.click(t.cx, t.cy); await b.wait(350); out['tab' + i] = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,10), rows:document.querySelectorAll('.panel__body tr, .panel__body .dd-decision, .panel__body .peek__row').length, bodyScroll:(b=>b.scrollHeight-b.clientHeight)(document.querySelector('.panel__body'))})`); }
   await b.shot('probe-1440.png');
 
   await b.viewport(1280, 800); await b.wait(900);
