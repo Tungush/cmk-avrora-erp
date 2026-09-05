@@ -384,77 +384,6 @@ function StageTable({
   );
 }
 
-/**
- * Полоса итогов под нормами: себестоимость, цена и трудоёмкость одной
- * строкой (02.09.2026). Полный разбор формулы занимал 280 px и на
- * ноутбуке возвращал прокрутку — он переехал в свою вкладку, а здесь
- * осталось то, ради чего инженер и правит норму.
- */
-/**
- * Полоса фактов: четыре числа, три из них раскрываются (04.09.2026).
- *
- * Владелец: «убрать материалы, чтобы много деталей не было, а по желанию
- * пользователь при нажатии видел всё». До этого состав лежал во второй
- * колонке рядом с нормами, и экран был плотным независимо от того,
- * нужен состав сейчас или нет.
- *
- * Теперь по умолчанию на экране только работа — нормы — и четыре числа
- * итога. Что стоит за числом, открывается кликом по нему же: состав за
- * материалами, разбор формулы за себестоимостью, заказы за применением.
- * Открыто всегда не больше одного: две развёрнутые панели вернули бы ту
- * же плотность, от которой уходим.
- */
-function CostStrip({
-  articleId, open, onOpen,
-}: {
-  articleId: string;
-  open: string | null;
-  onOpen: (key: string | null) => void;
-}) {
-  const { data, isLoading } = useCosting(articleId);
-  const can = useAuthStore((s) => s.can);
-  if (!can('read', 'routing.cost')) return null;
-  if (isLoading || !data) return <Skeleton height={62} radius="lg" />;
-
-  const { result, explain } = data;
-  const items = [
-    { key: 'bom', label: 'Материалы', value: `${num(result.materialCost, 0)} ₸`, hint: 'состав изделия' },
-    { key: null, label: 'Трудозатраты', value: `${num(result.laborCost, 0)} ₸`, hint: `${num(explain.totalManHours, 3)} ч` },
-    { key: 'cost', label: 'Себестоимость', value: `${num(result.totalCost, 0)} ₸`, strong: true, hint: 'как посчитано' },
-  ];
-  // «Где применяется» из полосы убрано: у него нет числа, и пустая
-  // четвёртая клетка рядом с тремя заполненными читалась неровно.
-  // Оно переехало ссылкой к названию изделия (04.09.2026).
-
-  return (
-    <div className="fact-strip">
-      {items.map((it) => {
-        const clickable = it.key != null;
-        const active = clickable && open === it.key;
-        return (
-          <button
-            key={it.label}
-            type="button"
-            className="fact"
-            data-strong={it.strong ? 'true' : undefined}
-            data-active={active ? 'true' : undefined}
-            disabled={!clickable}
-            aria-expanded={clickable ? active : undefined}
-            onClick={() => clickable && onOpen(active ? null : it.key)}
-          >
-            <span className="fact__label">{it.label}</span>
-            {it.value && <span className="fact__value">{it.value}</span>}
-            <span className="fact__hint">
-              {it.hint}
-              {clickable && <IconChevronDown size={14} aria-hidden className="fact__chev" />}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 /** Строки-итоги: их показываем крупно и отдельно от слагаемых */
 const TOTAL_LINES = new Set(['Себестоимость', 'Расчётная цена']);
 
@@ -871,7 +800,9 @@ export function Specifications() {
   const [page, setPage] = useState(1);
   const [gap, setGap] = useState<string>('');
   const [historyOpened, setHistoryOpened] = useState(false);
-  const [detail, setDetail] = useState<string | null>(null);
+  type View = 'norms' | 'bom' | 'cost' | 'usage';
+  const [view, setView] = useState<View>('norms');
+  const can = useAuthStore((s) => s.can);
 
   // Сколько строк влезло: 40 px строка, 40 px шапка таблицы
   const fit = useFitRows(ROW_H, 5, 60, 40);
@@ -886,6 +817,8 @@ export function Specifications() {
   const { data: fetched } = useArticle(openedId && !fromList ? openedId : null);
   const article = fromList ?? (fetched && fetched.id === openedId ? fetched : undefined);
   const { data: routing, isLoading: routingLoading, refetch } = useRouting(openedId);
+  const { data: costing } = useCosting(openedId);
+  const canCost = can('read', 'routing.cost');
 
   /* ---- карточка изделия во весь экран ---- */
   if (openedId) {
@@ -897,7 +830,7 @@ export function Specifications() {
           <div className="specs-card__head">
             <Button
               variant="default" size="sm" radius="xl" leftSection={<IconArrowLeft aria-hidden size={16} />}
-              onClick={() => { setOpened(null); setDetail(null); }}
+              onClick={() => { setOpened(null); setView('norms'); }}
             >
               Все изделия
             </Button>
@@ -908,13 +841,6 @@ export function Specifications() {
                 </Badge>
                 <Text fw={700} size="md" className="specs-card__name" lineClamp={1}>{article.name}</Text>
                 {noBom && <span className="worklist__chip" data-tone="danger">нет состава</span>}
-                <button
-                  type="button" className="specs-usage-link"
-                  aria-expanded={detail === 'usage'} data-active={detail === 'usage' ? 'true' : undefined}
-                  onClick={() => setDetail(detail === 'usage' ? null : 'usage')}
-                >
-                  где применяется
-                </button>
               </>
             ) : <Skeleton height={28} width={320} radius="sm" />}
             <div className="specs-card__actions">
@@ -927,26 +853,37 @@ export function Specifications() {
             </div>
           </div>
 
-          <div className="specs-card__body">
-            <section className="specs-card__norms" aria-label="Нормы труда">
-              <h2 className="specs-card__h">Нормы труда</h2>
-              {routingLoading || !routing
-                ? <Skeleton height={180} radius="lg" />
-                : <StageTable stages={routing.stages} articleId={openedId} />}
-            </section>
-            <section className="specs-card__cost" aria-label="Себестоимость">
-              <h2 className="specs-card__h">Себестоимость</h2>
-              <CostStrip articleId={openedId} open={detail} onOpen={setDetail} />
-              {detail && (
-                <div className="specs-detail">
-                  <FadeSwap swapKey={`${openedId}-${detail}`} style={{ height: '100%' }}>
-                    {detail === 'bom' ? <BomPanel articleId={openedId} />
-                      : detail === 'cost' ? <CostingPanel articleId={openedId} />
-                        : <UsagePanel articleId={openedId} />}
-                  </FadeSwap>
-                </div>
-              )}
-            </section>
+          {/* Вкладки на весь экран карточки (05.09, владелец: «при выборе
+              менялся весь экран, потому что места мало»). Цифры итога —
+              в подписях вкладок, а не отдельной полосой */}
+          <div className="panel__tabs specs-card__tabs" role="tablist" aria-label="Разделы изделия">
+            {([
+              { key: 'norms', label: 'Нормы труда', summary: canCost && costing ? `${num(costing.result.laborCost, 0)} ₸ · ${num(costing.explain.totalManHours, 1)} ч` : undefined },
+              { key: 'bom', label: 'Состав', summary: canCost && costing ? `${num(costing.result.materialCost, 0)} ₸` : (article?.bomItems?.length ? `${article.bomItems.length} поз.` : undefined) },
+              ...(canCost ? [{ key: 'cost', label: 'Себестоимость', summary: costing ? `${num(costing.result.totalCost, 0)} ₸` : undefined }] : []),
+              { key: 'usage', label: 'Где применяется', summary: undefined },
+            ] as Array<{ key: View; label: string; summary?: string }>).map((t) => (
+              <button
+                key={t.key} type="button" role="tab" id={`specs-tab-${t.key}`}
+                aria-selected={view === t.key} aria-controls="specs-view"
+                className="panel__tab" onClick={() => setView(t.key)}
+              >
+                {t.label}{t.summary && <small>{t.summary}</small>}
+              </button>
+            ))}
+          </div>
+          <div className="specs-card__view" id="specs-view" role="tabpanel" aria-labelledby={`specs-tab-${view}`}>
+            <FadeSwap swapKey={`${openedId}-${view}`} style={{ height: '100%' }}>
+              {view === 'norms' ? (
+                <section className="specs-card__norms" aria-label="Нормы труда">
+                  {routingLoading || !routing
+                    ? <Skeleton height={180} radius="lg" />
+                    : <StageTable stages={routing.stages} articleId={openedId} />}
+                </section>
+              ) : view === 'bom' ? <BomPanel articleId={openedId} />
+                : view === 'cost' ? <CostingPanel articleId={openedId} />
+                  : <UsagePanel articleId={openedId} />}
+            </FadeSwap>
           </div>
         </Card>
       </FitScreen>

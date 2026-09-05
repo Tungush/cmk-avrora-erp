@@ -2399,10 +2399,10 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .specs-card__head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--s-line); flex: 0 0 auto; flex-wrap: wrap; }
 .specs-card__name { min-width: 0; flex: 1 1 200px; }
 .specs-card__actions { margin-left: auto; display: flex; gap: 8px; }
-.specs-card__body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; padding: 14px 16px 16px; }
-.specs-card__norms { flex: 0 0 auto; display: flex; flex-direction: column; gap: 10px; }
-.specs-card__cost { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow: auto; overscroll-behavior: contain; }
-.specs-card__cost .fact-strip { max-width: 760px; }
+.specs-card__tabs { border-bottom: 1px solid var(--s-line); }
+.specs-card__view { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 12px 16px 16px; overflow: auto; overscroll-behavior: contain; }
+.specs-card__view > * { flex: 1; min-height: 0; }
+.specs-card__norms { display: flex; flex-direction: column; gap: 10px; }
 .specs-card__h { margin: 0; font-family: var(--ff-display); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--s-text-quiet); }
 /* нормы — три строки, а не три карточки: подпись | поля | расчёт | факт и «Сохранить» */
 .specs-card__norms .stage-grid { grid-template-columns: 1fr; gap: 8px; }
