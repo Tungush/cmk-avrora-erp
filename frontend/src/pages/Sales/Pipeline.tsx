@@ -154,7 +154,7 @@ export function Pipeline() {
                 <Table.Tbody>
                   {rows.map((d: Deal) => (
                     <Table.Tr key={d.id}>
-                      <Table.Td><Text size="sm" fw={600} lineClamp={1}>{d.customer?.name ?? 'нет данных'}</Text></Table.Td>
+                      <Table.Td><Text size="sm" fw={600} lineClamp={2}>{d.customer?.name ?? 'нет данных'}</Text></Table.Td>
                       <Table.Td><Text size="sm" lineClamp={2}>{d.article?.name ?? 'нет данных'}</Text></Table.Td>
                       <Table.Td>
                         <Text size="sm" lineClamp={1}>{d.siteCode || '—'}</Text>

@@ -307,17 +307,17 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
             </Stack>
           ) : (
             <TableScroll minWidth={canIssue ? 1000 : 900}>
-              <Table highlightOnHover>
+              <Table highlightOnHover layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>Код</Table.Th>
+                    <Table.Th w={112}>Код</Table.Th>
                     <Table.Th>Наименование</Table.Th>
-                    <Table.Th data-priority="3">Категория</Table.Th>
-                    <Table.Th ta="right">Остаток</Table.Th>
-                    <Table.Th ta="right" data-priority="2">Учётная цена</Table.Th>
-                    <Table.Th ta="right" data-priority="3">Последний закуп</Table.Th>
-                    <Table.Th ta="right">Стоимость запаса</Table.Th>
-                    {canIssue && <Table.Th w={120} />}
+                    <Table.Th w={156} data-priority="3">Категория</Table.Th>
+                    <Table.Th ta="right" w={136}>Остаток</Table.Th>
+                    <Table.Th ta="right" w={130} data-priority="2">Учётная цена</Table.Th>
+                    <Table.Th ta="right" w={136} data-priority="3">Последний закуп</Table.Th>
+                    <Table.Th ta="right" w={150}>Стоимость запаса</Table.Th>
+                    {canIssue && <Table.Th w={136} />}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>

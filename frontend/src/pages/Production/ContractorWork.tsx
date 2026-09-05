@@ -1227,7 +1227,7 @@ function RequestsTab() {
         ) : (
           <TableScroll minWidth={960} stickyFirstColumn={false}>
             <FadeSwap swapKey={paged.page}>
-            <Table highlightOnHover verticalSpacing="sm">
+            <Table highlightOnHover verticalSpacing="sm" layout="fixed">
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th w={40}>
@@ -1239,12 +1239,12 @@ function RequestsTab() {
                       />
                     )}
                   </Table.Th>
-                  <Table.Th>Заявка</Table.Th>
-                  <Table.Th>Вид работ</Table.Th>
-                  <Table.Th>Подрядчик</Table.Th>
-                  <Table.Th ta="right">Объём и ставка</Table.Th>
-                  <Table.Th ta="right">Сумма</Table.Th>
-                  <Table.Th ta="right" w={150}>Разнесено · остаток</Table.Th>
+                  <Table.Th w={260}>Заявка</Table.Th>
+                  <Table.Th w={150}>Вид работ</Table.Th>
+                  <Table.Th w={190}>Подрядчик</Table.Th>
+                  <Table.Th ta="right" w={170}>Объём и ставка</Table.Th>
+                  <Table.Th ta="right" w={130}>Сумма</Table.Th>
+                  <Table.Th ta="right" w={176}>Разнесено · остаток</Table.Th>
                   <Table.Th style={stickyActions(false)} />
                 </Table.Tr>
               </Table.Thead>
@@ -1321,7 +1321,7 @@ function RequestsTab() {
                           </Text>
                         </Table.Td>
 
-                        <Table.Td maw={110}>
+                        <Table.Td>
                           {/* Коротко: полная подпись вида работ — в раскрытой строке */}
                           <Text size="sm">{STAGE_SHORT[r.routingStage] ?? r.stageLabel}</Text>
                           {r.workLocation === 'OUR_SHOP' && (
@@ -1329,7 +1329,7 @@ function RequestsTab() {
                           )}
                         </Table.Td>
 
-                        <Table.Td maw={110}>
+                        <Table.Td>
                           {r.contractor
                             ? (
                               <Ref
@@ -1359,7 +1359,7 @@ function RequestsTab() {
                           {r.totalAmount != null ? formatCurrency(r.totalAmount) : '—'}
                         </Table.Td>
 
-                        <Table.Td ta="right">
+                        <Table.Td ta="right" data-wrap="true">
                           <Text
                             component="button"
                             type="button"

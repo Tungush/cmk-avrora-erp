@@ -667,7 +667,7 @@ export function OrderDetail({
         ) : (
           <>
           <FadeSwap swapKey={linesPaged.page}>
-            <TableScroll minWidth={560}>
+            <TableScroll minWidth={660}>
                 <Table highlightOnHover verticalSpacing="xs" style={{ tableLayout: 'fixed' }}>
                   <Table.Thead>
                     <Table.Tr>

@@ -205,13 +205,13 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
           </SimpleGrid>
           <FadeSwap swapKey={unpaidPaged.page}>
             <TableScroll minWidth={520}>
-              <Table highlightOnHover verticalSpacing={6}>
+              <Table highlightOnHover verticalSpacing={6} layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
-                    <Table.Th>№ ДО</Table.Th>
-                    <Table.Th ta="right">Дней</Table.Th>
+                    <Table.Th w={128}>№ ДО</Table.Th>
+                    <Table.Th ta="right" w={60}>Дней</Table.Th>
                     <Table.Th>Поставщик</Table.Th>
-                    <Table.Th ta="right">Остаток</Table.Th>
+                    <Table.Th ta="right" w={124}>Остаток</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -263,13 +263,13 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
           </Text>
           <FadeSwap swapKey={suppliersPaged.page}>
             <TableScroll minWidth={560}>
-              <Table highlightOnHover verticalSpacing={6}>
+              <Table highlightOnHover verticalSpacing={6} layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Поставщик</Table.Th>
-                    <Table.Th ta="right">ДО</Table.Th>
-                    <Table.Th ta="right">Законтрактовано</Table.Th>
-                    <Table.Th ta="right">Остаток</Table.Th>
+                    <Table.Th ta="right" w={56}>ДО</Table.Th>
+                    <Table.Th ta="right" w={132}>Законтрактовано</Table.Th>
+                    <Table.Th ta="right" w={124}>Остаток</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>

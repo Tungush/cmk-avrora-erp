@@ -113,7 +113,7 @@ export function OrderDebts() {
                 <th style={{ width: 118 }}>Заказ</th>
                 <th>Заказчик</th>
                 <th style={{ width: 160 }}>Статус</th>
-                <th style={{ width: 132 }}>Отгрузка</th>
+                <th style={{ width: 150 }}>Отгрузка</th>
                 <th className="num" style={{ width: 132 }}>Сумма</th>
                 <th className="num" style={{ width: 132 }}>Оплачено</th>
                 <th className="num" style={{ width: 140 }}>Долг</th>

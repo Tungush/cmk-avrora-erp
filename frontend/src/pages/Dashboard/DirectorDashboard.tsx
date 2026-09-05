@@ -46,7 +46,7 @@ const TAB_OF: Record<Key, Tab> = { margin: 'margin', supplier: 'money', customer
 
 const HEALTH: Record<string, { label: string; tone?: 'ok' | 'warn' | 'danger' }> = {
   OK: { label: 'в норме', tone: 'ok' }, WARN: { label: 'ниже цели', tone: 'warn' },
-  CRITICAL: { label: 'критично', tone: 'danger' }, NO_COSTING: { label: 'нет калькуляции' },
+  CRITICAL: { label: 'критично', tone: 'danger' }, NO_COSTING: { label: 'нет расчёта' },
 };
 
 export function DirectorDashboard() {
@@ -212,7 +212,7 @@ export function DirectorDashboard() {
             <div className="panel__body" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
               {tab === 'margin' && (
                 <table className="dense">
-                  <thead><tr><th style={{ width: 118 }}>Заказ</th><th>Заказчик</th><th className="num" style={{ width: 108 }}>Цена</th><th className="num" style={{ width: 132 }}>Себестоимость</th><th className="num" style={{ width: 96 }}>Маржа</th><th style={{ width: 110 }}>К цели</th></tr></thead>
+                  <thead><tr><th style={{ width: 118 }}>Заказ</th><th>Заказчик</th><th className="num" style={{ width: 108 }}>Цена</th><th className="num" style={{ width: 132 }}>Себестоимость</th><th className="num" style={{ width: 108 }}>Маржа</th><th style={{ width: 110 }}>К цели</th></tr></thead>
                   <tbody>
                     {(margin?.orders ?? []).map((o) => {
                       const h = HEALTH[o.marginHealth] ?? { label: o.marginHealth };

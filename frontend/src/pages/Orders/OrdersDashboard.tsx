@@ -137,16 +137,16 @@ export function OrdersDashboard() {
               </Text>
             </Alert>
           ) : (
-            <TableScroll minWidth={isDirection ? 760 : 640}>
-              <Table highlightOnHover verticalSpacing="xs">
+            <TableScroll minWidth={isDirection ? 640 : 520}>
+              <Table highlightOnHover verticalSpacing="xs" layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{DIMENSIONS.find((d) => d.value === dim)?.label}</Table.Th>
-                    <Table.Th ta="right">Заказов</Table.Th>
-                    <Table.Th ta="right">Законтрактовано</Table.Th>
-                    <Table.Th ta="right">Доля</Table.Th>
-                    <Table.Th ta="right">Средний чек</Table.Th>
-                    {isDirection && <Table.Th ta="right">Закуп по направлению</Table.Th>}
+                    <Table.Th ta="right" w={76}>Заказов</Table.Th>
+                    <Table.Th ta="right" w={150}>Законтрактовано</Table.Th>
+                    <Table.Th ta="right" w={70}>Доля</Table.Th>
+                    <Table.Th ta="right" w={130}>Средний чек</Table.Th>
+                    {isDirection && <Table.Th ta="right" w={140}>Закуп по направлению</Table.Th>}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -194,13 +194,13 @@ export function OrdersDashboard() {
           <Text fw={700} size="sm" mb="xs">Кто нам должен</Text>
           <FadeSwap swapKey={customersPaged.page}>
             <TableScroll minWidth={520}>
-              <Table highlightOnHover verticalSpacing="xs">
+              <Table highlightOnHover verticalSpacing="xs" layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Заказчик</Table.Th>
-                    <Table.Th ta="right">Заказов</Table.Th>
-                    <Table.Th ta="right">Законтрактовано</Table.Th>
-                    <Table.Th ta="right">Долг</Table.Th>
+                    <Table.Th ta="right" w={76}>Заказов</Table.Th>
+                    <Table.Th ta="right" w={150}>Законтрактовано</Table.Th>
+                    <Table.Th ta="right" w={130}>Долг</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>

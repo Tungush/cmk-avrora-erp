@@ -17,9 +17,9 @@ import { formatCurrency, formatDate } from '../utils/formatters';
  * по фактическому приходу на склад.
  */
 const PRICE_STATE_LABELS: Record<string, string> = {
-  ESTIMATE: 'по прошлым закупкам',
-  ORDERED: 'по заказу поставщику',
-  ACTUAL: 'по приходу на склад',
+  ESTIMATE: 'прошлые закупки',
+  ORDERED: 'заказ поставщику',
+  ACTUAL: 'приход на склад',
 };
 const PRICE_STATE_HINTS: Record<string, string> = {
   ESTIMATE: 'Цена прикидочная: взята из последней закупки этого материала. Уточнится, когда снабжение закажет его под этот заказ.',
@@ -202,15 +202,15 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
               )}
             </Group>
 
-            <Table.ScrollContainer minWidth={480}>
-              <Table verticalSpacing="xs" fz="sm">
+            <Table.ScrollContainer minWidth={520}>
+              <Table verticalSpacing="xs" fz="sm" layout="fixed">
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Материал</Table.Th>
-                    <Table.Th ta="right">Кол-во</Table.Th>
-                    <Table.Th ta="right">Цена</Table.Th>
-                    <Table.Th ta="right">Сумма</Table.Th>
-                    <Table.Th>Откуда цена</Table.Th>
+                    <Table.Th ta="right" w={72}>Кол-во</Table.Th>
+                    <Table.Th ta="right" w={112}>Цена</Table.Th>
+                    <Table.Th ta="right" w={124}>Сумма</Table.Th>
+                    <Table.Th w={150}>Откуда цена</Table.Th>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -233,7 +233,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                     return (
                       <Table.Tr key={m.id}>
                         <Table.Td>
-                          <Text size="sm">{m.materialName}</Text>
+                          <Text size="sm" truncate title={m.materialName}>{m.materialName}</Text>
                           {m.materialCode && <Text size="xs" c="dimmed" ff="monospace">{m.materialCode}</Text>}
                         </Table.Td>
                         <Table.Td ta="right" ff="monospace">{m.qtyTotal}</Table.Td>
@@ -243,7 +243,7 @@ export function OrderCostingPanel({ orderId, orderLineId }: { orderId: string; o
                           <Tooltip label={tooltip} disabled={!tooltip}>
                             <Stack gap={2}>
                               <Group gap={4} wrap="nowrap">
-                                <Badge size="sm" variant="light" color={PRICE_STATE_COLORS[m.priceState]} radius="xl">
+                                <Badge size="sm" variant="light" color={PRICE_STATE_COLORS[m.priceState]} radius="xl" className="badge--wrap">
                                   {PRICE_STATE_LABELS[m.priceState]}
                                 </Badge>
                                 {m.batch?.batchType === 'TOLLING' && (

@@ -2428,3 +2428,8 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .fin__unknown { color: var(--s-text-quiet); font-family: var(--ff-ui, inherit); font-size: 13px; }
 /* вкладка «по заказам» должна получить всю высоту панели: обёртки FadeSwap и Tabs.Panel — блочные */
 .section-body:has(.fin) > *, .section-body:has(.fin) .mantine-Tabs-panel { height: 100%; min-height: 0; }
+
+/* ---- таблицы (05.09.2026, «везде, где проблемы с таблицей») ---- */
+/* бейдж, которому можно в две строки: подпись не режется многоточием */
+.badge--wrap { height: auto; min-height: 22px; padding-top: 2px; padding-bottom: 2px; }
+.badge--wrap .mantine-Badge-label { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.2; }
