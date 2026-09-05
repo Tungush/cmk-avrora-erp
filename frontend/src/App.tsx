@@ -20,6 +20,7 @@ import { Finance } from './pages/Finance';
 import { Purchases } from './pages/Purchases';
 import { Prices } from './pages/Prices';
 import { Integration } from './pages/Integration';
+import { Nkt } from './pages/Nkt';
 import { Specifications } from './pages/Specifications';
 import { Pipeline } from './pages/Sales/Pipeline';
 
@@ -88,6 +89,7 @@ export default function App() {
             <Route path="prices" element={<Prices />} />
             <Route path="finance" element={<Finance />} />
             <Route path="specs" element={<Specifications />} />
+            <Route path="nkt" element={<Nkt />} />
             <Route path="integration" element={<Integration />} />
             <Route path="audit" element={<div className="p-8">Аудит (заглушка)</div>} />
             {/* Незнакомый адрес — молча на «Мою работу», а не белый экран */}

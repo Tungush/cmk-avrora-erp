@@ -7,7 +7,7 @@ import {
   IconBuildingBank,
   IconRuler2,
   IconTruckDelivery,
-  IconHammer, IconTruck, IconCoin,
+  IconHammer, IconTruck, IconCoin, IconBarcode,
 } from '@tabler/icons-react';
 
 export interface NavItem {
@@ -43,6 +43,10 @@ export const NAV_ITEMS: NavItem[] = [
   // было только с плитки «Моей работы», хотя это прямые деньги наружу
   { to: '/production/contractors', icon: IconTruck, label: 'Подряд', module: 'production' },
   { to: '/specs', icon: IconRuler2, label: 'Изделия', module: 'specs' },
+  // НКТ — коды NTIN для изделий ЦМК (05.09.2026). Отдельный раздел, а не
+  // вкладка «Изделий»: паспорт заводит инженер, а доработки, дубли и
+  // отказы разбирает менеджер, и прав на нормы у него нет
+  { to: '/nkt', icon: IconBarcode, label: 'НКТ', module: 'nkt' },
   // Прайс — коммерция, а не инженерия: цену видит тот, кто видит деньги заказа
   { to: '/prices', icon: IconCoin, label: 'Прайс', module: 'money' },
   { to: '/warehouse', icon: IconPackage, label: 'Материалы', module: 'materials' },

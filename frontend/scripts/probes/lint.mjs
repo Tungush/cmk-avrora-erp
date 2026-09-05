@@ -3,7 +3,9 @@ import { STATES, MEASURE } from './tables.mjs';
 
 const LINT = `(()=>{
   const vis=e=>{if(!e) return false; const r=e.getBoundingClientRect(); return r.width>0&&r.height>0;};
-  const out={clipped:[], rows:[], text:[]};
+  const out={clipped:[], rows:[], text:[], scroll:[], heads:[]};
+  for (const t of [...document.querySelectorAll('table')].filter(vis)){ let a=t.parentElement; while(a&&a!==document.body){ const cs=getComputedStyle(a); if(/auto|scroll/.test(cs.overflowY)) break; a=a.parentElement; } if(a&&a!==document.body&&a.scrollHeight>a.clientHeight+4) out.scroll.push({heads:[...t.querySelectorAll('th')].slice(0,4).map(x=>x.textContent.trim()).join('|').slice(0,44), hidden:a.scrollHeight-a.clientHeight, box:Math.round(a.clientHeight), by:(a.className||a.tagName).toString().split(' ')[0].slice(0,24)});
+    for (const th of t.querySelectorAll('th')) if (th.scrollWidth>th.clientWidth+1 && vis(th)) out.heads.push(th.textContent.trim().slice(0,30)); }
   const cand=[...document.querySelectorAll('.mantine-Badge-root, .mantine-Button-root, .mantine-ActionIcon-root, .worklist__chip, .stat__value, .stat__label, .peek__inline, .mantine-Text-root, td > span, td > div')].filter(vis);
   for (const el of cand){
     if (getComputedStyle(el).webkitLineClamp && getComputedStyle(el).webkitLineClamp!=='none') continue;
@@ -24,7 +26,7 @@ export default async function (b) {
       const url = 'http://localhost:5173' + path + (path.includes('?') ? '&' : '?') + 'design=1';
       await b.goto(url); await b.waitFor('.topnav__item'); await b.wait(1600);
       const found = [];
-      const check = async (state) => { const t = await b.eval(MEASURE); const l = await b.eval(LINT); if (t.problems.length || l.clipped.length || l.rows.length || l.text.length) found.push({ state, tables: t.problems, ...l }); };
+      const check = async (state) => { const t = await b.eval(MEASURE); const l = await b.eval(LINT); if (t.problems.length || l.clipped.length || l.rows.length || l.text.length || l.scroll.length || l.heads.length) found.push({ state, tables: t.problems, ...l }); };
       await check('base');
       for (const act of actions) {
         if (act.startsWith('ROW:')) { const r = await b.rect(act.slice(4), 0); if (!r) continue; await b.click(r.cx, r.cy); await b.wait(1400); await check('card'); }

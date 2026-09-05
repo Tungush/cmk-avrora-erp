@@ -315,8 +315,8 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
                     <Table.Th w={156} data-priority="3">Категория</Table.Th>
                     <Table.Th ta="right" w={136}>Остаток</Table.Th>
                     <Table.Th ta="right" w={130} data-priority="2">Учётная цена</Table.Th>
-                    <Table.Th ta="right" w={136} data-priority="3">Последний закуп</Table.Th>
-                    <Table.Th ta="right" w={150}>Стоимость запаса</Table.Th>
+                    <Table.Th ta="right" w={170} data-priority="3">Последний закуп</Table.Th>
+                    <Table.Th ta="right" w={168}>Стоимость запаса</Table.Th>
                     {canIssue && <Table.Th w={136} />}
                   </Table.Tr>
                 </Table.Thead>

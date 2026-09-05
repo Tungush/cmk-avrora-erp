@@ -142,11 +142,11 @@ export function OrdersDashboard() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>{DIMENSIONS.find((d) => d.value === dim)?.label}</Table.Th>
-                    <Table.Th ta="right" w={76}>Заказов</Table.Th>
-                    <Table.Th ta="right" w={150}>Законтрактовано</Table.Th>
+                    <Table.Th ta="right" w={96}>Заказов</Table.Th>
+                    <Table.Th ta="right" w={164}>Законтрактовано</Table.Th>
                     <Table.Th ta="right" w={70}>Доля</Table.Th>
                     <Table.Th ta="right" w={130}>Средний чек</Table.Th>
-                    {isDirection && <Table.Th ta="right" w={140}>Закуп по направлению</Table.Th>}
+                    {isDirection && <Table.Th ta="right" w={210}>Закуп по направлению</Table.Th>}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -198,8 +198,8 @@ export function OrdersDashboard() {
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Заказчик</Table.Th>
-                    <Table.Th ta="right" w={76}>Заказов</Table.Th>
-                    <Table.Th ta="right" w={150}>Законтрактовано</Table.Th>
+                    <Table.Th ta="right" w={96}>Заказов</Table.Th>
+                    <Table.Th ta="right" w={164}>Законтрактовано</Table.Th>
                     <Table.Th ta="right" w={130}>Долг</Table.Th>
                   </Table.Tr>
                 </Table.Thead>

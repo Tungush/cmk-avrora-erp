@@ -50,7 +50,7 @@ export function TopBar({ hidden = false, onToggle }: { hidden?: boolean; onToggl
   return (
     <>
       <div className="topbar" data-hidden={hidden ? 'true' : undefined}>
-        {!hidden && <>
+        <>
         <Link to="/" className="topbar__brand" aria-label="Моя работа">ЦМК</Link>
 
         <nav className="topnav" aria-label="Разделы">
@@ -114,12 +114,12 @@ export function TopBar({ hidden = false, onToggle }: { hidden?: boolean; onToggl
             </Menu.Dropdown>
           </Menu>
         </div>
-        </>}
+        </>
         {/* Одна ручка вместо двух стрелок: тянуть за грабер понятно без подписи */}
         <button
           type="button"
           className="topbar__grip"
-          onClick={onToggle}
+          onClick={(e) => { onToggle?.(); e.currentTarget.blur(); }}
           aria-expanded={!hidden}
           aria-label={hidden ? 'Показать меню' : 'Скрыть меню'}
           title={hidden ? 'Показать меню' : 'Скрыть меню'}

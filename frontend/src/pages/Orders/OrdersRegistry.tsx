@@ -186,6 +186,8 @@ export function OrdersRegistry() {
   const [page, setPage] = useState(1);
   // Размер страницы помнится для реестра заказов отдельно (25 / 50 / 100)
   const [pageSize, setPageSize] = usePageSize('orders', 25);
+  // Пока человек не выбрал размер сам, страница = столько строк, сколько влезло (05.09)
+  const [sizeMode, setSizeMode] = useState<'auto' | 'manual'>(() => { try { return localStorage.getItem('ui-page-size:orders') ? 'manual' : 'auto'; } catch { return 'auto'; } });
   /**
    * Реестр держался в высоту 25 строк независимо от экрана (04.09.2026).
    *
@@ -245,7 +247,9 @@ export function OrdersRegistry() {
     [can],
   );
 
-  const params: Record<string, string | number | boolean> = { page, pageSize };
+  const autoRows = Math.max(5, Math.floor((fit.height - 56) / 42));
+  const effectiveSize = sizeMode === 'manual' ? pageSize : autoRows;
+  const params: Record<string, string | number | boolean> = { page, pageSize: effectiveSize };
   if (search) params.search = search;
   if (status) params.status = status;
   if (overdueOnly) params.overdueOnly = true;
@@ -518,9 +522,9 @@ export function OrdersRegistry() {
         <PaginationBar
           page={page}
           total={total}
-          pageSize={pageSize}
+          pageSize={effectiveSize}
           onPageChange={setPage}
-          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+          onPageSizeChange={(s) => { setPageSize(s); setSizeMode('manual'); setPage(1); }}
           noun="заказов"
           sticky
         />

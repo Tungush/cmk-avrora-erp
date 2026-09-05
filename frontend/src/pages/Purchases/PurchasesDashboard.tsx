@@ -268,7 +268,7 @@ export function PurchasesDashboard({ onOpenRegistry }: { onOpenRegistry: (f: Rec
                   <Table.Tr>
                     <Table.Th>Поставщик</Table.Th>
                     <Table.Th ta="right" w={56}>ДО</Table.Th>
-                    <Table.Th ta="right" w={132}>Законтрактовано</Table.Th>
+                    <Table.Th ta="right" w={168}>Законтрактовано</Table.Th>
                     <Table.Th ta="right" w={124}>Остаток</Table.Th>
                   </Table.Tr>
                 </Table.Thead>

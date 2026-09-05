@@ -45,6 +45,9 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   purchases: ['payment.core:read'],                      // Закупки (заказы поставщику)
   money: ['payment.core:read'],                          // Деньги
   settings: ['audit:read'],                              // Настройки и обмен
+  // НКТ: паспорт изделия для Национального каталога. Видят те же, кто
+  // видит изделия, плюс менеджер — доработки и дубли разбирает он
+  nkt: ['article.core:read', 'bom.core:read', 'order.core:read'],
 
   // Старые ключи оставлены: на них ещё ссылаются внутренние переходы
   dashboard: [],

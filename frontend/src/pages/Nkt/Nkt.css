@@ -1,0 +1,190 @@
+/*
+ * Раздел «НКТ» (05.09.2026).
+ *
+ * Тот же скелет, что у «Денег»: рамка стоит, страница не прокручивается,
+ * прокручивается только то, что внутри. Строк в реестре ровно столько,
+ * сколько поместилось, — считает useFitRows, а не зашитая формула.
+ */
+
+/* Раздел тянется на всю доску: без этого вкладка Mantine остаётся высотой
+   по содержимому, useFitRows меряет её и честно выдаёт минимум — пять
+   строк на экране, где помещается пятнадцать */
+.section-body:has(.nkt) > *,
+.section-body:has(.nkt) .mantine-Tabs-panel,
+.section-body:has(.nkt-card) > *,
+.section-body:has(.nkt-card) .mantine-Tabs-panel {
+  height: 100%;
+  min-height: 0;
+}
+
+.nkt {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 12px;
+}
+
+.nkt .stat-row { margin-bottom: 0; }
+.nkt .stat { font: inherit; text-align: left; }
+
+.nkt__bar { flex: 0 0 auto; }
+
+.nkt__card {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.nkt__wrap { flex: 1; min-height: 0; overflow: hidden; }
+/* Справочник видов короткий, но его строки — поля ввода: там прокрутка
+   внутри честнее, чем страницы */
+.nkt__wrap--scroll { overflow: auto; }
+
+.nkt__table td { height: 40px; }
+.nkt__table td:nth-child(2) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nkt__foot { flex: 0 0 auto; padding: 4px 10px; border-top: 1px solid var(--s-line); }
+
+.nkt__code {
+  font-family: var(--ff-num);
+  font-weight: 700;
+  text-align: left;
+}
+
+.nkt__missing { color: var(--s-text-quiet); }
+/* Коды и даты — моноширинным, но текст рядом с ними («не задан») остаётся
+   обычным: в табличной моноширинной гарнитуре он читается разреженным */
+.nkt__mono { font-family: var(--ff-num); font-variant-numeric: tabular-nums; }
+
+/* Положение в конвейере: слово несёт смысл, цвет только помогает его
+   найти. Заливки нет — точка и чернильный текст (MASTER §1) */
+.nkt__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--s-text);
+}
+.nkt__state::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--s-line-strong);
+}
+.nkt__state[data-hue='indigo']  { color: var(--p-indigo-ink); }
+.nkt__state[data-hue='indigo']::before  { background: var(--p-indigo); }
+.nkt__state[data-hue='emerald'] { color: var(--p-emerald-ink); }
+.nkt__state[data-hue='emerald']::before { background: var(--p-emerald); }
+.nkt__state[data-hue='rose']    { color: var(--p-rose-ink); }
+.nkt__state[data-hue='rose']::before    { background: var(--p-rose); }
+.nkt__state[data-hue='amber']   { color: var(--p-amber-ink); }
+.nkt__state[data-hue='amber']::before   { background: var(--p-amber); }
+
+/* Счётчик кругов доработки: показывается с третьего — это порог,
+   после которого заявка считается проблемной (ТЗ §10.7) */
+.nkt__attempts {
+  margin-left: 8px;
+  padding: 0 6px;
+  border-radius: 999px;
+  border: 1px solid var(--s-line-strong);
+  font-family: var(--ff-num);
+  font-size: 12px;
+  color: var(--p-rose-ink);
+}
+
+/* ---------------------------------------------------------------------
+   Второй слой: карточка изделия
+   --------------------------------------------------------------------- */
+
+.nkt-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 12px;
+}
+
+.nkt-card__head { flex: 0 0 auto; }
+.nkt-card__code { font-weight: 700; }
+
+.nkt-card__body {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 1fr);
+  gap: 14px;
+}
+
+/* Паспорт длиннее экрана — прокручивается он, а не страница */
+.nkt-card__pane {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.nkt-card__form { flex: 1; min-height: 0; overflow: auto; padding-right: 4px; }
+.nkt-card__actions {
+  flex: 0 0 auto;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--s-line);
+}
+.nkt-card__side { min-height: 0; overflow: auto; }
+
+.nkt-card__group {
+  padding-top: 6px;
+  border-top: 1px solid var(--s-line);
+  color: var(--s-text-quiet);
+}
+
+.nkt-card__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 10px 14px;
+}
+
+.nkt-card__ntinValue {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--p-emerald-ink);
+}
+
+/* Кандидат на совпадение: выбирается кликом, решение — за человеком */
+.nkt-dup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'name sim' 'meta sim';
+  gap: 2px 10px;
+  width: 100%;
+  padding: 8px 10px;
+  text-align: left;
+  background: var(--s-surface);
+  border: 1px solid var(--s-line);
+  border-radius: 12px;
+  cursor: pointer;
+  font: inherit;
+}
+.nkt-dup:hover { background: var(--s-surface-quiet); }
+.nkt-dup[data-active] {
+  border-color: var(--p-indigo);
+  box-shadow: inset 0 0 0 1px var(--p-indigo);
+}
+.nkt-dup:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; }
+.nkt-dup__name { grid-area: name; font-weight: 600; }
+.nkt-dup__meta { grid-area: meta; font-size: 13px; color: var(--s-text-quiet); }
+.nkt-dup__sim {
+  grid-area: sim;
+  align-self: center;
+  font-family: var(--ff-num);
+  font-size: 15px;
+  color: var(--p-amber-ink);
+}
+
+@media (max-width: 1180px) {
+  .nkt-card__body { grid-template-columns: minmax(0, 1fr); }
+}

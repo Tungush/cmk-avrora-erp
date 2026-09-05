@@ -34,7 +34,7 @@ import { TableScroll } from '../../components/TableScroll';
 import { SectionHead } from '../../components/SectionHeader';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap } from '../../components/motion';
-import { FitScreen } from '../../components/FitScreen';
+import { FitScreen, useFitRows } from '../../components/FitScreen';
 import { TextReveal } from '../../components/motion';
 
 const STAGE_OPTIONS = (Object.keys(ROUTING_STAGE_LABELS) as RoutingStageCode[])
@@ -1080,9 +1080,10 @@ function RequestsTab() {
     () => [...rows].sort((a, b) => Number(b.needsAllocation) - Number(a.needsAllocation)),
     [rows],
   );
-  const { data: descriptions } = useDescriptions(sorted.map((r) => r.id));
   // 25 заявок на страницу: непринятые всё равно сверху, дальше — листать
-  const paged = usePagedList(sorted, 25, sorted.length);
+  // Строк ровно столько, сколько влезло: 58 px строка, 44 px шапка таблицы (05.09)
+  const fit = useFitRows(58, 4, 60, 44);
+  const paged = usePagedList(sorted, fit.rows, `${sorted.length}|${fit.rows}`);
 
   const drafts = sorted.filter((r) => r.status === 'DRAFT');
   const selectedRows = drafts.filter((r) => selected.has(r.id));
@@ -1139,18 +1140,13 @@ function RequestsTab() {
   }
 
   return (
-    <Stack gap="md">
+    <div className="fin">
       {/* Самая опасная точка потока: деньги приняты и не сидят ни в одном заказе */}
       {data && data.unallocated.requests > 0 && (
-        <Alert color="danger" variant="light" icon={<IconAlertTriangle aria-hidden size={20} />}>
+        <Alert color="danger" variant="light" py={6} icon={<IconAlertTriangle aria-hidden size={18} />}>
           <Text size="sm" fw={600}>
-            Принято на {formatCurrency(data.unallocated.amount)} и не разнесено ни на один
-            заказ — штат на этих работах считается по норме целиком
-          </Text>
-          <Text size="xs" c="dimmed">
-            {data.unallocated.requests}{' '}
-            {plural(data.unallocated.requests, 'заявка ждёт', 'заявки ждут', 'заявок ждут')}{' '}
-            разнесения — они подняты наверх списка
+            Принято на {formatCurrency(data.unallocated.amount)} и не разнесено ни на один заказ —{' '}
+            {data.unallocated.requests} {plural(data.unallocated.requests, 'заявка поднята', 'заявки подняты', 'заявок подняты')} наверх
           </Text>
         </Alert>
       )}
@@ -1174,40 +1170,33 @@ function RequestsTab() {
           value={stage}
           onChange={setStage}
         />
-        {canEdit && (
-          <Button
-            ml="auto"
-            leftSection={<IconPlus aria-hidden size={16} />}
-            onClick={() => setCreating(true)}
-          >
-            Новая заявка
-          </Button>
-        )}
+        <Group gap="sm" wrap="nowrap" ml="auto">
+          {drafts.length > 0 && (
+            <>
+              <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
+                Выбрано <Text span fw={700} ff="monospace" c="var(--s-text)">{selected.size}</Text> из {drafts.length}
+                {selected.size > 0 && <> на <Text span fw={700} ff="monospace" c="var(--s-text)">{formatCurrency(selectedTotal)}</Text></>}
+              </Text>
+              <Button
+                variant="default"
+                leftSection={<IconSend aria-hidden size={16} />}
+                disabled={selected.size === 0}
+                loading={send.isPending}
+                onClick={() => send.mutate([...selected])}
+              >
+                В Б24 одной заявкой
+              </Button>
+            </>
+          )}
+          {canEdit && (
+            <Button leftSection={<IconPlus aria-hidden size={16} />} onClick={() => setCreating(true)}>
+              Новая заявка
+            </Button>
+          )}
+        </Group>
       </Group>
 
-      {/* Пачка черновиков → одна сделка в Б24, как в очереди на закуп */}
-      {drafts.length > 0 && (
-        <Card withBorder radius="md" padding="md">
-          <Group justify="space-between" wrap="wrap" gap="sm">
-            <Text size="sm">
-              Выбрано <Text span fw={700} ff="monospace">{selected.size}</Text> из {drafts.length} черновиков
-              {selected.size > 0 && (
-                <> на <Text span fw={700} ff="monospace">{formatCurrency(selectedTotal)}</Text> (оценка)</>
-              )}
-            </Text>
-            <Button
-              leftSection={<IconSend aria-hidden size={16} />}
-              disabled={selected.size === 0}
-              loading={send.isPending}
-              onClick={() => send.mutate([...selected])}
-            >
-              Отправить в Б24 одной заявкой
-            </Button>
-          </Group>
-        </Card>
-      )}
-
-      <Card withBorder radius="md" padding={0}>
+      <Card withBorder radius="md" padding={0} className="fin__card">
         {isLoading ? (
           <Stack gap={4} p="md">
             {[...Array(6)].map((_, i) => <Skeleton key={i} height={34} radius="sm" />)}
@@ -1225,6 +1214,7 @@ function RequestsTab() {
             </Text>
           </Stack>
         ) : (
+          <div ref={fit.ref} className="fin__wrap">
           <TableScroll minWidth={960} stickyFirstColumn={false}>
             <FadeSwap swapKey={paged.page}>
             <Table highlightOnHover verticalSpacing="sm" layout="fixed">
@@ -1239,13 +1229,13 @@ function RequestsTab() {
                       />
                     )}
                   </Table.Th>
-                  <Table.Th w={260}>Заявка</Table.Th>
-                  <Table.Th w={130}>Вид работ</Table.Th>
-                  <Table.Th w={160}>Подрядчик</Table.Th>
-                  <Table.Th ta="right" w={156}>Объём и ставка</Table.Th>
-                  <Table.Th ta="right" w={118}>Сумма</Table.Th>
-                  <Table.Th ta="right" w={168}>Разнесено · остаток</Table.Th>
-                  <Table.Th w={172} style={stickyActions(false)} />
+                  <Table.Th w={218}>Заявка</Table.Th>
+                  <Table.Th w={134}>Вид работ</Table.Th>
+                  <Table.Th w={180}>Подрядчик</Table.Th>
+                  <Table.Th ta="right" w={162}>Объём и ставка</Table.Th>
+                  <Table.Th ta="right" w={116}>Сумма</Table.Th>
+                  <Table.Th ta="right" w={190}>Разнесено</Table.Th>
+                  <Table.Th w={168} style={stickyActions(false)} />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -1315,10 +1305,6 @@ function RequestsTab() {
                               </Tooltip>
                             )}
                           </Group>
-                          <Text size="xs" c="dimmed" ml={28} lineClamp={1} maw={224}>
-                            {/* пока описания не пришли — многоточие, а не пустота */}
-                            {descriptions ? descriptions[r.id] ?? formatDate(r.createdAt) : '…'}
-                          </Text>
                         </Table.Td>
 
                         <Table.Td>
@@ -1379,18 +1365,14 @@ function RequestsTab() {
                             ff="monospace"
                             fw={r.needsAllocation ? 700 : 400}
                             c={r.needsAllocation ? 'danger.7' : 'dimmed'}
+                            style={{ whiteSpace: 'nowrap' }}
                           >
                             {r.needsAllocation
-                              ? `висит ${formatCurrency(r.unallocatedAmount)}`
+                              ? `висит ${formatCompactMoney(r.unallocatedAmount)}${r.isStale && r.daysSinceAccepted != null ? ` · ${r.daysSinceAccepted} дн` : ''}`
                               : r.ordersCount > 0
                                 ? `${r.ordersCount} ${plural(r.ordersCount, 'заказ', 'заказа', 'заказов')}`
                                 : 'нет заказов'}
                           </Text>
-                          {r.isStale && r.daysSinceAccepted != null && (
-                            <Text size="xs" c="danger.7">
-                              {r.daysSinceAccepted} {daysWord(r.daysSinceAccepted)} назад
-                            </Text>
-                          )}
                         </Table.Td>
 
                         <Table.Td style={stickyActions(r.needsAllocation)}>
@@ -1457,17 +1439,18 @@ function RequestsTab() {
             </Table>
             </FadeSwap>
           </TableScroll>
+          </div>
         )}
       </Card>
       {!isLoading && sorted.length > 0 && (
-        <PaginationBar page={paged.page} total={paged.total} pageSize={25} onPageChange={paged.setPage} noun="заявок" sticky />
+        <PaginationBar page={paged.page} total={paged.total} pageSize={Math.max(1, fit.rows)} onPageChange={paged.setPage} noun="заявок" />
       )}
 
       {creating && <RequestFormModal editing={null} onClose={() => setCreating(false)} />}
       {editing && <RequestFormModal editing={editing} onClose={() => setEditing(null)} />}
       {allocating && <AllocateModal request={allocating} onClose={() => setAllocating(null)} />}
       {accepting && <AcceptModal request={accepting} onClose={() => setAccepting(null)} />}
-    </Stack>
+    </div>
   );
 }
 
