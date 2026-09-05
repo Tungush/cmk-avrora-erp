@@ -2344,30 +2344,6 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .ringdash__pct { grid-area: pct; font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace; font-size: 17px; font-weight: 700; font-variant-numeric: tabular-nums; padding-left: 8px; }
 .ringdash__cap { grid-area: cap; font-size: 13px; color: var(--s-text-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ---- секции второго слоя ---- */
-.sections { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
-.section { border-radius: 18px; background: var(--s-surface); border: 1px solid var(--s-line); display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0; transition: opacity .18s var(--ease-out), filter .18s var(--ease-out); }
-.section[data-dimmed] { opacity: .45; filter: saturate(.5); }
-.section[data-dimmed]:hover, .section[data-dimmed]:focus-within { opacity: .85; filter: none; }
-.section[data-focused] { flex: 1; min-height: 0; display: flex; flex-direction: column; }
-.section[data-open] { flex: 1 1 0; min-height: 96px; }
-/* корень Collapse в Mantine 9 — безымянный div с инлайновой высотой: делаем его флекс-колонкой, крутится само тело */
-.section[data-open] > :not(.section__head) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-.section[data-open] .section__body { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.sections[data-focused] .section[data-dimmed] { flex: 0 0 auto; min-height: 0; }
-.sections[data-focused] .section[data-dimmed] > *:not(.section__head) { display: none; }
-.section__head { display: flex; align-items: center; gap: 12px; padding: 8px 14px; user-select: none; }
-.section__toggle { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; padding: 0; cursor: pointer; color: var(--s-text); }
-.section__toggle:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 4px; border-radius: 6px; }
-.section__chev { color: var(--s-text-quiet); transition: transform .18s var(--ease-out); }
-.section[data-open] .section__chev { transform: rotate(180deg); }
-.section__title { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: -.01em; }
-.section__summary { margin-left: auto; font-size: 13.5px; color: var(--s-text-quiet); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.section__focus { display: inline-flex; width: 28px; height: 28px; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: transparent; color: var(--s-text-quiet); cursor: pointer; }
-.section__focus:hover { background: var(--s-surface-quiet); color: var(--s-text); }
-.section__focus:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; }
-.section__body { padding: 0 14px 10px; }
-
 /* ---- peek-карточка ---- */
 .peek { background: var(--s-surface-quiet) !important; border: 1px solid var(--s-line-strong) !important; padding: 12px 14px !important; }
 .peek__target { display: inline-block; max-width: 100%; cursor: pointer; }
@@ -2475,3 +2451,40 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .topbar__grip:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; border-radius: 6px; }
 .topbar[data-hidden] { padding: 0; }
 .topbar[data-hidden] .topbar__grip { bottom: 2px; }
+
+/* ---- вкладки справа от кольца (05.09.2026): вместо гармошки секций — владелец назвал её неудобной ---- */
+.panel { flex: 1; min-height: 0; display: flex; flex-direction: column; border-radius: 16px; background: var(--s-surface); border: 1px solid var(--s-line); container-type: inline-size; }
+/* на 1280 подписи вкладок не влезают — остаются названия, итоги видны в карточках сверху */
+@container (max-width: 940px) { .panel__tab small { display: none; } }
+.panel__tabs { display: flex; gap: 4px; padding: 8px 10px; border-bottom: 1px solid var(--s-line); flex: 0 0 auto; overflow: hidden; }
+.panel__tab { display: inline-flex; align-items: baseline; gap: 8px; height: 34px; padding: 0 12px; border: 0; border-radius: 999px; background: transparent; color: var(--s-text-quiet); font-family: var(--ff-display); font-size: 13.5px; font-weight: 700; cursor: pointer; white-space: nowrap; transition: background-color .15s var(--ease-out), color .15s var(--ease-out); }
+.panel__tab small { font-family: var(--ff-num); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.panel__tab:hover { background: var(--s-surface-quiet); color: var(--s-text); }
+.panel__tab[aria-selected='true'] { background: var(--s-inverse-bg); color: var(--s-inverse-fg); }
+.panel__tab:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; }
+.panel__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 10px 14px 14px; }
+.panel__body .dd-decisions--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+
+/* ---- Цех (05.09.2026): список заказов, по нажатию — карточка заказа ---- */
+.shop-order { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(140px, 1fr) 160px 180px minmax(140px, .9fr) 24px; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--s-line); width: 100%; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.shop-order--head { height: 40px; cursor: default; font-family: var(--ff-display); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--s-text-quiet); background: var(--s-surface-quiet); }
+.shop-order:not(.shop-order--head):hover { background: var(--s-surface-quiet); }
+.shop-order:focus-visible { outline: 2px solid var(--s-focus); outline-offset: -2px; }
+.shop-order[data-done] { background: color-mix(in srgb, var(--s-ok) 7%, transparent); }
+.shop-order__who { display: flex; flex-direction: column; min-width: 0; line-height: 1.2; }
+.shop-order__num { font-family: var(--ff-num); font-weight: 700; font-size: 14px; }
+.shop-order__cust { font-size: 13px; color: var(--s-text-quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-order__sites { display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
+.shop-order__date { font-family: var(--ff-num); font-size: 13px; white-space: nowrap; }
+.shop-order__date[data-overdue] { color: var(--p-rose-ink); }
+.shop-order__progress { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; font-family: var(--ff-num); font-size: 13px; white-space: nowrap; }
+.shop-order__progress .bar { min-width: 60px; }
+.shop-order__flags { display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
+.shop-order__chev { color: var(--s-text-quiet); }
+.shop-card { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
+.shop-card__head { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-bottom: 1px solid var(--s-line); flex-wrap: wrap; flex: 0 0 auto; }
+.shop-card__title { font-family: var(--ff-display); font-size: 18px; font-weight: 700; }
+.shop-card__cust { font-size: 14px; min-width: 0; }
+.shop-card__progress { display: inline-flex; align-items: center; gap: 10px; font-family: var(--ff-num); font-size: 13px; white-space: nowrap; }
+.shop-card__progress .bar { width: 120px; }
+.shop-card__rows { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }

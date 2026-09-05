@@ -1,14 +1,12 @@
-/** Сценарий проверки экрана директора: раскладка, peek, фокус-режим, два размера экрана */
+/** Сценарий проверки экрана директора: раскладка, peek, вкладки, два размера экрана */
 const measure = (b) => b.eval(`(()=>{
-  const heads=[...document.querySelectorAll('.section__head')].map(e=>Math.round(e.getBoundingClientRect().bottom));
-  const nav=document.querySelector('[class*=botnav]'); const navTop=nav?Math.round(nav.getBoundingClientRect().top):null;
-  const fs=document.querySelector('.fit-screen'), dd2=document.querySelector('.dd2'), ring=document.querySelector('.ringdash__disc'), rings=document.querySelector('.dd2__rings'), s=document.querySelector('.stat');
+  const fs=document.querySelector('.fit-screen'), dd2=document.querySelector('.dd2'), ring=document.querySelector('.ringdash__disc'), rings=document.querySelector('.dd2__rings'), s=document.querySelector('.stat'), panel=document.querySelector('.panel'), body=document.querySelector('.panel__body'), tabs=document.querySelector('.panel__tabs');
   return {viewport:[innerWidth,innerHeight], pageScroll:document.documentElement.scrollHeight-innerHeight,
-    shellBottom:getComputedStyle(document.documentElement).getPropertyValue('--shell-bottom').trim(), botnav:document.documentElement.dataset.botnav||'full',
     fitTop:Math.round(fs.getBoundingClientRect().top), fitH:Math.round(fs.getBoundingClientRect().height),
     dd2Bottom:Math.round(dd2.getBoundingClientRect().bottom), ringsBottom:Math.round(rings.getBoundingClientRect().bottom), ringsOverflow:rings.scrollHeight-rings.clientHeight,
     ringSize:Math.round(ring.getBoundingClientRect().width), statH:Math.round(s.getBoundingClientRect().height), statValue:getComputedStyle(s.querySelector('.stat__value')).fontSize,
-    headsBottom:heads, navTop, allHeadsAboveNav:navTop==null||heads.every(h=>h<=navTop)};})()`);
+    panelBottom:Math.round(panel.getBoundingClientRect().bottom), tabsOverflow:tabs.scrollWidth-tabs.clientWidth, tabsCount:document.querySelectorAll('.panel__tab').length,
+    activeTab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent, bodyScroll:body.scrollHeight-body.clientHeight, bodyH:Math.round(body.clientHeight)};})()`);
 
 export default async function (b) {
   const out = {};
@@ -20,15 +18,12 @@ export default async function (b) {
   const card = await b.rect('.stat-row .peek__target', 1);
   await b.move(card.cx, card.cy); await b.wait(450);
   out.hoverPeek = await b.eval(`(()=>{const d=document.querySelector('.peek--hover'); if(!d) return null; const r=d.getBoundingClientRect(); return {y:Math.round(r.y), h:Math.round(r.height), rows:d.querySelectorAll('.peek__row').length, hint:!!d.querySelector('.peek__hint')};})()`);
-  await b.shot('probe-hover.png');
   await b.move(900, 100); await b.wait(450);
   out.hoverGone = await b.eval(`!document.querySelector('.peek--hover')`);
 
-  const tg = await b.rect('.section[data-section="margin"] .section__toggle');
-  await b.click(tg.cx, tg.cy); await b.wait(500);
   const cell = await b.rect('.dense .peek__target', 0);
   await b.click(cell.cx, cell.cy); await b.wait(500);
-  out.pinned = await b.eval(`(()=>{const d=document.querySelector('.peek--pinned'); const t=document.querySelector('.dense .peek__target'); return {present:!!d, dataPinned:t.dataset.pinned||null, y:d?Math.round(d.getBoundingClientRect().y):null, cellY:Math.round(t.getBoundingClientRect().y), actions:[...document.querySelectorAll('.peek--pinned .peek__actions button')].map(b=>b.textContent), focusInside:!!document.activeElement.closest('.peek--pinned'), hoverAlso:!!document.querySelector('.peek--hover')};})()`);
+  out.pinned = await b.eval(`(()=>{const d=document.querySelector('.peek--pinned'); const t=document.querySelector('.dense .peek__target'); return {present:!!d, y:d?Math.round(d.getBoundingClientRect().y):null, cellY:Math.round(t.getBoundingClientRect().y), actions:[...document.querySelectorAll('.peek--pinned .peek__actions button')].map(b=>b.textContent), focusInside:!!document.activeElement.closest('.peek--pinned')};})()`);
   await b.shot('probe-pinned.png');
   await b.key('Escape', 'Escape', 27); await b.wait(500);
   out.afterEsc = await b.eval(`({pinnedGone:!document.querySelector('.peek--pinned'), activeIsCell:document.activeElement===document.querySelector('.dense .peek__target')})`);
@@ -39,20 +34,16 @@ export default async function (b) {
   await b.eval(`document.activeElement.blur()`); await b.wait(450);
   out.focusPeekGone = await b.eval(`!document.querySelector('.peek--hover')`);
 
-  const fb = await b.rect('.section[data-section="margin"] .section__focus');
-  await b.click(fb.cx, fb.cy); await b.wait(500);
-  out.focusMode = await b.eval(`(()=>{const f=document.querySelector('.section[data-focused]'); const body=f?.querySelector('.section__body'); return {focused:f?.dataset.section||null, dimmed:document.querySelectorAll('.section[data-dimmed]').length, dimmedBodiesVisible:[...document.querySelectorAll('.section[data-dimmed] .section__body')].filter(e=>e.getBoundingClientRect().height>0).length, bodyH:body?Math.round(body.clientHeight):0, bodyScroll:body?body.scrollHeight-body.clientHeight:0, pageScroll:document.documentElement.scrollHeight-innerHeight};})()`);
-  await b.shot('probe-focus.png');
-  await b.key('Escape', 'Escape', 27); await b.wait(400);
-  out.focusExit = await b.eval(`document.querySelector('.section[data-focused]')?.dataset.section||null`);
-
-  const row = await b.rect('.ringdash__row', 1);
-  await b.move(row.cx, row.cy); await b.wait(250);
+  // карточка «Долг поставщикам» → вкладка «Деньги»; кольцо → та же связка; строка легенды → центр
+  const stat = await b.rect('.stat-row .peek__target', 2); await b.click(stat.cx, stat.cy); await b.wait(400);
+  out.statSelect = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,12), activeStat:document.querySelector('.stat[data-active]')?.dataset.hue||null})`);
+  const row = await b.rect('.ringdash__row', 0); await b.move(row.cx, row.cy); await b.wait(250);
   out.ringPeekCenter = await b.eval(`document.querySelector('.ringdash__center-value').textContent+' / '+document.querySelector('.ringdash__center-label').textContent`);
-  await b.click(row.cx, row.cy); await b.wait(500);
-  out.ringSelect = await b.eval(`({focused:document.querySelector('.section[data-focused]')?.dataset.section||null, activeStat:document.querySelector('.stat[data-active]')?.dataset.hue||null})`);
-  await b.key('Escape', 'Escape', 27); await b.move(900, 100); await b.wait(400);
+  await b.click(row.cx, row.cy); await b.wait(400);
+  out.ringSelect = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,12), activeStat:document.querySelector('.stat[data-active]')?.dataset.hue||null})`);
+  await b.move(900, 100); await b.wait(400);
   out.restCenter = await b.eval(`document.querySelector('.ringdash__center-value').textContent+' / '+document.querySelector('.ringdash__center-label').textContent`);
+  for (const i of [3, 1, 2]) { const t = await b.rect('.panel__tab', i); await b.click(t.cx, t.cy); await b.wait(350); out['tab' + i] = await b.eval(`({tab:document.querySelector('.panel__tab[aria-selected="true"]')?.textContent.slice(0,10), rows:document.querySelectorAll('.panel__body tr, .panel__body .dd-decision, .panel__body .peek__row').length, bodyScroll:(b=>b.scrollHeight-b.clientHeight)(document.querySelector('.panel__body'))})`); }
   await b.shot('probe-1440.png');
 
   await b.viewport(1280, 800); await b.wait(900);

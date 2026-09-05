@@ -5,7 +5,7 @@ import {
 } from '@mantine/core';
 import {
   IconSearch, IconCheck, IconArrowBackUp, IconRuler2, IconDots, IconTruck,
-  IconClock, IconAlertTriangle, IconTool, IconChecks,
+  IconClock, IconAlertTriangle, IconTool, IconChecks, IconArrowLeft, IconChevronRight,
 } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';
 import { notifications } from '@mantine/notifications';
@@ -24,32 +24,33 @@ import type { ShopFloorOrder, ShopFloorResponse, ProductRow, MarkVars } from './
 import { DetailsSheet } from './shopfloor/DetailsSheet';
 
 /**
- * Цех: список изделий, которые надо изготовить (переписан 02.09.2026 —
- * «в разделе Цех вообще хаос, ничего не понятно»).
+ * Цех: заказы в работе, по нажатию — карточка заказа с отметками
+ * (переписан 05.09.2026 по просьбе владельца: «в цеху лучше показывать
+ * заказ, и при нажатии открывается карточка для взаимодействия»).
  *
- * Было: карточки ЗАКАЗОВ. Мастеру они не отвечали на его единственный
- * вопрос «что мне сейчас делать» — сначала выбрать заказ, потом открыть
- * шторку, и только там увидеть изделия. Плюс половину экрана занимали
- * заказы без спецификации, к которым цех вообще не может прикоснуться.
+ * История. 02.09 плоский список изделий заменил карточки заказов, потому
+ * что в старых карточках было два уровня вложенности до кнопки. Плоский
+ * список решил это, но 693 строки изделий из 241 заказа — стена: мастер
+ * работает заказом («сделать 2528 к среде»), а не россыпью позиций.
  *
- * Стало: плоский список ИЗДЕЛИЙ, по одной строке на каждое, кнопка
- * «Изготовлено» прямо в строке. Заказ, заказчик и срок — подпись рядом,
- * а не уровень вложенности. Изделия без спецификации убраны за плитку:
- * это работа инженера, а не цеха.
+ * Теперь два слоя, без третьего: список ЗАКАЗОВ (номер, заказчик,
+ * объекты, срок, сколько изделий сделано, что мешает) → нажатие →
+ * карточка ЗАКАЗА во весь экран: те же строки изделий с кнопкой
+ * «Изготовлено» и «⋯» для часов, подряда и обеспеченности. Полный
+ * паспорт заказа — по номеру в шапке карточки.
  *
- * Экран не прокручивается: строк ровно столько, сколько влезло, дальше —
- * страницами (стрелки ← → тоже листают).
+ * Экран не прокручивается: заказов ровно столько, сколько влезло, дальше
+ * страницами; изделия внутри карточки крутятся сами.
  */
 
 /** Срез списка — плитка сверху одновременно и цифра, и фильтр */
 type Slice = 'todo' | 'overdue' | 'blocked' | 'done';
 
-interface WorkRow extends ProductRow {
-  order: ShopFloorOrder;
-}
-
 /** Нет состава или норм труда — изготовление записать нельзя */
 const isBlocked = (p: ProductRow) => p.missingBom || p.missingNorms;
+const isFullyDone = (o: ShopFloorOrder) => o.totalProducts > 0 && o.doneCount >= o.totalProducts;
+/** Есть хоть одно изделие, которое можно отметить прямо сейчас */
+const hasWork = (o: ShopFloorOrder) => o.products.some((p) => p.status !== 'DONE' && !isBlocked(p));
 
 export function ShopFloor() {
   const qc = useQueryClient();
@@ -58,6 +59,7 @@ export function ShopFloor() {
 
   const [search, setSearch] = useState('');
   const [slice, setSlice] = useState<Slice>('todo');
+  const [openedId, setOpenedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<{ order: ShopFloorOrder; product: ProductRow } | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
@@ -103,107 +105,116 @@ export function ShopFloor() {
     }),
   });
 
-  /**
-   * Разворачиваем заказы в изделия и сортируем так, как работает цех:
-   * сначала просроченное, потом ближайший срок. Внутри одного заказа —
-   * порядок позиций, чтобы строки не прыгали между обновлениями.
-   */
-  const rows = useMemo<WorkRow[]>(() => {
-    const out: WorkRow[] = [];
-    for (const o of data?.orders ?? []) {
-      for (const p of o.products) out.push({ ...p, order: o });
-    }
+  /** Заказы в порядке цеха: сначала просроченное, потом ближайший срок */
+  const orders = useMemo<ShopFloorOrder[]>(() => {
+    const out = [...(data?.orders ?? [])];
     out.sort((a, b) => {
-      if (a.order.overdueDays !== b.order.overdueDays) return b.order.overdueDays - a.order.overdueDays;
-      const da = a.order.plannedShipmentDate ?? '9999';
-      const db = b.order.plannedShipmentDate ?? '9999';
+      if (a.overdueDays !== b.overdueDays) return b.overdueDays - a.overdueDays;
+      const da = a.plannedShipmentDate ?? '9999';
+      const db = b.plannedShipmentDate ?? '9999';
       if (da !== db) return da < db ? -1 : 1;
-      if (a.order.orderNumber !== b.order.orderNumber) {
-        return a.order.orderNumber.localeCompare(b.order.orderNumber, 'ru');
-      }
-      return a.lineNo - b.lineNo;
+      return a.orderNumber.localeCompare(b.orderNumber, 'ru');
     });
     return out;
   }, [data]);
 
-  const groups = useMemo(() => {
-    const todo: WorkRow[] = [];
-    const overdue: WorkRow[] = [];
-    const blocked: WorkRow[] = [];
-    const done: WorkRow[] = [];
-    for (const r of rows) {
-      if (r.status === 'DONE') { done.push(r); continue; }
-      if (isBlocked(r)) { blocked.push(r); continue; }
-      todo.push(r);
-      if (r.order.overdueDays > 0) overdue.push(r);
-    }
-    return { todo, overdue, blocked, done };
-  }, [rows]);
+  const groups = useMemo(() => ({
+    todo: orders.filter((o) => !isFullyDone(o) && hasWork(o)),
+    overdue: orders.filter((o) => !isFullyDone(o) && o.overdueDays > 0),
+    blocked: orders.filter((o) => !isFullyDone(o) && o.blockedCount > 0),
+    done: orders.filter(isFullyDone),
+  }), [orders]);
 
   const visible = groups[slice];
+  const opened = openedId ? orders.find((o) => o.id === openedId) ?? null : null;
 
-  // Сколько строк влезло в свободную высоту — столько и показываем
-  // 56 px — высота строки цеха: в неё помещается кнопка 44 px
+  // Сколько строк влезло в свободную высоту — столько и показываем (56 px строка)
   const fit = useFitRows(56, 4, 40);
   const paged = usePagedList(visible, fit.rows, `${search}|${slice}|${fit.rows}`);
   const totalPages = Math.max(1, Math.ceil(paged.total / Math.max(1, fit.rows)));
   usePageKeys(paged.page, totalPages, paged.setPage);
 
   const tiles = [
-    {
-      key: 'todo',
-      label: 'Изготовить',
-      value: groups.todo.length.toLocaleString('ru-RU'),
-      hint: 'можно отметить прямо сейчас',
-      tone: 'brand' as const,
-      icon: <IconTool aria-hidden size={16} />,
-      onClick: () => setSlice('todo'),
-      active: slice === 'todo',
-    },
-    {
-      key: 'overdue',
-      label: 'Просрочено',
-      value: groups.overdue.length.toLocaleString('ru-RU'),
-      hint: 'срок вывоза уже прошёл',
-      tone: 'danger' as const,
-      icon: <IconClock aria-hidden size={16} />,
-      onClick: () => setSlice('overdue'),
-      active: slice === 'overdue',
-    },
-    {
-      key: 'blocked',
-      label: 'Ждут инженера',
-      value: groups.blocked.length.toLocaleString('ru-RU'),
-      hint: 'нет состава или норм труда',
-      tone: 'warn' as const,
-      icon: <IconAlertTriangle aria-hidden size={16} />,
-      onClick: () => setSlice('blocked'),
-      active: slice === 'blocked',
-    },
-    {
-      key: 'done',
-      label: 'Изготовлено',
-      value: groups.done.length.toLocaleString('ru-RU'),
-      hint: 'отметку можно снять',
-      tone: 'ok' as const,
-      icon: <IconChecks aria-hidden size={16} />,
-      onClick: () => setSlice('done'),
-      active: slice === 'done',
-    },
+    { key: 'todo', label: 'В работе', value: groups.todo.length.toLocaleString('ru-RU'), hint: 'есть что отметить', tone: 'brand' as const, icon: <IconTool aria-hidden size={16} />, onClick: () => setSlice('todo'), active: slice === 'todo' },
+    { key: 'overdue', label: 'Просрочено', value: groups.overdue.length.toLocaleString('ru-RU'), hint: 'срок вывоза прошёл', tone: 'danger' as const, icon: <IconClock aria-hidden size={16} />, onClick: () => setSlice('overdue'), active: slice === 'overdue' },
+    { key: 'blocked', label: 'Ждут инженера', value: groups.blocked.length.toLocaleString('ru-RU'), hint: 'нет состава или норм', tone: 'warn' as const, icon: <IconAlertTriangle aria-hidden size={16} />, onClick: () => setSlice('blocked'), active: slice === 'blocked' },
+    { key: 'done', label: 'Изготовлены', value: groups.done.length.toLocaleString('ru-RU'), hint: 'все изделия готовы', tone: 'ok' as const, icon: <IconChecks aria-hidden size={16} />, onClick: () => setSlice('done'), active: slice === 'done' },
   ];
 
   const emptyText = search ? 'Ничего не найдено'
     : slice === 'todo' ? 'Всё изготовлено'
-      : slice === 'overdue' ? 'Просроченных изделий нет'
+      : slice === 'overdue' ? 'Просроченных заказов нет'
         : slice === 'blocked' ? 'Все изделия со спецификацией'
-          : 'Пока ничего не отмечено';
+          : 'Пока ни один заказ не готов целиком';
 
+  /* ---- карточка заказа во весь экран ---- */
+  if (opened) {
+    return (
+      <>
+        <FitScreen>
+          <Card withBorder radius="lg" padding={0} className="shop-card">
+            <div className="shop-card__head">
+              <Button variant="default" size="sm" radius="xl" leftSection={<IconArrowLeft aria-hidden size={16} />} onClick={() => setOpenedId(null)}>
+                Все заказы
+              </Button>
+              <div className="shop-card__title">
+                <OrderRef id={opened.id} number={opened.orderNumber} size="md" focus="stages" />
+              </div>
+              <span className="shop-card__cust">
+                <Ref kind="customer" id={opened.customerName} label={opened.customerName ?? undefined} tone="text" size="14px">
+                  {opened.customerName ?? '—'}
+                </Ref>
+              </span>
+              <span className="shop-order__date" data-overdue={opened.overdueDays > 0 ? 'true' : undefined}>
+                срок {formatDate(opened.plannedShipmentDate)}{opened.overdueDays > 0 && ` · −${opened.overdueDays} дн`}
+              </span>
+              <span className="shop-card__progress">
+                <span className="bar" data-tone={isFullyDone(opened) ? 'ok' : undefined}>
+                  <span style={{ width: `${opened.totalProducts ? Math.round((opened.doneCount / opened.totalProducts) * 100) : 0}%` }} />
+                </span>
+                {opened.doneCount} / {opened.totalProducts} изделий
+              </span>
+              {opened.blockedCount > 0 && (
+                <span className="worklist__chip" data-tone="danger">ждут инженера · {opened.blockedCount}</span>
+              )}
+            </div>
+            <div className="shop-card__rows">
+              {opened.products.map((p) => (
+                <ProductRowView
+                  key={p.id}
+                  product={p}
+                  canEdit={canEdit}
+                  busy={mark.isPending && mark.variables?.productId === p.id}
+                  onMark={(done) => mark.mutate({ orderId: opened.id, productId: p.id, done })}
+                  onDetails={() => setSheet({ order: opened, product: p })}
+                />
+              ))}
+              {opened.resaleCount > 0 && (
+                <Text size="sm" c="dimmed" px="md" py="sm">
+                  Ещё {opened.resaleCount} позиций — перепродажа материалов, цех их не изготавливает.
+                </Text>
+              )}
+            </div>
+          </Card>
+        </FitScreen>
+        <DetailsSheet
+          order={sheet?.order ?? null}
+          product={sheet?.product ?? null}
+          requests={data?.openRequests ?? []}
+          opened={sheet !== null}
+          onClose={() => setSheet(null)}
+        />
+      </>
+    );
+  }
+
+  /* ---- список заказов ---- */
   const header = (
     <Stack gap="sm">
       <PulseRow items={tiles} loading={isLoading && !data} />
       <Group gap="sm" wrap="nowrap">
         <TextInput
-          placeholder="Изделие, № заказа или заказчик..."
+          placeholder="№ заказа, заказчик или изделие..."
           leftSection={<IconSearch aria-hidden size={16} />}
           rightSection={isFetching && search ? <Loader size="xs" /> : undefined}
           value={search}
@@ -213,82 +224,89 @@ export function ShopFloor() {
         />
         <Text size="sm" c="dimmed" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }}>
           Осталось изготовить{' '}
-          <Text span fw={700} ff="var(--ff-num)" c="var(--ref-ink)">
+          <Text span fw={700} ff="var(--ff-num)" c="var(--s-text)">
             {(data?.waitingProducts ?? 0).toLocaleString('ru-RU')}
           </Text>
-          {' '}из {(data?.totalProducts ?? 0).toLocaleString('ru-RU')}
+          {' '}изделий из {(data?.totalProducts ?? 0).toLocaleString('ru-RU')}
         </Text>
       </Group>
     </Stack>
   );
 
   const footer = (
-    <PaginationBar
-      page={paged.page}
-      total={paged.total}
-      pageSize={Math.max(1, fit.rows)}
-      onPageChange={paged.setPage}
-      noun="изделий"
-    />
+    <PaginationBar page={paged.page} total={paged.total} pageSize={Math.max(1, fit.rows)} onPageChange={paged.setPage} noun="заказов" />
   );
 
   return (
-    <>
-      <FitScreen header={header} footer={footer}>
-        <Card withBorder radius="lg" padding={0} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
-          <div className="worklist" ref={fit.ref}>
-            <div className="worklist__head">
-              <span>Изделие</span>
-              <span>Заказ · срок · действие</span>
-            </div>
-            <div className="worklist__rows">
-              {isLoading && !data ? (
-                [...Array(8)].map((_, i) => (
-                  <div key={i} className="worklist__row"><Skeleton height={18} radius="sm" /></div>
-                ))
-              ) : paged.total === 0 ? (
-                /* Отказ ОБЯЗАН отличаться от пустого списка: раньше при
-                   упавшем запросе мастеру показывалось «Всё изготовлено»,
-                   и он уходил, решив, что работа кончилась (04.09.2026) */
-                <EmptyState title={emptyText} error={error} onRetry={() => refetch()} />
-              ) : (
-                <FadeSwap swapKey={`${paged.page}|${slice}|${fit.rows}`}>
-                  {paged.slice.map((p) => (
-                    <WorkRowView
-                      key={p.id}
-                      row={p}
-                      canEdit={canEdit}
-                      busy={mark.isPending && mark.variables?.productId === p.id}
-                      onMark={(done) => mark.mutate({ orderId: p.order.id, productId: p.id, done })}
-                      onDetails={() => setSheet({ order: p.order, product: p })}
-                    />
-                  ))}
-                </FadeSwap>
-              )}
-            </div>
+    <FitScreen header={header} footer={footer}>
+      <Card withBorder radius="lg" padding={0} style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+        <div className="worklist" ref={fit.ref}>
+          <div className="shop-order shop-order--head" aria-hidden>
+            <span>Заказ · заказчик</span><span>Объекты</span><span>Срок</span><span>Изготовлено</span><span>Внимание</span><span />
           </div>
-        </Card>
-      </FitScreen>
+          <div className="worklist__rows">
+            {isLoading && !data ? (
+              [...Array(8)].map((_, i) => (
+                <div key={i} className="shop-order"><Skeleton height={18} radius="sm" /></div>
+              ))
+            ) : paged.total === 0 ? (
+              <EmptyState title={emptyText} error={error} onRetry={() => refetch()} />
+            ) : (
+              <FadeSwap swapKey={`${paged.page}|${slice}|${fit.rows}`}>
+                {paged.slice.map((o) => (
+                  <OrderRowView key={o.id} order={o} onOpen={() => setOpenedId(o.id)} />
+                ))}
+              </FadeSwap>
+            )}
+          </div>
+        </div>
+      </Card>
+    </FitScreen>
+  );
+}
 
-      <DetailsSheet
-        order={sheet?.order ?? null}
-        product={sheet?.product ?? null}
-        requests={data?.openRequests ?? []}
-        opened={sheet !== null}
-        onClose={() => setSheet(null)}
-      />
-    </>
+/** Строка заказа: одна строка — один заказ, нажатие открывает карточку */
+function OrderRowView({ order: o, onOpen }: { order: ShopFloorOrder; onOpen: () => void }) {
+  const sites = Array.from(new Set(o.products.map((p) => p.siteCode).filter(Boolean))) as string[];
+  const contractors = o.products.some((p) => p.contractors.length > 0);
+  const overdue = o.overdueDays > 0;
+  const done = isFullyDone(o);
+  const pct = o.totalProducts ? Math.round((o.doneCount / o.totalProducts) * 100) : 0;
+  return (
+    <button type="button" className="shop-order" data-done={done ? 'true' : undefined} onClick={onOpen}>
+      <span className="shop-order__who">
+        <span className="shop-order__num">{o.orderNumber}</span>
+        <span className="shop-order__cust">{o.customerName ?? '—'}</span>
+      </span>
+      <span className="shop-order__sites">
+        {sites.slice(0, 2).map((s) => <span key={s} className="worklist__chip" data-tone="info">{s}</span>)}
+        {sites.length > 2 && <span className="worklist__chip">+{sites.length - 2}</span>}
+        {sites.length === 0 && <span className="shop-order__cust">—</span>}
+      </span>
+      <span className="shop-order__date" data-overdue={overdue ? 'true' : undefined}>
+        {formatDate(o.plannedShipmentDate)}{overdue && ` · −${o.overdueDays} дн`}
+      </span>
+      <span className="shop-order__progress">
+        <span className="bar" data-tone={done ? 'ok' : undefined}><span style={{ width: `${pct}%` }} /></span>
+        {o.doneCount} / {o.totalProducts}
+      </span>
+      <span className="shop-order__flags">
+        {o.blockedCount > 0 && <span className="worklist__chip" data-tone="danger">инженер · {o.blockedCount}</span>}
+        {contractors && <span className="worklist__chip" data-tone="warn"><IconTruck aria-hidden size={14} /> подряд</span>}
+      </span>
+      <IconChevronRight aria-hidden size={16} className="shop-order__chev" />
+    </button>
   );
 }
 
 /**
- * Одна строка работы. Всё, что нужно мастеру, — в одну линию: что делать,
- * сколько, для какого заказа, к какому числу и кнопка отметки.
+ * Одна строка изделия внутри карточки заказа: что делать, сколько,
+ * что мешает — и кнопка отметки. Заказ и срок уже в шапке карточки.
  */
-function WorkRowView({
-  row: p, canEdit, busy, onMark, onDetails,
+function ProductRowView({
+  product: p, canEdit, busy, onMark, onDetails,
 }: {
-  row: WorkRow;
+  product: ProductRow;
   canEdit: boolean;
   busy: boolean;
   onMark: (done: boolean) => void;
@@ -296,7 +314,6 @@ function WorkRowView({
 }) {
   const done = p.status === 'DONE';
   const blocked = isBlocked(p);
-  const overdue = p.order.overdueDays > 0;
   const specMissing = p.missingBom && p.missingNorms ? 'состава и норм'
     : p.missingBom ? 'состава' : 'норм труда';
 
@@ -304,71 +321,36 @@ function WorkRowView({
     <div className="worklist__row" data-done={done ? 'true' : undefined}>
       <div className="worklist__main">
         <span className="worklist__qty">{p.qty.toLocaleString('ru-RU')} {p.unit}</span>
-        {/* Код и имя ведут в карточку изделия: мастеру из строки нужен состав
-            и нормы, а не поиск по справочнику (03.09.2026) */}
         <span className="worklist__code">
-          <Ref kind="article" id={p.articleId} label={p.articleName} tone="code" size="sm">
-            {p.articleCode}
-          </Ref>
+          <Ref kind="article" id={p.articleId} label={p.articleName} tone="code" size="sm">{p.articleCode}</Ref>
         </span>
         <span className="worklist__name" title={p.articleName}>
-          {/* Размеры повторяют рейку строки: 15 px имя, 11 px чип, 13 px мета —
-              иначе ссылка «съедет» с типографики цеха */}
-          <Ref kind="article" id={p.articleId} label={p.articleName} tone="text" size="15px">
-            {p.articleName}
-          </Ref>
+          <Ref kind="article" id={p.articleId} label={p.articleName} tone="text" size="15px">{p.articleName}</Ref>
         </span>
         {p.isDuplicateCode && <span className="worklist__chip">поз. {p.lineNo}</span>}
         {p.siteCode && (
           <span className="worklist__chip" data-tone="info">
-            <Ref kind="site" id={p.siteCode} label={p.siteCode} tone="text" size="13px" bold>
-              {p.siteCode}
-            </Ref>
+            <Ref kind="site" id={p.siteCode} label={p.siteCode} tone="text" size="13px" bold>{p.siteCode}</Ref>
           </span>
         )}
         {p.contractors.length > 0 && (
           <span className="worklist__chip" data-tone="warn"><IconTruck aria-hidden size={16} /> подряд</span>
         )}
-        {blocked && !done && (
-          <span className="worklist__chip" data-tone="danger">нет {specMissing}</span>
-        )}
+        {blocked && !done && <span className="worklist__chip" data-tone="danger">нет {specMissing}</span>}
       </div>
 
       <div className="worklist__meta">
-        <OrderRef id={p.order.id} number={p.order.orderNumber} size="sm" focus="stages" />
-        <span className="worklist__meta-hide" style={{ maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          {/* Заказчик приходит из 1С только именем — по нему панель и ищет */}
-          <Ref
-            kind="customer"
-            id={p.order.customerName}
-            label={p.order.customerName ?? undefined}
-            tone="text"
-            size="13px"
-          >
-            {p.order.customerName ?? '—'}
-          </Ref>
-        </span>
-        <span style={{ fontFamily: 'var(--ff-num)', color: overdue ? 'var(--ref-coral-ink)' : undefined }}>
-          {formatDate(p.order.plannedShipmentDate)}
-          {overdue && ` · −${p.order.overdueDays} дн`}
-        </span>
-
         {canEdit && (done ? (
-          <Button size="compact-sm" variant="default" h={44}
-            leftSection={<IconArrowBackUp aria-hidden size={16} />}
-            loading={busy} onClick={() => onMark(false)}>
+          <Button size="compact-sm" variant="default" h={44} leftSection={<IconArrowBackUp aria-hidden size={16} />} loading={busy} onClick={() => onMark(false)}>
             Снять
           </Button>
         ) : blocked ? (
-          <Button size="compact-sm" variant="light" color="danger" h={44}
-            component={Link} to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'}
-            leftSection={<IconRuler2 aria-hidden size={16} />}>
+          <Button size="compact-sm" variant="light" color="danger" h={44} component={Link} to={p.articleId ? `/specs?article=${p.articleId}` : '/specs'} leftSection={<IconRuler2 aria-hidden size={16} />}>
             Спецификация
           </Button>
         ) : (
           <Group gap={6} wrap="nowrap">
-            <Button size="compact-sm" h={44} leftSection={<IconCheck aria-hidden size={16} />}
-              loading={busy} onClick={() => onMark(true)}>
+            <Button size="compact-sm" h={44} leftSection={<IconCheck aria-hidden size={16} />} loading={busy} onClick={() => onMark(true)}>
               Изготовлено
             </Button>
             <Tooltip label="Часы, подряд, обеспеченность" openDelay={400}>

@@ -20,7 +20,6 @@ import { Ref } from '../../components/EntityRef';
 import { useQueries } from '@tanstack/react-query';
 import { ordersApi } from '../../api/orders';
 import { PulseRow } from '../../components/SectionHeader';
-import { DigestCard, DigestGrid } from '../../components/Digest';
 import { IconClockExclamation, IconInbox, IconTruckDelivery, IconLayoutGrid } from '@tabler/icons-react';
 import { TableScroll } from '../../components/TableScroll';
 import { useFitHeight } from '../../components/FitScreen';
@@ -169,13 +168,7 @@ function useSliceCounts() {
   };
 }
 
-export function OrdersRegistry({ view, onViewChange }: {
-  /** Вид выбирается ВЫШЕ, одним рядом вкладок вместе с «Дашбордом»
-      (04.09.2026): раньше здесь стоял второй переключатель, и два ряда
-      делали одну работу, съедая высоту у таблицы */
-  view: 'digest' | 'list';
-  onViewChange: (v: 'digest' | 'list') => void;
-}) {
+export function OrdersRegistry() {
   const can = useAuthStore((s) => s.can);
   const { open: openCard, openedId, close: closeCard } = useOrderCard();
   /* Паспорт показываем панелью справа, а не шторкой поверх списка
@@ -282,82 +275,10 @@ export function OrdersRegistry({ view, onViewChange }: {
   const isAll = !status && !overdueOnly;
   const fmt = (n: number | null) => (n === null ? '—' : n.toLocaleString('ru-RU'));
 
-  const openList = (slice: 'all' | 'overdue' | 'new' | 'ready') => {
-    applySlice(slice);
-    onViewChange('list');
-  };
 
   return (
     <Stack gap={12} style={{ minWidth: 0 }}>
-      {view === 'digest' ? (
-        <DigestGrid>
-          <DigestCard
-            title="Просрочено"
-            tone="danger"
-            icon={<IconClockExclamation aria-hidden size={20} />}
-            value={counts.overdue ?? 0}
-            format={(v) => Math.round(v).toLocaleString('ru-RU')}
-            caption="заказов, у которых плановая дата вывоза уже прошла"
-            loading={counts.loading}
-            items={counts.overdueRows.map((o: any) => ({
-              id: o.id,
-              label: `${o.orderNumber} · ${o.customer?.name ?? '—'}`,
-              value: `${o.overdueDays} дн`,
-              sub: `план ${formatDate(o.plannedShipmentDate)} · ${ORDER_STATUS_LABELS[o.status] ?? o.status}`,
-              onClick: () => openCard(o.id),
-            }))}
-            emptyText="Просроченных заказов нет"
-            action={{ label: 'Все просроченные', onClick: () => openList('overdue') }}
-          />
-
-          <DigestCard
-            title="Новые из 1С"
-            tone="brand"
-            icon={<IconInbox aria-hidden size={20} />}
-            value={counts.fresh ?? 0}
-            format={(v) => Math.round(v).toLocaleString('ru-RU')}
-            caption="ждут приёма в производство — пока не приняты, цех их не видит"
-            loading={counts.loading}
-            items={counts.freshRows.map((o: any) => ({
-              id: o.id,
-              label: `${o.orderNumber} · ${o.customer?.name ?? '—'}`,
-              value: formatDate(o.plannedShipmentDate),
-              sub: o.projectSite ? `объект ${o.projectSite}` : undefined,
-              onClick: () => openCard(o.id),
-            }))}
-            emptyText="Новых заказов нет"
-            action={{ label: 'Принять в работу', onClick: () => openList('new') }}
-          />
-
-          <DigestCard
-            title="К отгрузке"
-            tone="ok"
-            icon={<IconTruckDelivery aria-hidden size={20} />}
-            value={counts.ready ?? 0}
-            format={(v) => Math.round(v).toLocaleString('ru-RU')}
-            caption="изготовлены полностью — можно вывозить"
-            loading={counts.loading}
-            items={counts.readyRows.map((o: any) => ({
-              id: o.id,
-              label: `${o.orderNumber} · ${o.customer?.name ?? '—'}`,
-              value: formatDate(o.plannedShipmentDate),
-              onClick: () => openCard(o.id),
-            }))}
-            emptyText="Готовых к отгрузке нет"
-            action={{ label: 'Показать', onClick: () => openList('ready') }}
-          />
-
-          <DigestCard
-            title="Всего в реестре"
-            icon={<IconLayoutGrid aria-hidden size={20} />}
-            value={total}
-            format={(v) => Math.round(v).toLocaleString('ru-RU')}
-            caption="активных заказов после приёма из 1С"
-            emptyText=""
-            action={{ label: 'Открыть реестр', onClick: () => openList('all') }}
-          />
-        </DigestGrid>
-      ) : (
+      {(
       <>
       {/* Фильтры и плитки списка прячутся, пока открыта карточка
           (04.09.2026): они управляют СПИСКОМ, которого сейчас не видно,

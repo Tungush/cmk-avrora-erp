@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack } from '@mantine/core';
-import { IconTable, IconChartBar, IconLayoutGrid } from '@tabler/icons-react';
+import { IconTable, IconChartBar } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { OrdersRegistry } from './OrdersRegistry';
 import { OrdersDashboard } from './OrdersDashboard';
@@ -8,7 +8,14 @@ import { FadeSwap } from '../../components/motion';
 import { SectionHead } from '../../components/SectionHeader';
 
 /**
- * Три вида раздела — один ряд вкладок (04.09.2026).
+ * Два вида раздела — один ряд вкладок (05.09.2026).
+ *
+ * Карточки «Что требует решения» убраны: владелец 05.09 сказал, что так
+ * показывать «не совсем корректно» и ему не нравится. Раздел открывается
+ * реестром — таблицей заказов с карточкой по клику; счётчики просрочки
+ * и новых из 1С живут в фильтрах реестра.
+ *
+ * История: три вида, один ряд вкладок (04.09.2026).
  *
  * Раньше видов тоже было три, но выбирались они в ДВУХ местах: здесь
  * стояли «Реестр / Дашборд», а внутри реестра — второй переключатель
@@ -20,7 +27,7 @@ import { SectionHead } from '../../components/SectionHeader';
 export function OrdersList() {
   // Вид в адресе — ссылки с других экранов ведут сразу куда нужно
   const [params, setParams] = useSearchParams();
-  const tab = params.get('tab') ?? 'digest';
+  const tab = params.get('tab') ?? 'registry';
   const setTab = (v: string) => setParams((prev) => {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
@@ -33,7 +40,6 @@ export function OrdersList() {
         value={tab}
         onChange={setTab}
         tabs={[
-          { value: 'digest', label: 'Что требует решения', icon: <IconLayoutGrid aria-hidden size={16} /> },
           { value: 'registry', label: 'Реестр', icon: <IconTable aria-hidden size={16} /> },
           { value: 'dashboard', label: 'Дашборд', icon: <IconChartBar aria-hidden size={16} /> },
         ]}
@@ -44,7 +50,7 @@ export function OrdersList() {
       <FadeSwap swapKey={tab}>
         {tab === 'dashboard'
           ? <OrdersDashboard />
-          : <OrdersRegistry view={tab === 'registry' ? 'list' : 'digest'} onViewChange={(v) => setTab(v === 'list' ? 'registry' : 'digest')} />}
+          : <OrdersRegistry />}
       </FadeSwap>
     </Stack>
   );

@@ -12,7 +12,6 @@ import { FitScreen } from '../../components/FitScreen';
 import { RingDashboard } from '../../components/dashboard/RingDashboard';
 import { Sparkline } from '../../components/dashboard/Sparkline';
 import { SmartPeekCard, PeekRow, PeekWarmProvider } from '../../components/dashboard/SmartPeekCard';
-import { AnalyticsStack, CollapsibleAnalytics } from '../../components/dashboard/CollapsibleAnalytics';
 import { OrderRef, useOrderCard } from '../../components/OrderCard/OrderCardProvider';
 import { formatCompactMoney, formatCurrency } from '../../utils/formatters';
 import './Dashboard.css';
@@ -28,9 +27,12 @@ import './Dashboard.css';
  *
  * Все четыре вопроса директора («зарабатываем?», «что ждёт решения?»,
  * «где деньги?», «что отгрузили?») связаны в одну систему: карточка,
- * кольцо и секция одного вопроса — один ключ. Нажатие на любое из них
- * раскрывает секцию; наведение только подсвечивает и меняет центр
- * колец. Фокус-режим — клавиша [ или кнопка в заголовке.
+ * кольцо и вкладка одного вопроса — один ключ. Нажатие на любое из них
+ * переключает вкладку справа; наведение только подсвечивает и меняет
+ * центр колец. Справа — четыре простые вкладки, а не гармошка секций:
+ * владелец 05.09 назвал секции справа от кольца неудобными, а список
+ * «требует решения» на весь столбец — неуместным. Маржа по заказам
+ * открыта по умолчанию — это главный вопрос директора.
  *
  * Микрографики только там, где есть настоящий ряд: помесячная отгрузка
  * из /dashboards/monthly-series. У маржи и денег истории в API нет —
@@ -38,9 +40,9 @@ import './Dashboard.css';
  */
 
 type Key = 'decisions' | 'margin' | 'supplier' | 'customer' | 'shipping';
-const SECTION: Record<Key, string> = {
-  decisions: 'decisions', margin: 'margin', supplier: 'money', customer: 'money', shipping: 'overdue',
-};
+type Tab = 'margin' | 'money' | 'overdue' | 'decisions';
+/* Карточка и кольцо одного вопроса ведут на одну вкладку справа */
+const TAB_OF: Record<Key, Tab> = { decisions: 'decisions', margin: 'margin', supplier: 'money', customer: 'money', shipping: 'overdue' };
 
 const HEALTH: Record<string, { label: string; tone?: 'ok' | 'warn' | 'danger' }> = {
   OK: { label: 'в норме', tone: 'ok' }, WARN: { label: 'ниже цели', tone: 'warn' },
@@ -50,7 +52,7 @@ const HEALTH: Record<string, { label: string; tone?: 'ok' | 'warn' | 'danger' }>
 export function DirectorDashboard() {
   const [active, setActive] = useState<Key>('decisions');
   const [peek, setPeek] = useState<Key | null>(null);
-  const [focusKey, setFocusKey] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>('margin');
   const card = useOrderCard();
 
   const { data, isLoading } = useQuery({
@@ -85,10 +87,17 @@ export function DirectorDashboard() {
   ].filter((d) => d.count > 0) : []), [nd]);
   const decisionsTotal = decisions.reduce((s, d) => s + d.count, 0);
 
+  const tabs: Array<{ key: Tab; label: string; summary?: string }> = [
+    { key: 'margin', label: 'Маржа по заказам', summary: margin ? `${margin.ordersShown} из ${margin.ordersTotal} · ${margin.actualPct ?? '—'}%` : undefined },
+    { key: 'money', label: 'Деньги', summary: `должны ${formatCompactMoney(money.totalUnpaid)} · нам ${cash ? formatCompactMoney(cash.receivables.owed) : '…'}` },
+    { key: 'overdue', label: 'Просрочено', summary: data ? String(data.overdue.length) : undefined },
+    { key: 'decisions', label: 'Решения', summary: decisions.length ? `${decisions.length} видов · ${decisionsTotal}` : 'всё разобрано' },
+  ];
+
   /* Нажатие на карточку или кольцо: выбрать вопрос и раскрыть его секцию */
   const select = useCallback((k: Key) => {
     setActive(k);
-    setFocusKey(SECTION[k]);
+    setTab(TAB_OF[k]);
   }, []);
 
   const pct = (a: number, b: number) => (b > 0 ? Math.round((a / b) * 100) : 0);
@@ -205,29 +214,20 @@ export function DirectorDashboard() {
             />
           </div>
 
-          <div className="dd2__main">
-            <AnalyticsStack
-              defaults={{ decisions: true, margin: false, money: false, overdue: false }}
-              focusKey={focusKey}
-              onFocusChange={setFocusKey}
-            >
-              <CollapsibleAnalytics id="decisions" title="Требует решения" primary summary={decisions.length ? `${decisions.length} видов · ${decisionsTotal}` : 'всё разобрано'}>
-                {decisions.length === 0 ? (
-                  <Text c="dimmed" size="sm">Всё разобрано — решений не ждёт ничего.</Text>
-                ) : (
-                  <div className="dd-decisions">
-                    {decisions.map((d) => (
-                      <Link to={d.to} key={d.label} className="dd-decision" data-hue={d.hue}>
-                        <span className="dd-decision__icon">{d.icon}</span>
-                        <Text size="md" fw={600} lineClamp={1}>{d.label}</Text>
-                        <span className="dd-decision__count">{d.count}</span>
-                      </Link>
-                    ))}
-                  </div>
-                )}
-              </CollapsibleAnalytics>
-
-              <CollapsibleAnalytics id="margin" title="Маржа по заказам" summary={margin ? `${margin.ordersShown} из ${margin.ordersTotal} · ${margin.actualPct ?? '—'}%` : '…'}>
+          <div className="panel">
+            <div className="panel__tabs" role="tablist" aria-label="Разделы экрана директора">
+              {tabs.map((t) => (
+                <button
+                  key={t.key} type="button" role="tab" id={`tab-${t.key}`}
+                  aria-selected={tab === t.key} aria-controls={`panel-${t.key}`}
+                  className="panel__tab" onClick={() => setTab(t.key)}
+                >
+                  {t.label}{t.summary && <small>{t.summary}</small>}
+                </button>
+              ))}
+            </div>
+            <div className="panel__body" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
+              {tab === 'margin' && (
                 <table className="dense">
                   <thead><tr><th>Заказ</th><th>Заказчик</th><th className="num">Цена</th><th className="num">Себестоимость</th><th className="num">Маржа</th><th style={{ width: 120 }}>К цели</th></tr></thead>
                   <tbody>
@@ -259,9 +259,9 @@ export function DirectorDashboard() {
                     })}
                   </tbody>
                 </table>
-              </CollapsibleAnalytics>
+              )}
 
-              <CollapsibleAnalytics id="money" title="Деньги" summary={`должны ${formatCompactMoney(money.totalUnpaid)} · нам ${cash ? formatCompactMoney(cash.receivables.owed) : '…'}`}>
+              {tab === 'money' && (
                 <div className="dd-money">
                   <div>
                     <Text fw={700} size="sm" mb={6}>Поставщикам (закуп по ДО)</Text>
@@ -280,10 +280,10 @@ export function DirectorDashboard() {
                     </> : <Text size="sm" c="dimmed">…</Text>}
                   </div>
                 </div>
-              </CollapsibleAnalytics>
+              )}
 
-              <CollapsibleAnalytics id="overdue" title="Просрочено по отгрузке" summary={data ? `${data.overdue.length} заказов` : '…'}>
-                {data && data.overdue.length === 0 ? (
+              {tab === 'overdue' && (
+                data && data.overdue.length === 0 ? (
                   <Text size="sm" c="dimmed">Просроченных заказов нет.</Text>
                 ) : (
                   <table className="dense">
@@ -298,9 +298,25 @@ export function DirectorDashboard() {
                       ))}
                     </tbody>
                   </table>
-                )}
-              </CollapsibleAnalytics>
-            </AnalyticsStack>
+                )
+              )}
+
+              {tab === 'decisions' && (
+                decisions.length === 0 ? (
+                  <Text c="dimmed" size="sm">Всё разобрано — решений не ждёт ничего.</Text>
+                ) : (
+                  <div className="dd-decisions dd-decisions--grid">
+                    {decisions.map((d) => (
+                      <Link to={d.to} key={d.label} className="dd-decision" data-hue={d.hue}>
+                        <span className="dd-decision__icon">{d.icon}</span>
+                        <Text size="md" fw={600} lineClamp={1}>{d.label}</Text>
+                        <span className="dd-decision__count">{d.count}</span>
+                      </Link>
+                    ))}
+                  </div>
+                )
+              )}
+            </div>
           </div>
         </div>
       </PeekWarmProvider>
