@@ -418,9 +418,9 @@ function CostStrip({
 
   const { result, explain } = data;
   const items = [
-    { key: 'bom', label: 'Материалы', value: `${num(result.materialCost)} ₸`, hint: 'состав изделия' },
-    { key: null, label: 'Трудозатраты', value: `${num(result.laborCost)} ₸`, hint: `${num(explain.totalManHours, 3)} ч` },
-    { key: 'cost', label: 'Себестоимость', value: `${num(result.totalCost)} ₸`, strong: true, hint: 'как посчитано' },
+    { key: 'bom', label: 'Материалы', value: `${num(result.materialCost, 0)} ₸`, hint: 'состав изделия' },
+    { key: null, label: 'Трудозатраты', value: `${num(result.laborCost, 0)} ₸`, hint: `${num(explain.totalManHours, 3)} ч` },
+    { key: 'cost', label: 'Себестоимость', value: `${num(result.totalCost, 0)} ₸`, strong: true, hint: 'как посчитано' },
   ];
   // «Где применяется» из полосы убрано: у него нет числа, и пустая
   // четвёртая клетка рядом с тремя заполненными читалась неровно.

@@ -8,6 +8,7 @@ export default async function (b) {
     out[`list${w}`] = await m(b); await b.shot(`specs-list-${w}.png`);
     const r = await b.rect('.specs-table tbody tr', 0); await b.click(r.cx, r.cy); await b.wait(1200);
     out[`card${w}`] = await m(b); await b.shot(`specs-card-${w}.png`);
+    out[`save${w}`] = await b.eval(`[...document.querySelectorAll(".specs-card .stage-cell")].map(c=>{const btn=[...c.querySelectorAll("button")].find(x=>x.textContent.trim()==="Сохранить"); const fact=c.querySelector(".stage-cell__fact"); const cr=c.getBoundingClientRect(); return {saveInside:btn?Math.round(cr.right-btn.getBoundingClientRect().right):null, factInside:fact?Math.round(cr.right-fact.getBoundingClientRect().right):null, cellH:Math.round(cr.height)}})`);
     const fact = await b.rect('.specs-card .fact', 0); await b.click(fact.cx, fact.cy); await b.wait(900);
     out[`bom${w}`] = await b.eval(`({detail:!!document.querySelector('.specs-detail'), rows:document.querySelectorAll('.specs-detail .bom-row, .specs-detail tr').length, costScroll:(e=>e.scrollHeight-e.clientHeight)(document.querySelector('.specs-card__cost')), pageScroll:document.documentElement.scrollHeight-innerHeight})`);
     await b.shot(`specs-bom-${w}.png`);
