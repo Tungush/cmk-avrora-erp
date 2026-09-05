@@ -125,8 +125,8 @@ export function DetailsSheet({
     <Drawer
       opened={opened}
       onClose={onClose}
-      position="bottom"
-      size="auto"
+      position="right"
+      size={560}
       padding="md"
       title={<Text fw={700} size="lg">{product.articleName}</Text>}
     >
@@ -143,8 +143,8 @@ export function DetailsSheet({
         <OffcutHint orderId={order.id} orderNumber={order.orderNumber} />
 
         <Button
-          size="xl"
-          leftSection={<IconCheck aria-hidden size={24} />}
+          size="md"
+          leftSection={<IconCheck aria-hidden size={16} />}
           loading={save.isPending}
           onClick={() => save.mutate()}
           fullWidth

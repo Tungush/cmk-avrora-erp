@@ -74,9 +74,11 @@
   /* Тень длиннее и шире (04.09.2026): раньше -18px стягивал её под
      карточку, и без рамки края пропадали. Эталон разводит на -8px —
      тень становится тем, что держит карточку над холстом. */
-  --ref-sh: 0 4px 12px -2px rgba(0, 0, 0, 0.28), 0 12px 36px -8px rgba(0, 0, 0, 0.45);
-  --ref-sh-hover: 0 2px 6px color-mix(in srgb, var(--s-text) 5%, transparent), 0 20px 40px -22px color-mix(in srgb, var(--s-text) 24%, transparent);
-  --ref-sh-pill: 0 6px 16px -8px color-mix(in srgb, var(--s-text) 34%, transparent);
+  /* Светлая тема (05.09.2026): глубина рамкой, тень — лишь волосяная. Тяжёлые чёрные
+     тени остались от тёмной темы и на белом холсте читались «подтёком». */
+  --ref-sh: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ref-sh-hover: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --ref-sh-pill: 0 1px 2px rgba(15, 23, 42, 0.10);
 
   --mx: 50%;
   --my: 40%;
@@ -113,7 +115,7 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   position: relative;
   isolation: isolate;
   background: var(--ref-surface);
-  border: 1px solid transparent !important;
+  border: 1px solid var(--s-line) !important;   /* рамка «чуть-чуть видна» — просьба владельца 05.09 */
   border-radius: var(--ref-r-card);
   box-shadow: var(--ref-sh);
   -webkit-backdrop-filter: none;
@@ -126,25 +128,11 @@ body { background: var(--ref-canvas); color: var(--ref-ink); }
   border-color: var(--ref-line) !important;
 }
 
-/* Свет за курсором — тонкий зелёный отблеск внутри карточки */
-.mantine-Card-root::before, .glass-lit::before {
-  content: '';
-  position: absolute; inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(420px circle at var(--mx) var(--my),
-    color-mix(in srgb, var(--s-panel) 16%, transparent), transparent 62%);
-  opacity: 0;
-  transition: opacity .35s var(--ease-out);
-  pointer-events: none;
-  z-index: -1;
-}
-.mantine-Card-root:hover::before, .glass-lit:hover::before { opacity: 1; }
 
 a:hover > .mantine-Card-root,
 .mantine-Card-root[style*="cursor: pointer"]:hover,
 .mantine-Card-root[style*="cursor:pointer"]:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--ref-sh-hover);
+  background: var(--s-surface-quiet);
 }
 
 .mantine-Modal-content {
@@ -157,7 +145,7 @@ a:hover > .mantine-Card-root,
   background: var(--ref-surface) !important;
   border: 1px solid var(--ref-line) !important;
   border-radius: var(--ref-r-tile) !important;
-  box-shadow: 0 20px 44px -20px rgba(0, 0, 0, 0.24) !important;
+  box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.18) !important;
 }
 
 /* ---------------------------------------------------------------
@@ -350,12 +338,8 @@ a:hover > .mantine-Card-root,
 
 .pulse-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
-  gap: 14px;
-  padding: 16px;
-  border-radius: var(--ref-r-card);
-  background-color: var(--ref-surface-sub);
-  background-image: var(--wash-green);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
 }
 
 .pulse-tile {
@@ -363,19 +347,18 @@ a:hover > .mantine-Card-root,
   isolation: isolate;
   display: block;
   width: 100%;
-  padding: 16px 18px;
+  padding: 12px 14px;
   text-align: left;
   font: inherit;
   border-radius: var(--ref-r-tile);
   background: var(--ref-surface);
-  border: 1px solid transparent;
-  box-shadow: var(--ref-sh);
+  border: 1px solid var(--s-line);
+  box-shadow: none;
   transition: transform .28s var(--ease-out), box-shadow .28s var(--ease-out),
               background-color .28s var(--ease-out);
 }
 .pulse-tile[data-clickable] { cursor: pointer; }
-.pulse-tile[data-clickable]:hover { transform: translateY(-3px); box-shadow: var(--ref-sh-hover); }
-.pulse-tile[data-clickable]:active { transform: translateY(-1px) scale(0.995); }
+.pulse-tile[data-clickable]:hover { background: var(--s-surface-quiet); }
 
 .pulse-tile[data-active] {
   background-image: none;
@@ -399,7 +382,7 @@ a:hover > .mantine-Card-root,
 }
 
 .pulse-tile__value {
-  font-size: 32px;
+  font-size: 24px;   /* 32 → 24 (05.09): «всё крупное» */
   font-weight: 700;
   line-height: 1.2;
   letter-spacing: -0.02em;
@@ -564,7 +547,7 @@ a:hover > .mantine-Card-root,
 
 [data-fit='on'], [data-fit='on'] body { height: 100%; overflow: hidden; }
 [data-fit='on'] .mantine-AppShell-main {
-  height: 100dvh;
+  height: calc(100dvh - 20px);   /* плашка отступает по 10 px сверху и снизу */
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -844,7 +827,8 @@ a:hover > .mantine-Card-root,
   padding: 14px;
   border-radius: var(--ref-r-tile);
   background: var(--ref-surface);
-  box-shadow: var(--ref-sh);
+  border: 1px solid var(--s-line);
+  box-shadow: none;
   text-decoration: none;
   color: inherit;
   min-width: 0;
@@ -852,13 +836,14 @@ a:hover > .mantine-Card-root,
   isolation: isolate;
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
-.site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
+.site-card:hover { background: var(--s-surface-quiet); }
 .site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
 .site-card[data-state='done'] { background: linear-gradient(160deg, color-mix(in srgb, var(--s-ok) 9%, transparent), rgba(255,255,255,0) 60%), var(--ref-surface); }
 .site-card__body { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .site-card__title {
   font-weight: 700;
   font-size: 15px;
+  line-height: 1.25;
   letter-spacing: -0.01em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -906,7 +891,7 @@ a:hover > .mantine-Card-root,
   isolation: isolate;
   transition: box-shadow .25s var(--ease-out), transform .25s var(--ease-out);
 }
-.site-card:hover { transform: translateY(-2px); box-shadow: var(--ref-sh-hover); }
+.site-card:hover { background: var(--s-surface-quiet); }
 .site-card[data-state='overdue'] { border-color: color-mix(in srgb, var(--s-attention-fill) 34%, transparent); }
 .site-card[data-state='done'] {
   background: linear-gradient(160deg, color-mix(in srgb, var(--s-ok) 10%, transparent), rgba(255, 255, 255, 0) 62%), var(--ref-surface);
@@ -1027,11 +1012,11 @@ a:hover > .mantine-Card-root,
   /* Рамки нет: карточка держится тенью и воздухом (04.09.2026,
      эталон Crextio). Рамка + тень вместе дают «обведённую коробку»,
      из-за которой экран читается как таблица таблиц. */
-  box-shadow: var(--ref-sh);
+  border: 1px solid var(--s-line);
+  box-shadow: none;
   position: relative;
   isolation: isolate;
   min-width: 0;
-  transition: box-shadow .25s var(--ease-out);
 }
 .digest-card:hover { box-shadow: var(--ref-sh-hover); }
 /* Бежевая панель — светлая, поэтому текст по ней ЧЕРНИЛЬНЫЙ. Белый давал
@@ -1158,7 +1143,7 @@ a:hover > .mantine-Card-root,
   box-shadow: var(--ref-sh-pill);
   transition: transform .18s var(--ease-out), background-color .18s var(--ease-out);
 }
-.digest-card__action:hover { background: var(--s-action-hover); transform: translateY(-1px); }
+.digest-card__action:hover { background: var(--s-action-hover); }
 
 /* На тёмной панели действие ИНВЕРТИРУЕТСЯ в светлую пилюлю. Раньше здесь
    стояли чернила: по графиту это 1,06:1 — кнопку «Принять в работу» было
@@ -1742,7 +1727,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   line-height: 1.08 !important;
   letter-spacing: -0.03em !important;
 }
-.section-head__sub { font-size: 12.5px !important; }
+.section-head__sub { font-size: 13px !important; }
 .section-head__sub {
   min-width: 0;
   overflow: hidden;
@@ -1948,8 +1933,8 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   inset: 10px;
   border-radius: 26px;
   background: var(--s-surface);
-  box-shadow: 0 1px 3px color-mix(in srgb, var(--s-text) 5%, transparent),
-              0 24px 60px -22px color-mix(in srgb, var(--s-text) 20%, transparent);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--s-text) 6%, transparent);
+  border: 1px solid var(--s-line);
   /* Строго -1, не 0. При z-index:0 плашка — позиционированный элемент и
      закрашивает всё НЕпозиционированное содержимое: заголовок раздела и
      вкладки пропадали, а карточки оставались видны только потому, что у
@@ -1967,12 +1952,12 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   top: 10px !important;
   width: auto !important;
   border-radius: 26px 26px 0 0;
-  /* Светлое стекло: под шапкой проезжает содержимое раздела */
-  background: color-mix(in srgb, var(--s-surface) 72%, transparent) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  backdrop-filter: blur(22px) saturate(180%);
-  border-bottom: 1px solid color-mix(in srgb, var(--s-text) 8%, transparent) !important;
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 60%, transparent);
+  /* Сплошная, с нижней рамкой: стекло и белый блик остались от тёмной темы */
+  background: var(--s-surface) !important;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--s-line) !important;
+  box-shadow: none;
 }
 
 /* Меню слева больше нет — содержимому достаётся вся ширина плашки.
@@ -2066,15 +2051,15 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .passport-head {
   background: var(--s-panel);
   border-radius: var(--ref-r-card);
-  padding: 16px 18px 14px;
+  padding: 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .passport-head__eyebrow {
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 0.13em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--s-text-on-panel);
 }
@@ -2210,7 +2195,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   height: 6px;
   flex: 0 0 6px;
   border-radius: 999px;
-  background: var(--s-surface-quiet);
+  background: var(--c-bar-track);
   overflow: hidden;
 }
 .ent-ready__bar { flex: 1 1 auto; min-width: 48px; }
@@ -2351,23 +2336,23 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .peek__row { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; font-size: 13.5px; }
 .peek__label { color: var(--s-text-quiet); }
 .peek__value { font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; font-weight: 600; }
-.peek__row[data-tone='danger'] .peek__value { color: var(--p-rose); }
-.peek__row[data-tone='warn']   .peek__value { color: var(--p-amber); }
-.peek__row[data-tone='ok']     .peek__value { color: var(--p-emerald); }
+.peek__row[data-tone='danger'] .peek__value { color: var(--p-rose-ink); }
+.peek__row[data-tone='warn']   .peek__value { color: var(--p-amber-ink); }
+.peek__row[data-tone='ok']     .peek__value { color: var(--p-emerald-ink); }
 .peek__spark { margin: 8px 0 2px; }
-.peek__hint { margin-top: 8px; font-size: 12.5px; color: var(--s-text-quiet); }
+.peek__hint { margin-top: 8px; font-size: 13px; color: var(--s-text-quiet); }
 .peek__actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
 
 /* ---- плотная таблица ---- */
-.dense { width: 100%; border-collapse: collapse; font-size: 13.5px; }
-.dense th { text-align: left; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--s-text-quiet); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--s-line); }
+.dense { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 13.5px; }
+.dense th { text-align: left; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--s-text-quiet); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--s-line); }
 .dense td { padding: 0 8px; height: 36px; border-bottom: 1px solid var(--s-line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dense tr:hover td { background: var(--s-surface-quiet); }
 .dense td.num, .dense th.num { text-align: right; font-family: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
-.dense .bar { height: 5px; border-radius: 999px; background: var(--s-surface-quiet); overflow: hidden; }
-.dense .bar > span { display: block; height: 100%; border-radius: 999px; background: var(--p-indigo); }
-.dense .bar[data-tone='danger'] > span { background: var(--p-rose); }
-.dense .bar[data-tone='ok'] > span { background: var(--p-emerald); }
+.bar { height: 5px; border-radius: 999px; background: var(--s-surface-quiet); overflow: hidden; }
+.bar > span { display: block; height: 100%; border-radius: 999px; background: var(--p-indigo); }
+.bar[data-tone='danger'] > span { background: var(--p-rose); }
+.bar[data-tone='ok'] > span { background: var(--p-emerald); }
 
 /* ---- шапка и список решений нового экрана директора ---- */
 .dd2__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
@@ -2438,7 +2423,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .dd-decision[data-hue='emerald']{ --dec-ink: var(--p-emerald-ink); }
 .dd-decision__icon { color: var(--dec-ink, var(--p-indigo-ink)); }
 /* счётчик — мягкий чип с тёмным тонированным текстом, а не сплошная заливка с белым (на янтаре белый не читается) */
-.dd-decision__count { background: color-mix(in srgb, var(--dec-hue, var(--p-indigo)) 18%, transparent); color: var(--dec-ink, var(--p-indigo-ink)); }
+.dd-decision__count { background: color-mix(in srgb, var(--dec-hue, var(--p-indigo)) 10%, transparent); color: var(--dec-ink, var(--p-indigo-ink)); }
 .peek__inline[data-tone='danger'] { color: var(--p-rose-ink); }
 .peek__inline[data-tone='warn']   { color: var(--p-amber-ink); }
 .peek__inline[data-tone='ok']     { color: var(--p-emerald-ink); }
@@ -2463,7 +2448,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .panel__tab[aria-selected='true'] { background: var(--s-inverse-bg); color: var(--s-inverse-fg); }
 .panel__tab:focus-visible { outline: 2px solid var(--s-focus); outline-offset: 2px; }
 .panel__body { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 10px 14px 14px; }
-.panel__body .dd-decisions--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.panel__body .dd-decisions--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
 /* ---- Цех (05.09.2026): список заказов, по нажатию — карточка заказа ---- */
 .shop-order { display: grid; grid-template-columns: minmax(220px, 1.4fr) minmax(140px, 1fr) 160px 180px minmax(140px, .9fr) 24px; align-items: center; gap: 12px; height: 56px; padding: 0 16px; border: 0; border-bottom: 1px solid var(--s-line); width: 100%; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
@@ -2488,3 +2473,5 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .shop-card__progress { display: inline-flex; align-items: center; gap: 10px; font-family: var(--ff-num); font-size: 13px; white-space: nowrap; }
 .shop-card__progress .bar { width: 120px; }
 .shop-card__rows { flex: 1; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+
+.dense__link { cursor: pointer; }

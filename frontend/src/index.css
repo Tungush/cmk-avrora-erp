@@ -142,7 +142,7 @@ h1, h2, h3, h4, h5, h6, p {
 }
 
 .mantine-Table-td {
-  padding: 11px 12px !important;
+  padding: 8px 12px !important;   /* 11 → 8 (05.09): строка 42 px вместо 50 */
   font-size: var(--fz-sm);
   line-height: 1.4;
   border-bottom: 1px solid var(--gray-1) !important;
@@ -486,10 +486,7 @@ textarea.input-field {
   70%  { box-shadow: 0 0 0 5px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
-.live-dot {
-  animation: live-pulse 2.2s var(--ease-out) infinite;
-  border-radius: 50%;
-}
+.live-dot { border-radius: 50%; }   /* без пульсации: «ничего не движется в покое» (05.09) */
 
 /* KPI: чистая белая плитка (референс 02.09.2026); засветка в углу снята —
    на четырёх плитках в ряд она читалась как пятна */

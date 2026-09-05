@@ -128,7 +128,7 @@ export function DirectorDashboard() {
     },
     {
       key: 'supplier', hue: 'amber', label: 'Долг поставщикам', value: formatCompactMoney(money.totalUnpaid),
-      hint: `мы должны · оплачено ${paidPct}% из ${formatCompactMoney(money.totalContracted)}`, to: '/purchases',
+      hint: `оплачено ${paidPct}% из ${formatCompactMoney(money.totalContracted)}`, to: '/purchases',
       peek: <>
         <PeekRow label="Законтрактовано" value={formatCurrency(money.totalContracted)} />
         <PeekRow label="Оплачено" value={formatCurrency(money.totalPaid)} tone="ok" />
@@ -137,7 +137,7 @@ export function DirectorDashboard() {
     },
     {
       key: 'customer', hue: 'emerald', label: 'Нам должны заказчики', value: cash ? formatCompactMoney(cash.receivables.owed) : '…',
-      hint: cash ? `оплачено ${custPct}% · ${cash.receivables.activeOrders} активных заказов` : 'данные 1С', to: '/finance',
+      hint: cash ? `оплачено ${custPct}% · ${cash.receivables.activeOrders} заказов` : 'данные 1С', to: '/finance',
       peek: cash ? <>
         <PeekRow label="Законтрактовано" value={formatCurrency(cash.receivables.contracted)} />
         <PeekRow label="Оплачено" value={formatCurrency(cash.receivables.paid)} tone="ok" />
@@ -229,13 +229,13 @@ export function DirectorDashboard() {
             <div className="panel__body" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
               {tab === 'margin' && (
                 <table className="dense">
-                  <thead><tr><th>Заказ</th><th>Заказчик</th><th className="num">Цена</th><th className="num">Себестоимость</th><th className="num">Маржа</th><th style={{ width: 120 }}>К цели</th></tr></thead>
+                  <thead><tr><th style={{ width: 118 }}>Заказ</th><th>Заказчик</th><th className="num" style={{ width: 108 }}>Цена</th><th className="num" style={{ width: 132 }}>Себестоимость</th><th className="num" style={{ width: 96 }}>Маржа</th><th style={{ width: 110 }}>К цели</th></tr></thead>
                   <tbody>
                     {(margin?.orders ?? []).map((o) => {
                       const h = HEALTH[o.marginHealth] ?? { label: o.marginHealth };
                       const share = o.marginPct != null && margin ? Math.max(0, Math.min(1, o.marginPct / margin.targetPct)) : 0;
                       return (
-                        <tr key={o.id}>
+                        <tr key={o.id} className="dense__link" onClick={() => card.open(o.id, 'cost')}>
                           <td><OrderRef id={o.id} number={o.orderNumber} focus="cost" /></td>
                           <td>{o.customer.name}</td>
                           <td className="num">{o.totalPrice != null ? formatCompactMoney(o.totalPrice) : '—'}</td>

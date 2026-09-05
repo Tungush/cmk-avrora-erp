@@ -344,7 +344,7 @@ export function OrdersRegistry() {
             {/* Сохраняемые представления (§2.1): фильтры + пресет под именем */}
             <Menu shadow="md" width={260} position="bottom-end">
               <Menu.Target>
-                <Button variant="default" size="md" leftSection={<IconBookmark aria-hidden size={16} />}>
+                <Button variant="default" size="sm" leftSection={<IconBookmark aria-hidden size={16} />}>
                   Виды{savedViews && savedViews.length > 0 ? ` (${savedViews.length})` : ''}
                 </Button>
               </Menu.Target>
@@ -384,7 +384,7 @@ export function OrdersRegistry() {
               value={preset}
               onChange={(v) => setPreset(v as PresetCode)}
               data={availablePresets.map(([code, p]) => ({ value: code, label: p.label }))}
-              size="md"
+              size="sm"
               radius="md"
             />
           </Group>
