@@ -1937,7 +1937,9 @@ enum NktLogDirection {
 /// у продукции ЦМК одна потребительская упаковка, поэтому измерений
 /// «характеристика» и «упаковка» из ТЗ здесь нет.
 model NktCard {
-  id        String @id @default(uuid()) @db.Uuid
+  // Идентификатор генерирует база: Go-код НКТ вставляет строки без него
+  // (в отличие от остальных таблиц, где uuid генерирует клиент Prisma)
+  id        String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   articleId String @unique @map("article_id") @db.Uuid
 
   // ---- Паспорт: заполняет инженер ----
@@ -1995,7 +1997,8 @@ model NktCard {
 /// Очередь обмена. Уникальность по cardId — это и есть блокировка объекта:
 /// два фоновых задания не возьмут одно изделие (ТЗ §7.5).
 model NktQueueItem {
-  id        String     @id @default(uuid()) @db.Uuid
+  // Идентификатор генерирует база — см. NktCard
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   cardId    String     @unique @map("card_id") @db.Uuid
   operation NktQueueOp
   /// Меньше — раньше. Ручная постановка 0, фоновое заполнение 100
