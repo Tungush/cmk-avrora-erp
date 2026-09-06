@@ -97,8 +97,10 @@ export const DERIVED_STATUSES: OrderStatus[] = ['IN_PRODUCTION', 'READY_TO_SHIP'
 export const STATE_TRANSITIONS: Record<string, OrderStatus[]> = {
   NEW: ['CONFIRMED', 'DRAFT', 'CANCELLED'],
   DRAFT: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['IN_PRODUCTION', 'CANCELLED'],
-  IN_PRODUCTION: ['READY_TO_SHIP', 'CANCELLED'],
+  // SHIPPED из CONFIRMED/IN_PRODUCTION — когда акты закрыли все позиции
+  // (исторические заказы из 1С цех не отмечал); сервер проверяет акты
+  CONFIRMED: ['IN_PRODUCTION', 'SHIPPED', 'CANCELLED'],
+  IN_PRODUCTION: ['READY_TO_SHIP', 'SHIPPED', 'CANCELLED'],
   READY_TO_SHIP: ['SHIPPED', 'CANCELLED'],
   SHIPPED: ['CLOSED', 'CANCELLED'],
   CLOSED: [],

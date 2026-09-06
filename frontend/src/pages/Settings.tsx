@@ -6,6 +6,8 @@ import { CostingSettings } from './Settings/CostingSettings';
 import { UsersAdmin } from './Settings/UsersAdmin';
 import { FitScreen } from '../components/FitScreen';
 import { FadeSwap, TextReveal } from '../components/motion';
+import { useAuthStore } from '../store/auth';
+import { canAccessModule } from '../utils/roles';
 
 /**
  * Настройки: то, куда заходят редко — обмен с 1С, аудит (решение
@@ -22,7 +24,24 @@ import { FadeSwap, TextReveal } from '../components/motion';
  * панель — тело вкладки (.section-body). Заголовок и список вкладок
  * при этом всегда на месте, и «где я» не теряется.
  */
+/** Настройки — по правам, а не по наличию ссылки: сменный аккаунт открывал
+    их по адресу и видел пользователей и обмен с 1С (06.09.2026) */
 export function Settings() {
+  const permissions = useAuthStore((s) => s.permissions);
+  if (!canAccessModule('settings', permissions)) {
+    return (
+      <FitScreen>
+        <div className="section-empty">
+          <Text fw={700}>Настройки</Text>
+          <Text size="sm" c="dimmed">Раздел доступен администратору. Если вам нужен доступ — обратитесь к нему.</Text>
+        </div>
+      </FitScreen>
+    );
+  }
+  return <SettingsInner />;
+}
+
+function SettingsInner() {
   const [tab, setTab] = useState('integration');
 
   const header = (
@@ -56,7 +75,7 @@ export function Settings() {
           FadeSwap, а прокрутка живёт ВНУТРИ панели, не на странице */}
       <div className="section-body">
         <FadeSwap swapKey={tab} style={{ minWidth: 0 }}>
-          {tab === 'integration' && <Integration />}
+          {tab === 'integration' && <Integration embedded />}
           {tab === 'costing' && <CostingSettings />}
           {tab === 'users' && <UsersAdmin />}
           {tab === 'audit' && <Text size="sm" c="dimmed">Журнал действий — в работе</Text>}

@@ -352,13 +352,12 @@ export function MaterialsStock({ only, pageKey }: { only?: string[]; pageKey?: s
                           {price > 0 ? `${num(price)} ₸` : '—'}
                         </Table.Td>
                         <Table.Td ta="right" data-priority="3">
+                          {/* Дата — в подсказке, не второй строкой: строки с датой
+                              были выше остальных (55 против 44 px, 06.09.2026) */}
                           {last > 0 ? (
-                            <Stack gap={0}>
-                              <Text size="sm" ff="monospace">{num(last)} ₸</Text>
-                              {m.lastPurchaseDate && (
-                                <Text size="xs" c="dimmed">{formatDate(m.lastPurchaseDate)}</Text>
-                              )}
-                            </Stack>
+                            <Text size="sm" ff="monospace" title={m.lastPurchaseDate ? `последний закуп ${formatDate(m.lastPurchaseDate)}` : undefined}>
+                              {num(last)} ₸
+                            </Text>
                           ) : <Text size="sm" c="dimmed">—</Text>}
                         </Table.Td>
                         <Table.Td ff="monospace" fw={600} ta="right">

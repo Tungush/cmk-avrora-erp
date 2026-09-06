@@ -20,16 +20,70 @@ import (
 	"cmk-avrora-erp/backend-go/internal/common"
 	"cmk-avrora-erp/backend-go/internal/db"
 	"cmk-avrora-erp/backend-go/internal/integration"
+	"cmk-avrora-erp/backend-go/internal/jobs"
 	"cmk-avrora-erp/backend-go/internal/modules/catalog"
 	"cmk-avrora-erp/backend-go/internal/modules/dashboards"
 	"cmk-avrora-erp/backend-go/internal/modules/finance"
 	integrationapi "cmk-avrora-erp/backend-go/internal/modules/integration"
 	"cmk-avrora-erp/backend-go/internal/modules/misc"
+	nktapi "cmk-avrora-erp/backend-go/internal/modules/nkt"
 	"cmk-avrora-erp/backend-go/internal/modules/orders"
 	"cmk-avrora-erp/backend-go/internal/modules/platform"
 	"cmk-avrora-erp/backend-go/internal/modules/sales"
 	warehousepkg "cmk-avrora-erp/backend-go/internal/modules/warehouse"
+	nktpkg "cmk-avrora-erp/backend-go/internal/nkt"
 )
+
+// startNktWorkers — четыре задания конвейера НКТ с расписанием из ТЗ §7.5.
+//
+// Пачками и с ограничением: первичная загрузка не должна мешать работе
+// людей (ТЗ §14). Каждое задание продолжает с места остановки — состояние
+// живёт в статусе карточки и в очереди, а не в памяти процесса.
+func startNktWorkers(ctx context.Context, svc *nktpkg.Service) {
+	every := func(name string, period time.Duration, first time.Duration, fn func() error) {
+		go func() {
+			timer := time.NewTimer(first)
+			defer timer.Stop()
+			for {
+				<-timer.C
+				if err := fn(); err != nil {
+					log.Printf("НКТ: задание «%s» упало: %v", name, err)
+				}
+				timer.Reset(period)
+			}
+		}()
+	}
+
+	// Пополнение очереди: подхватывает изделия, заведённые за сутки
+	every("заполнение очереди", 24*time.Hour, time.Minute, func() error {
+		if _, err := svc.EnsureCards(ctx, ""); err != nil {
+			return err
+		}
+		_, err := svc.FillQueue(ctx)
+		return err
+	})
+
+	// Обработка очереди: проверка паспорта, подача заявки, модерация,
+	// публикация. Опрос статусов идёт через ту же очередь со своей задержкой
+	every("обработка очереди", 15*time.Minute, 2*time.Minute, func() error {
+		_, err := svc.ProcessQueue(ctx, 25)
+		return err
+	})
+
+	// Схема атрибутов и справочники НКТ: состав полей меняет НКТ без нас,
+	// захардкоженный список неизбежно разойдётся и начнёт ронять заявки
+	every("синхронизация схемы", 24*time.Hour, 3*time.Minute, func() error {
+		return svc.SyncSchema(ctx)
+	})
+
+	every("очистка журнала", 7*24*time.Hour, time.Hour, func() error {
+		n, err := svc.CleanupLog(ctx)
+		if err == nil && n > 0 {
+			log.Printf("НКТ: из журнала обмена удалено %d записей старше 6 месяцев", n)
+		}
+		return err
+	})
+}
 
 func main() {
 	ctx := context.Background()
@@ -82,7 +136,7 @@ func main() {
 	api.GET("/events/stream", platform.NewEventsHandler().Stream)
 
 	protected := api.Group("")
-	protected.Use(auth.Middleware())
+	protected.Use(auth.Middleware(), common.RequireUUIDParams())
 	protected.GET("/auth/me", authHandler.Me)
 
 	// Список ролей в RequireRoles — байт-в-байт как в @Roles(...) оригинала,
@@ -260,7 +314,9 @@ func main() {
 	protected.GET("/dashboards/director", auth.RequireRoles("director", "admin"), dashH.Director)
 	protected.GET("/dashboards/monthly-series", dashH.MonthlySeries)
 	protected.GET("/dashboards/workload-forecast", dashH.WorkloadForecast)
-	protected.GET("/dashboards/cash-forecast", dashH.CashForecast)
+	// Деньги — только тем, кому положено: сменный аккаунт цеха открывал
+	// экран директора по адресу и видел «нам должны» (06.09.2026)
+	protected.GET("/dashboards/cash-forecast", auth.RequireRoles("director", "accountant", "sales_manager", "admin"), dashH.CashForecast)
 	protected.GET("/dashboards/production-summary", dashH.ProductionSummary)
 	protected.GET("/dashboards/finished-goods-summary", dashH.FinishedGoodsSummary)
 
@@ -328,6 +384,40 @@ func main() {
 	protected.POST("/integrations/inbox/process", auth.RequireRoles("admin"), intH.Process)
 	protected.POST("/integrations/messages/:id/retry", auth.RequireRoles("admin"), intH.Retry)
 
+	// Национальный каталог товаров: присвоение NTIN изделиям ЦМК (docs/nkt/)
+	nktH := nktapi.New(pool)
+	nktRead := auth.RequireRoles("engineer", "sales_manager", "planner", "procurement", "director", "admin")
+	// Паспорт заводит инженер: ОКТРУ, ГОСТы, габариты и вес упаковки знает
+	// конструктор — в 1С этих данных нет вовсе
+	nktEngineer := auth.RequireRoles("engineer", "admin")
+	// Разбор доработок, дублей и отказов — работа менеджера (ТЗ §11)
+	nktManager := auth.RequireRoles("engineer", "sales_manager", "admin")
+	protected.GET("/nkt/cards", nktRead, nktH.Cards)
+	protected.GET("/nkt/summary", nktRead, nktH.Summary)
+	protected.GET("/nkt/status", nktRead, nktH.Status)
+	protected.GET("/nkt/categories", nktRead, nktH.Categories)
+	protected.PUT("/nkt/categories/:prefix", nktEngineer, nktH.SaveCategory)
+	protected.GET("/nkt/dictionaries/:code", nktRead, nktH.Dictionary)
+	protected.GET("/nkt/cards/:articleId", nktRead, nktH.Card)
+	protected.GET("/nkt/cards/:articleId/log", nktRead, nktH.Log)
+	protected.PUT("/nkt/cards/:articleId/passport", nktEngineer, nktH.SavePassport)
+	protected.POST("/nkt/cards/:articleId/validate", nktRead, nktH.Validate)
+	protected.POST("/nkt/cards/:articleId/submit", nktManager, nktH.Submit)
+	protected.POST("/nkt/cards/:articleId/resubmit", nktManager, nktH.Resubmit)
+	protected.POST("/nkt/cards/:articleId/duplicate-decision", nktManager, nktH.DuplicateDecision)
+	protected.POST("/nkt/cards/:articleId/cancel", nktManager, nktH.Cancel)
+	protected.POST("/nkt/sync-schema", auth.RequireRoles("admin", "engineer"), nktH.SyncSchema)
+	protected.POST("/nkt/backfill", auth.RequireRoles("admin"), nktH.Backfill)
+
+	// Фоновые задания НКТ (ТЗ §7.5). Поднимаются только при заданном ключе:
+	// без него карточки копятся в очереди и никуда не уходят — ровно как
+	// outbox без адреса 1С. Все обращения к НКТ идут отсюда, а не из форм.
+	if nktpkg.Configured() {
+		startNktWorkers(ctx, nktH.Service())
+	} else {
+		log.Println("НКТ: ключ не задан (NKT_API_KEY) — обмен не запущен, паспорта и очередь работают")
+	}
+
 	// Плановая отправка outbox (IntegrationService.onModuleInit): раз в 5 минут,
 	// только при настроенном адресе 1С — без него сообщения копятся в PENDING,
 	// как и прежде, до кнопки админа
@@ -342,6 +432,10 @@ func main() {
 			}
 		}()
 	}
+
+	// Просрочка заказов (orders.overdue_days): при старте и раз в час — иначе
+	// «Просрочено 0» в цеху и у директора при давно прошедших сроках
+	jobs.StartOverdueDays(ctx, pool)
 
 	// REQUIRE_SECRETS=1 (docker-compose, профиль prod): с секретами по умолчанию
 	// из кода наружу не стартуем — иначе любой в сети выпишет себе admin-токен

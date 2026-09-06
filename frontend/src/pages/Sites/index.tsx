@@ -125,7 +125,7 @@ export function Sites() {
           },
           {
             key: 'money', label: 'Сумма по объектам', value: formatCompactMoney(totalAmount),
-            hint: '₸ по позициям заказов', tone: 'brand', icon: <IconCurrencyTenge aria-hidden size={16} />,
+            hint: 'по позициям заказов', tone: 'brand', icon: <IconCurrencyTenge aria-hidden size={16} />,
           },
         ]}
       />

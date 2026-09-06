@@ -147,7 +147,7 @@ export function PurchasesRegistry({ filters, onFiltersChange }: {
                         {d.unpaidAmount > 0 ? formatMoney(d.unpaidAmount, d.currency) : '—'}
                       </Table.Td>
                       <Table.Td>
-                        <Badge variant="light" color={STATUS_COLORS[d.status] ?? 'gray'}>
+                        <Badge variant="light" color={STATUS_COLORS[d.status] ?? 'gray'} className="badge--wrap">
                           {STATUS_LABELS[d.status] ?? d.status}
                         </Badge>
                       </Table.Td>

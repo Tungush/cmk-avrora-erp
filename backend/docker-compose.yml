@@ -13,6 +13,37 @@ x-logging: &logging
     max-size: '20m'
     max-file: '5'
 
+# Go-бэкенд + собранный фронтенд в одном образе. Один и тот же сервис в двух
+# профилях: prod (за Caddy, наружу только 127.0.0.1) и pilot (локальная сеть
+# завода без домена и HTTPS — http://<адрес-компьютера>:3000, см. docs/ЗАПУСК.md).
+# Сначала backend/.env (ONEC_*, INTEGRATION_1C_*, JWT_SECRET, B24_*,
+# CORS_ORIGINS …), затем переопределения ниже: база — по имени сервиса
+# внутри сети compose.
+x-api: &api
+  build:
+    context: ..
+    dockerfile: backend-go/Dockerfile
+  image: cmk-avrora-erp:latest
+  env_file:
+    - .env
+  environment:
+    DATABASE_URL: postgresql://erp_user:erp_password@postgres:5432/erp_production_db
+    AUTH_DEMO_MODE: 'false'
+    GIN_MODE: release
+    GO_PORT: '3000'
+    STATIC_DIR: /app/public
+    TZ: Asia/Almaty
+    # Контейнер не стартует с секретами по умолчанию из кода:
+    # JWT_SECRET и INTEGRATION_1C_SECRET обязаны быть заданы в .env
+    # (`npm run pilot` / `npm run prod:up` заполняют их сами через
+    # scripts/ensure-secrets.mjs, если они пустые).
+    REQUIRE_SECRETS: '1'
+  depends_on:
+    postgres:
+      condition: service_healthy
+  logging: *logging
+  restart: unless-stopped
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -37,34 +68,52 @@ services:
     restart: unless-stopped
 
   api:
+    <<: *api
     profiles: ['prod']
-    build:
-      context: ..
-      dockerfile: backend-go/Dockerfile
-    image: cmk-avrora-erp:latest
     container_name: erp_api
-    # Сначала backend/.env (ONEC_*, INTEGRATION_1C_*, JWT_SECRET, B24_*,
-    # CORS_ORIGINS …), затем переопределения ниже: база — по имени сервиса
-    # внутри сети compose.
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgresql://erp_user:erp_password@postgres:5432/erp_production_db
-      AUTH_DEMO_MODE: 'false'
-      GIN_MODE: release
-      GO_PORT: '3000'
-      STATIC_DIR: /app/public
-      TZ: Asia/Almaty
-      # Контейнер не стартует с секретами по умолчанию из кода:
-      # JWT_SECRET и INTEGRATION_1C_SECRET обязаны быть заданы в .env
-      REQUIRE_SECRETS: '1'
     # Наружу не публикуется: снаружи ходят через Caddy (HTTPS), локально на
     # сервере — через 127.0.0.1:3000 (curl, отладка, прямой доступ к копии UI).
     ports:
       - '127.0.0.1:3000:3000'
+
+  # Пилот в локальной сети завода: тот же образ, порт 3000 открыт для всех
+  # устройств сети, без Caddy и домена. Адрес для людей —
+  # http://<адрес-этого-компьютера>:3000. Трафик по http, поэтому только
+  # внутри сети предприятия; снаружи — профиль prod.
+  api-pilot:
+    <<: *api
+    profiles: ['pilot']
+    container_name: erp_api_pilot
+    ports:
+      - '3000:3000'
+
+  # Ежедневный дамп базы в backend/backups (git-ignored): первый — сразу при
+  # старте, далее раз в сутки; старше 14 дней удаляются. Восстановление:
+  #   docker exec -i erp_postgres pg_restore -U erp_user -d erp_production_db --clean < backend/backups/<файл>.dump
+  backup:
+    profiles: ['prod', 'pilot']
+    image: postgres:15-alpine
+    container_name: erp_backup
+    environment:
+      PGPASSWORD: erp_password
+    volumes:
+      - ./backups:/backups
     depends_on:
       postgres:
         condition: service_healthy
+    entrypoint: ['sh', '-c']
+    command:
+      - |
+        while true; do
+          f=/backups/erp_production_db-$$(date +%Y%m%d-%H%M).dump
+          if pg_dump -h postgres -U erp_user -Fc erp_production_db > "$$f"; then
+            echo "бэкап записан: $$f"
+          else
+            echo "бэкап не удался"; rm -f "$$f"
+          fi
+          find /backups -name 'erp_production_db-*.dump' -mtime +14 -delete
+          sleep 86400
+        done
     logging: *logging
     restart: unless-stopped
 

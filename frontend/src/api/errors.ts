@@ -52,7 +52,9 @@ export function apiErrorMessage(error: unknown): string {
   const d = e.response.data;
   const fromBackend =
     (typeof d?.error === 'string' ? d.error : d?.error?.message) ?? d?.message;
-  if (fromBackend) return fromBackend;
+  // Бизнес-запреты приходят как «[КОД] текст» (наследие NestJS): код человеку
+  // ни к чему, он и так виден в заголовке «Конфликт данных» (06.09.2026)
+  if (fromBackend) return fromBackend.replace(/^\[[A-Z0-9_]+\]\s*/, '');
 
   switch (e.response.status) {
     case 403: return 'Действие недоступно для вашей роли.';

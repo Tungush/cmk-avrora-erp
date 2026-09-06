@@ -358,7 +358,10 @@ a:hover > .mantine-Card-root,
               background-color .28s var(--ease-out);
 }
 .pulse-tile[data-clickable] { cursor: pointer; }
-.pulse-tile[data-clickable]:hover { background: var(--s-surface-quiet); }
+/* Наведение — только на неактивную: :hover сильнее [data-active], и выбранная
+   плитка под курсором становилась светло-серой с белым текстом — выглядела
+   выключенной (цех, «Просрочено», 06.09.2026) */
+.pulse-tile[data-clickable]:not([data-active]):hover { background: var(--s-surface-quiet); }
 
 .pulse-tile[data-active] {
   background-image: none;
@@ -2450,3 +2453,15 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .site-card__sub > .ent-ref { min-height: 0 !important; padding: 0 !important; }
 /* Подряд, заявки: на ноутбуке колонка «Вид работ» скрыта — она есть в раскрытой строке; таблица остаётся без сжатия */
 @media (max-width: 1320px) { .req-table [data-priority='3'] { display: none; } }
+
+/* Раздел закрыт по правам: спокойная карточка вместо пустого экрана или нулей (06.09.2026) */
+.section-empty {
+  margin: auto;
+  max-width: 420px;
+  padding: 28px 24px;
+  border: 1px solid var(--s-line);
+  border-radius: 16px;
+  background: var(--s-surface);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  text-align: center;
+}

@@ -5,6 +5,7 @@ package costing
 
 import (
 	"context"
+	"math"
 	"strings"
 
 	"github.com/google/uuid"
@@ -185,6 +186,14 @@ func Recalculate(ctx context.Context, pool *pgxpool.Pool, articleID, trigger, us
 	if approvedPrice > 0 && result.Price > 0 {
 		deviationPct = round2(((approvedPrice - result.Price) / result.Price) * 100)
 	}
+	// Колонка price_deviation_pct — Decimal(6,4), больше ±99.9999 % в неё не
+	// помещается; изделие с отклонением от ±100 % (расчётная цена около нуля
+	// при утверждённой в тысячах) роняло весь каскад пересчёта ошибкой
+	// numeric field overflow. Расширить колонку нельзя без пересоздания вью
+	// v_min_stock_readiness, поэтому значение ограничивается: для заявки
+	// директору (порог ±5 %) и подписи «отклонение» точная величина за
+	// пределами ±100 % не нужна.
+	deviationPct = math.Max(-99.9999, math.Min(99.9999, deviationPct))
 	// updated_at не имеет дефолта в Postgres (@updatedAt — клиентское поведение
 	// Prisma) — обязателен на каждом UPDATE, как в остальных модулях
 	_, err = tx.Exec(ctx, `UPDATE articles SET spec_price = $1, price_deviation_pct = $2, updated_at = now() WHERE id = $3`,

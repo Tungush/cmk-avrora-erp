@@ -105,7 +105,7 @@ export function CustomerPaymentsBlock({ orderId }: { orderId: string }) {
               {paged.slice.map((p) => (
                 <Group key={p.id} justify="space-between" wrap="nowrap" gap="sm">
                   <Group gap={6} wrap="nowrap" style={{ minWidth: 0 }}>
-                    <Text size="sm" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatDate(p.paidAt)}</Text>
+                    <Text size="sm" ff="monospace" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatDate(p.paymentDate)}</Text>
                     {/* 'orange' в теме не объявлен — Mantine брала свой оранжевый (03.09.2026) */}
                     <Badge size="md" fz={12} variant="light" color={p.source === 'MANUAL' ? 'warning' : 'gray'}>
                       {p.source === 'MANUAL' ? 'вручную' : '1С'}

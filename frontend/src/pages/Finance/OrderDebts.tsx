@@ -69,11 +69,14 @@ export function OrderDebts() {
   const fit = useFitRows(40, 5, 60, 40);
   const paged = usePagedList(visible, fit.rows, `${slice}|${q}|${fit.rows}`);
 
+  // В подписи — только заказы с известным долгом: «335 с долгом» при 305
+  // «оплата неизвестна» вводило в заблуждение (проверка 06.09.2026)
+  const known = (rs: Row[]) => rs.filter((r) => (r.debt ?? 0) > 0).length;
   const tiles: Array<{ key: Slice; hue: 'rose' | 'emerald' | 'indigo' | 'amber'; label: string; hint: string }> = [
-    { key: 'all', hue: 'rose', label: 'Нам должны', hint: `${groups.all.length} заказов с долгом` },
-    { key: 'shipped', hue: 'emerald', label: 'По отгруженным', hint: `${groups.shipped.length} заказов · деньги должны были прийти` },
-    { key: 'ready', hue: 'indigo', label: 'По изготовленным', hint: `${groups.ready.length} заказов · ждут вывоза` },
-    { key: 'production', hue: 'amber', label: 'В производстве', hint: `${groups.production.length} заказов · аванс` },
+    { key: 'all', hue: 'rose', label: 'Нам должны', hint: `${known(groups.all)} заказов с долгом` },
+    { key: 'shipped', hue: 'emerald', label: 'По отгруженным', hint: `${known(groups.shipped)} с долгом · деньги должны были прийти` },
+    { key: 'ready', hue: 'indigo', label: 'По изготовленным', hint: `${known(groups.ready)} с долгом · ждут вывоза` },
+    { key: 'production', hue: 'amber', label: 'В производстве', hint: `${known(groups.production)} с долгом · аванс` },
   ];
 
   return (
@@ -132,9 +135,11 @@ export function OrderDebts() {
                   <td className="num" style={{ textAlign: 'left' }}>
                     {o.actualShipmentDate ? formatDate(o.actualShipmentDate) : o.plannedShipmentDate ? `план ${formatDate(o.plannedShipmentDate)}` : '—'}
                   </td>
-                  <td className="num">{formatCurrency(total)}</td>
-                  <td className="num">{paid == null ? <span className="fin__unknown">неизвестно</span> : formatCurrency(paid)}</td>
-                  <td className="num fin__debt">{debt == null ? '—' : formatCurrency(debt)}</td>
+                  {/* Целые тенге: с тиынами «249 586 249,38 ₸» не влезает в
+                      колонку и режется многоточием (проверка 06.09.2026) */}
+                  <td className="num">{formatCurrency(Math.round(total))}</td>
+                  <td className="num">{paid == null ? <span className="fin__unknown">неизвестно</span> : formatCurrency(Math.round(paid))}</td>
+                  <td className="num fin__debt">{debt == null ? '—' : formatCurrency(Math.round(debt))}</td>
                 </tr>
               ))}
             </tbody>

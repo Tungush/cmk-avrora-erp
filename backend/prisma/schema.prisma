@@ -317,6 +317,7 @@ model Article {
   costings               ArticleCosting[]
   priceReviews           PriceReviewRequest[]
   nomenclatureRequests   NomenclatureRequest[]
+  nktCard                NktCard?
 
   @@map("articles")
 }
@@ -1877,4 +1878,220 @@ model AuditLogEntry {
   user User? @relation(fields: [userId], references: [id])
 
   @@map("audit_log")
+}
+
+// ------------------------------------------------------
+// Национальный каталог товаров (НКТ) — присвоение NTIN
+// изделиям ЦМК. ТЗ и разбор API — docs/nkt/
+// ------------------------------------------------------
+
+/// Положение изделия в конвейере НКТ. Статусов из ТЗ два не заведено —
+/// READY_TO_SEARCH и MATCHED: шаг поиска в НКТ для собственного
+/// производства пропускается, карточки там заведомо нет (ТЗ §10.3).
+enum NktStatus {
+  NEW
+  DATA_INCOMPLETE
+  NEED_REGISTRATION
+  REQUEST_CREATED
+  MODERATION
+  /// НКТ нашёл похожие карточки. Решение принимает менеджер: автоматически
+  /// присваивать NTIN по проценту совпадения нельзя ни при какой схожести —
+  /// одинаково названные товары разных производителей это разные карточки,
+  /// а чужой NTIN даёт ошибку при пробитии чека и маркировке (ТЗ §10.4)
+  MATCH_REVIEW
+  REWORK
+  REJECTED
+  READY_TO_PUBLISH
+  HAS_NTIN
+  ERROR
+}
+
+enum NktNtinSource {
+  /// Опубликована наша заявка
+  REQUEST
+  /// Менеджер выбрал существующую карточку при разборе дублей
+  MANUAL
+}
+
+enum NktQueueOp {
+  VALIDATE
+  SUBMIT
+  POLL
+  PUBLISH
+}
+
+/// Группа атрибута в теле заявки. НКТ роняет валидацию, если атрибут
+/// передан не в своей группе, поэтому группа хранится вместе со схемой.
+enum NktAttrGroup {
+  BASE
+  MAIN_EXT
+  ADDITIONAL_EXT
+}
+
+enum NktLogDirection {
+  OUT
+  IN
+}
+
+/// Паспорт изделия для НКТ и состояние заявки. Одна строка на изделие:
+/// у продукции ЦМК одна потребительская упаковка, поэтому измерений
+/// «характеристика» и «упаковка» из ТЗ здесь нет.
+model NktCard {
+  id        String @id @default(uuid()) @db.Uuid
+  articleId String @unique @map("article_id") @db.Uuid
+
+  // ---- Паспорт: заполняет инженер ----
+  oktru  String? @db.VarChar(30)
+  tnved  String? @db.VarChar(20)
+  /// Штрихкода у собственного производства обычно нет: получение GTIN в
+  /// GS1 Kazakhstan — отдельный процесс вне периметра (ТЗ §10.3)
+  gtin      String? @db.VarChar(14)
+  gtinValid Boolean @default(false) @map("gtin_valid")
+  /// Наименование по регламенту НКТ: тип + бренд + модель + характеристики.
+  /// Наименование из справочника напрямую не подходит
+  nameRu String? @map("name_ru") @db.Text
+  nameKk String? @map("name_kk") @db.Text
+  brand  String? @db.Text
+  /// Остальные атрибуты парами «код НКТ → значение», как их принимает API.
+  /// Колонками не разложены: состав атрибутов задаёт НКТ и меняет его без
+  /// нас — колонка под каждый означала бы миграцию на каждое их изменение
+  attributes Json @default("{}")
+  /// Загруженные изображения: [{ fileName, imageType }]
+  images     Json @default("[]")
+
+  // ---- Состояние: пишет автомат ----
+  status           NktStatus      @default(NEW)
+  requestId        String?        @unique @map("request_id") @db.VarChar(40)
+  /// Сырой код статуса от НКТ: наш статус — уже интерпретация, а
+  /// разбираться с модератором приходится по их коду
+  requestStatusRaw String?        @map("request_status_raw") @db.VarChar(40)
+  moderatorComment String?        @map("moderator_comment") @db.Text
+  revisionDetails  Json?          @map("revision_details")
+  duplicates       Json?
+  ntin             String?        @db.VarChar(13)
+  ntinSource       NktNtinSource? @map("ntin_source")
+  productUrl       String?        @map("product_url") @db.Text
+  /// SHA-256 тела заявки: не изменилось — повторная отправка не выполняется
+  payloadHash      String?        @map("payload_hash") @db.VarChar(64)
+  attempts         Int            @default(0)
+  lastSyncAt       DateTime?      @map("last_sync_at")
+  nextRetryAt      DateTime?      @map("next_retry_at")
+  publishedAt      DateTime?      @map("published_at")
+  lastError        String?        @map("last_error") @db.Text
+  /// Поле самой заявки в API НКТ, а не наша настройка
+  autoPublication  Boolean        @default(false) @map("auto_publication")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  article Article      @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  queue   NktQueueItem?
+  logs    NktLogEntry[]
+
+  @@index([status, updatedAt])
+  @@map("nkt_cards")
+}
+
+/// Очередь обмена. Уникальность по cardId — это и есть блокировка объекта:
+/// два фоновых задания не возьмут одно изделие (ТЗ §7.5).
+model NktQueueItem {
+  id        String     @id @default(uuid()) @db.Uuid
+  cardId    String     @unique @map("card_id") @db.Uuid
+  operation NktQueueOp
+  /// Меньше — раньше. Ручная постановка 0, фоновое заполнение 100
+  priority   Int       @default(100)
+  enqueuedAt DateTime  @default(now()) @map("enqueued_at")
+  /// Задержка ретрая: задание не берётся раньше этого момента
+  notBefore  DateTime  @default(now()) @map("not_before")
+  /// Взято в работу; с таймаутом — умерший воркер не должен запереть изделие
+  lockedAt   DateTime? @map("locked_at")
+
+  card NktCard @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([notBefore, priority, enqueuedAt])
+  @@map("nkt_queue")
+}
+
+/// Соответствие «вид изделия → ОКТРУ», ведёт аналитик.
+///
+/// Ключ — префикс артикула до дефиса (n, z, d, t, k, a, b, m…): это
+/// единственная работающая классификация изделий. Колонка Article.series
+/// для этого не годится — на 05.09.2026 она пуста у всех 2 152 изделий.
+/// Вид грубее ОКТРУ, поэтому это умолчание: фактическая категория —
+/// в NktCard.oktru.
+model NktCategoryMap {
+  codePrefix   String   @id @map("code_prefix") @db.VarChar(10)
+  oktru        String   @db.VarChar(30)
+  /// Для контроля глазами, что код не перепутан
+  oktruName    String?  @map("oktru_name") @db.Text
+  tnvedDefault String?  @map("tnved_default") @db.VarChar(20)
+  isActive     Boolean  @default(true) @map("is_active")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("nkt_category_map")
+}
+
+/// Кэш схемы атрибутов НКТ. По нему рисуется форма паспорта и выполняется
+/// локальная валидация тела до отправки — заведомо невалидная заявка в НКТ
+/// не уходит и не тратит цикл модерации (ТЗ §12.3).
+model NktAttribute {
+  /// '' — базовые атрибуты, общие для всех категорий
+  oktru          String       @db.VarChar(30)
+  code           String       @db.VarChar(80)
+  attrGroup      NktAttrGroup @map("attr_group")
+  nameRu         String       @map("name_ru") @db.Text
+  nameKk         String?      @map("name_kk") @db.Text
+  descriptionRu  String?      @map("description_ru") @db.Text
+  /// string | text | number | boolean | dictionary | multiDictionary | date
+  dataType       String       @map("data_type") @db.VarChar(20)
+  isRequired     Boolean      @default(false) @map("is_required")
+  dictionaryCode String?      @map("dictionary_code") @db.VarChar(80)
+  pattern        String?      @db.Text
+  maxLength      Int?         @map("max_length")
+  minValue       String?      @map("min_value") @db.VarChar(40)
+  maxValue       String?      @map("max_value") @db.VarChar(40)
+  attributeOrder Int          @default(0) @map("attribute_order")
+  syncedAt       DateTime     @default(now()) @map("synced_at")
+
+  @@id([oktru, code])
+  @@map("nkt_attributes")
+}
+
+/// Кэш значений справочников НКТ. Руками не выписываются и в коде не
+/// хардкодятся (ТЗ §12.3) — приходят синхронизацией.
+model NktDictionaryValue {
+  dictionaryCode String   @map("dictionary_code") @db.VarChar(80)
+  valueId        String   @map("value_id") @db.VarChar(80)
+  nameRu         String   @map("name_ru") @db.Text
+  nameKk         String?  @map("name_kk") @db.Text
+  parentId       String?  @map("parent_id") @db.VarChar(80)
+  syncedAt       DateTime @default(now()) @map("synced_at")
+
+  @@id([dictionaryCode, valueId])
+  @@index([dictionaryCode, parentId])
+  @@map("nkt_dictionary_values")
+}
+
+/// Журнал обмена, 6 месяцев. Ключ API сюда не попадает: заголовки не
+/// пишутся, тела чистятся перед записью.
+model NktLogEntry {
+  id BigInt @id @default(autoincrement())
+  /// NULL — обмен не по изделию (синхронизация схемы, справочники)
+  cardId       String?         @map("card_id") @db.Uuid
+  direction    NktLogDirection
+  /// HTTP-метод и логическое имя операции: «POST createRequest»
+  method       String          @db.VarChar(60)
+  url          String          @db.Text
+  httpCode     Int?            @map("http_code")
+  requestBody  String?         @map("request_body") @db.Text
+  responseBody String?         @map("response_body") @db.Text
+  attempt      Int             @default(1)
+  durationMs   Int?            @map("duration_ms")
+  createdAt    DateTime        @default(now()) @map("created_at")
+
+  card NktCard? @relation(fields: [cardId], references: [id], onDelete: SetNull)
+
+  @@index([cardId, createdAt(sort: Desc)])
+  @@index([createdAt])
+  @@map("nkt_log")
 }

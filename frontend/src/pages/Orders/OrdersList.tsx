@@ -1,11 +1,11 @@
 import React from 'react';
-import { Stack } from '@mantine/core';
 import { IconTable, IconChartBar } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { OrdersRegistry } from './OrdersRegistry';
 import { OrdersDashboard } from './OrdersDashboard';
 import { FadeSwap } from '../../components/motion';
 import { SectionHead } from '../../components/SectionHeader';
+import { FitScreen } from '../../components/FitScreen';
 
 /**
  * Два вида раздела — один ряд вкладок (05.09.2026).
@@ -32,26 +32,33 @@ export function OrdersList() {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
 
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <SectionHead
-        title="Заказы"
-        subtitle="карточка по клику — вместо 66 столбцов вправо"
-        value={tab}
-        onChange={setTab}
-        tabs={[
-          { value: 'registry', label: 'Реестр', icon: <IconTable aria-hidden size={16} /> },
-          { value: 'dashboard', label: 'Дашборд', icon: <IconChartBar aria-hidden size={16} /> },
-        ]}
-      />
+  const header = (
+    <SectionHead
+      title="Заказы"
+      subtitle="карточка по клику — вместо 66 столбцов вправо"
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'registry', label: 'Реестр', icon: <IconTable aria-hidden size={16} /> },
+        { value: 'dashboard', label: 'Дашборд', icon: <IconChartBar aria-hidden size={16} /> },
+      ]}
+    />
+  );
 
-      {/* Содержимое вида живёт вне Tabs.Panel: так смена анимируется,
-          а не «мигает» — старое растворяется, новое поднимается */}
-      <FadeSwap swapKey={tab}>
-        {tab === 'dashboard'
-          ? <OrdersDashboard />
-          : <OrdersRegistry />}
-      </FadeSwap>
-    </Stack>
+  /* Рамка экрана: страница не прокручивается. Реестр сам подбирает число
+     строк под высоту; дашборд длиннее экрана и крутится внутри раздела
+     (страницей он прокручивался на 782 px при 1280×800, 06.09.2026).
+     Содержимое вида живёт вне Tabs.Panel: так смена анимируется,
+     а не «мигает» — старое растворяется, новое поднимается */
+  return (
+    <FitScreen header={header}>
+      <div className={tab === 'dashboard' ? 'section-body' : undefined} style={{ minWidth: 0 }}>
+        <FadeSwap swapKey={tab}>
+          {tab === 'dashboard'
+            ? <OrdersDashboard />
+            : <OrdersRegistry />}
+        </FadeSwap>
+      </div>
+    </FitScreen>
   );
 }

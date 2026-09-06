@@ -108,7 +108,7 @@ export function Receivables() {
             icon={<IconCoin aria-hidden size={20} />}
             value={totals.debt}
             format={(v) => formatCompactMoney(v)}
-            caption={`оплачено ${formatCurrency(totals.paid)} из ${formatCurrency(totals.contracted)} · ${paidPct} %`}
+            caption={`оплачено ${formatCompactMoney(totals.paid)} из ${formatCompactMoney(totals.contracted)} · ${paidPct} %`}
             items={top('debt')}
             emptyText="Долгов нет — всё оплачено"
             action={{ label: 'Все должники', onClick: () => setView('list') }}
@@ -131,7 +131,7 @@ export function Receivables() {
             icon={<IconHelpCircle aria-hidden size={20} />}
             value={totals.unknownAmount}
             format={(v) => formatCompactMoney(v)}
-            caption={`${totals.unknownOrders} заказов, по которым 1С не прислала оплату`}
+            caption={`${totals.unknownOrders} заказов без платежей из 1С`}
             items={top('unknownAmount')}
             emptyText="По всем заказам оплата известна"
           />

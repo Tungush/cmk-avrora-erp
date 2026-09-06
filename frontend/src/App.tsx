@@ -8,8 +8,8 @@ import { SectionErrorBoundary } from './components/ErrorBoundary';
 import { Login } from './pages/Login';
 import { MyWork } from './pages/MyWork';
 import { Settings } from './pages/Settings';
-import { Dashboard } from './pages/Dashboard/Dashboard';
 import { DirectorDashboard } from './pages/Dashboard/DirectorDashboard';
+import { useAuthStore } from './store/auth';
 import { OrdersList } from './pages/Orders/OrdersList';
 import { OrdersInbox } from './pages/Orders/OrdersInbox';
 import { ProductionPlan, ShopFloor } from './pages/Production';
@@ -63,6 +63,14 @@ const queryClient = new QueryClient({
   },
 });
 
+/** /dashboard: старая «Панель управления» (прокрутка, «Загрузка цеха 15056 %»
+    на демо-мощности) снята с маршрута 06.09.2026 — директора ведём на его
+    экран, остальных в «Работу» */
+function DashboardEntry() {
+  const hasRole = useAuthStore((s) => s.hasRole);
+  return <Navigate to={hasRole(['director']) ? '/dashboard/director' : '/'} replace />;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
@@ -75,7 +83,7 @@ export default function App() {
             {/* «Моя работа» — точка входа: очередь своей роли, а не общий дашборд */}
             <Route index element={<MyWork />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard" element={<DashboardEntry />} />
             <Route path="dashboard/director" element={<DirectorDashboard />} />
             <Route path="orders" element={<OrdersList />} />
             <Route path="orders/inbox" element={<OrdersInbox />} />

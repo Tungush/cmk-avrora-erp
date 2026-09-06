@@ -1,10 +1,11 @@
 import React from 'react';
-import { Stack, Text, Tabs } from '@mantine/core';
 import { IconCalendarWeek, IconTable } from '@tabler/icons-react';
 import { useSearchParams } from 'react-router-dom';
 import { WeeklyPlan } from './WeeklyPlan';
 import { PlanMatrix } from './PlanMatrix';
 import { FadeSwap } from '../../components/motion';
+import { FitScreen } from '../../components/FitScreen';
+import { SectionHead } from '../../components/SectionHeader';
 
 export function ProductionPlan() {
   // Вкладка в адресе — чтобы ссылки вели на конкретный разрез
@@ -14,28 +15,29 @@ export function ProductionPlan() {
     const next = new URLSearchParams(prev); next.set('tab', v); return next;
   }, { replace: true });
 
-  return (
-    <Stack gap="md" style={{ minWidth: 0 }}>
-      <Stack gap={4}>
-        <Text fw={900} style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-          Производственный план
-        </Text>
-        <Text size="sm" c="dimmed">План по изделиям и раскладка по неделям — вместо 110 столбцов вправо</Text>
-      </Stack>
+  /* Название и вкладки одной строкой, как в остальных разделах; матрица и
+     недели длиннее экрана и крутятся внутри раздела, а не страницей
+     («По неделям» прокручивал страницу на 312 px при 1280×800, 06.09.2026) */
+  const header = (
+    <SectionHead
+      title="Производственный план"
+      subtitle="план по изделиям и раскладка по неделям — вместо 110 столбцов вправо"
+      value={tab}
+      onChange={setTab}
+      tabs={[
+        { value: 'matrix', label: 'По изделиям', icon: <IconTable aria-hidden size={16} /> },
+        { value: 'weekly', label: 'По неделям', icon: <IconCalendarWeek aria-hidden size={16} /> },
+      ]}
+    />
+  );
 
-      <Tabs value={tab} onChange={(v) => setTab(v ?? 'matrix')} radius="md">
-        <Tabs.List mb="md">
-          <Tabs.Tab value="matrix" leftSection={<IconTable aria-hidden size={16} />}>По изделиям</Tabs.Tab>
-          <Tabs.Tab value="weekly" leftSection={<IconCalendarWeek aria-hidden size={16} />}>По неделям</Tabs.Tab>
-        </Tabs.List>
-        {/* Одна панель на текущую вкладку: содержимое сменяется растворением,
-            а не мигает — и aria-связь вкладки с панелью сохраняется */}
-        <Tabs.Panel value={tab}>
-          <FadeSwap swapKey={tab}>
-            {tab === 'matrix' ? <PlanMatrix /> : <WeeklyPlan />}
-          </FadeSwap>
-        </Tabs.Panel>
-      </Tabs>
-    </Stack>
+  return (
+    <FitScreen header={header}>
+      <div className="section-body" style={{ minWidth: 0 }}>
+        <FadeSwap swapKey={tab}>
+          {tab === 'matrix' ? <PlanMatrix /> : <WeeklyPlan />}
+        </FadeSwap>
+      </div>
+    </FitScreen>
   );
 }

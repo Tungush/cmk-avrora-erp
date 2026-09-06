@@ -133,13 +133,18 @@ export function UsersAdmin() {
                         <Text size="xs" c="dimmed" hiddenFrom="xl">с {formatDate(u.createdAt)}</Text>
                       </Table.Td>
                       <Table.Td>
-                        <Group gap={4}>
-                          {u.roles.map((r) => (
+                        {/* Не больше трёх бейджей в строке: сменная учётка с
+                            восемью ролями растягивала строку втрое (06.09.2026) */}
+                        <Group gap={4} wrap="nowrap" title={u.roles.map((r) => r.name).join(', ')}>
+                          {u.roles.slice(0, 3).map((r) => (
                             <Badge key={r.code} variant="light"
                               color={r.code === 'admin' ? 'danger' : 'gray'}>
                               {r.name}
                             </Badge>
                           ))}
+                          {u.roles.length > 3 && (
+                            <Badge variant="light" color="gray">+{u.roles.length - 3}</Badge>
+                          )}
                         </Group>
                       </Table.Td>
                       <Table.Td>

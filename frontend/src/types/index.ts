@@ -223,7 +223,10 @@ export interface Payment {
   id: string;
   paymentDocumentId: string;
   amount: number;
-  paidAt: string;
+  /** Дата платежа. В запросе поле называется paidAt, в ответе — paymentDate;
+      экран читал paidAt и показывал пусто (проверка перед пилотом 06.09.2026) */
+  paymentDate: string;
+  reference?: string | null;
 }
 
 export interface AcceptanceAct {

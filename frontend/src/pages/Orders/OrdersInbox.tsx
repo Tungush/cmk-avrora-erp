@@ -42,11 +42,13 @@ export function OrdersInbox({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
-  const { data, isLoading, refetch, isFetching } = useQuery({
+  const { data, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['orders', 'inbox'],
     queryFn: () => ordersApi.inbox().then((r) => r.data),
     refetchInterval: 30_000,
+    retry: (count, e) => (e as { response?: { status?: number } })?.response?.status !== 403 && count < 2,
   });
+  const denied = (error as { response?: { status?: number } } | null)?.response?.status === 403;
 
   const accept = useMutation({
     mutationFn: (id: string) => ordersApi.accept(id),
@@ -106,6 +108,20 @@ export function OrdersInbox({ embedded = false }: { embedded?: boolean } = {}) {
   const body = isLoading ? (
     <Stack gap={4} p="md">
       {[...Array(4)].map((_, i) => <Skeleton key={i} height={72} radius="md" />)}
+    </Stack>
+  ) : error ? (
+    /* 403 показывался как «Инбокс пуст» — мастер думал, что заказов нет
+       (проверка перед пилотом, 06.09.2026) */
+    <Stack align="center" gap="sm" py="xl">
+      <ThemeIcon size={56} radius="xl" variant="light" color="gray">
+        <IconInbox size={28} aria-hidden />
+      </ThemeIcon>
+      <Text fw={700}>{denied ? 'Нет доступа к входящим' : 'Не удалось загрузить входящие'}</Text>
+      <Text size="sm" c="dimmed" ta="center">
+        {denied
+          ? 'Входящие заказы принимают плановик, менеджер и директор — у вашей роли этого права нет.'
+          : 'Попробуйте обновить через минуту; если не проходит — сообщите администратору.'}
+      </Text>
     </Stack>
   ) : orders.length === 0 ? (
     <Stack align="center" gap="sm" py="xl">

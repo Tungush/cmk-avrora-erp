@@ -14,6 +14,7 @@ import { Sparkline } from '../../components/dashboard/Sparkline';
 import { SmartPeekCard, PeekRow, PeekWarmProvider } from '../../components/dashboard/SmartPeekCard';
 import { OrderRef, useOrderCard } from '../../components/OrderCard/OrderCardProvider';
 import { formatCompactMoney, formatCurrency } from '../../utils/formatters';
+import { useAuthStore } from '../../store/auth';
 import './Dashboard.css';
 
 /**
@@ -49,7 +50,25 @@ const HEALTH: Record<string, { label: string; tone?: 'ok' | 'warn' | 'danger' }>
   CRITICAL: { label: 'критично', tone: 'danger' }, NO_COSTING: { label: 'нет расчёта' },
 };
 
+/** Экран директора — только директору и администратору: сменный аккаунт
+    открывал его по адресу и видел деньги при 403 от части ручек (06.09.2026) */
 export function DirectorDashboard() {
+  const hasRole = useAuthStore((s) => s.hasRole);
+  if (!hasRole(['director'])) {
+    return (
+      <FitScreen>
+        <div className="section-empty">
+          <Text fw={700}>Экран директора</Text>
+          <Text size="sm" c="dimmed">Доступен директору и администратору. Ваши задачи — в разделе «Работа».</Text>
+          <Button component={Link} to="/" variant="default" size="sm" mt="sm">К моей работе</Button>
+        </div>
+      </FitScreen>
+    );
+  }
+  return <DirectorDashboardInner />;
+}
+
+function DirectorDashboardInner() {
   const [active, setActive] = useState<Key>('margin');
   const [peek, setPeek] = useState<Key | null>(null);
   const [tab, setTab] = useState<Tab>('margin');
@@ -79,7 +98,9 @@ export function DirectorDashboard() {
   const tabs: Array<{ key: Tab; label: string; summary?: string }> = [
     { key: 'margin', label: 'Маржа по заказам', summary: margin ? `${margin.ordersShown} из ${margin.ordersTotal} · ${margin.actualPct ?? '—'}%` : undefined },
     { key: 'money', label: 'Деньги', summary: `должны ${formatCompactMoney(money.totalUnpaid)} · нам ${cash ? formatCompactMoney(cash.receivables.owed) : '…'}` },
-    { key: 'overdue', label: 'Просрочено', summary: data ? String(data.overdue.length) : undefined },
+    // Счётчик — из ответа, не длина списка: список ограничен пятью строками
+    // и подпись «Просрочено 5» при 56 просроченных вводила в заблуждение
+    { key: 'overdue', label: 'Просрочено', summary: data ? String((data as { overdueCount?: number }).overdueCount ?? data.overdue.length) : undefined },
   ];
 
   /* Нажатие на карточку или кольцо: выбрать вопрос и раскрыть его секцию */

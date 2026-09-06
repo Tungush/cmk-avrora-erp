@@ -74,7 +74,7 @@ function SiteCell({ orderId, line, canEdit }: { orderId: string; line: any; canE
       style={canEdit ? { cursor: 'pointer' } : undefined}
       onClick={canEdit ? () => { setValue(line.siteCode ?? ''); setEditing(true); } : undefined}
     >
-      {line.siteCode ?? (canEdit ? <span className="peek__inline">указать объект</span> : '—')}
+      {line.siteCode ?? (canEdit ? <span className="peek__inline" title="указать объект (БС)">указать</span> : '—')}
     </Text>
   );
 }
@@ -383,15 +383,17 @@ function ContractorSection({ orderId, orderNumber }: { orderId: string; orderNum
         </Text>
       ) : (
         <>
-          <TableScroll minWidth={600}>
-            <Table verticalSpacing="xs">
+          <TableScroll minWidth={520}>
+            {/* Фиксированные ширины: без них таблица была шире карточки на
+                199 px при 1280 и уезжала в прокрутку (06.09.2026) */}
+            <Table verticalSpacing="xs" layout="fixed">
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Вид работ</Table.Th>
-                  <Table.Th ta="right">Норма</Table.Th>
-                  <Table.Th ta="right">Забрал подряд</Table.Th>
-                  <Table.Th ta="right">Осталось штату</Table.Th>
-                  <Table.Th ta="right">Подрядчику, ₸</Table.Th>
+                  <Table.Th ta="right" w={84}>Норма</Table.Th>
+                  <Table.Th ta="right" w={104}>Забрал подряд</Table.Th>
+                  <Table.Th ta="right" w={108}>Осталось штату</Table.Th>
+                  <Table.Th ta="right" w={118}>Подрядчику, ₸</Table.Th>
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
@@ -667,15 +669,17 @@ export function OrderDetail({
         ) : (
           <>
           <FadeSwap swapKey={linesPaged.page}>
-            <TableScroll minWidth={660}>
+            {/* Колонка карточки на 1280 — 565 px: ширины подобраны, чтобы
+                пять столбцов влезали без прокрутки (06.09.2026) */}
+            <TableScroll minWidth={540}>
                 <Table highlightOnHover verticalSpacing="xs" style={{ tableLayout: 'fixed' }}>
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>Артикул</Table.Th>
-                      <Table.Th w={150}>Объект / БС</Table.Th>
-                      <Table.Th ta="right" w={90}>Кол-во</Table.Th>
-                      {canCommercial && <Table.Th ta="right" w={130}>Цена</Table.Th>}
-                      {canCommercial && <Table.Th ta="right" w={150}>Сумма с НДС</Table.Th>}
+                      <Table.Th w={104}>Объект / БС</Table.Th>
+                      <Table.Th ta="right" w={66}>Кол-во</Table.Th>
+                      {canCommercial && <Table.Th ta="right" w={120}>Цена</Table.Th>}
+                      {canCommercial && <Table.Th ta="right" w={126}>Сумма с НДС</Table.Th>}
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>

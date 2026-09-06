@@ -208,7 +208,8 @@ func loadOrderLines(ctx context.Context, pool *pgxpool.Pool, orderIDs []string) 
 		SELECT `+orderLineColsPrefixed+`, `+articleColsPrefixed+`
 		FROM order_lines ol
 		LEFT JOIN articles a ON a.id = ol.article_id
-		WHERE ol.order_id = ANY($1)`, orderIDs)
+		WHERE ol.order_id = ANY($1)
+		ORDER BY ol.source_row_number NULLS LAST, ol.id`, orderIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +721,15 @@ func (h *OrdersHandler) transitionOrder(ctx context.Context, id, toStatus string
 	}
 	defer tx.Rollback(ctx)
 
-	if _, err := tx.Exec(ctx, "UPDATE orders SET status = $1 WHERE id = $2", toStatus, id); err != nil {
+	// updated_at — клиентское поведение Prisma, в БД дефолта нет; при
+	// отгрузке заполняется дата фактической отгрузки (по ней считается
+	// «Отгрузка за месяц» у директора — была пуста у всех заказов, 06.09.2026)
+	if toStatus == orderstate.StatusShipped {
+		today := time.Now().In(time.Local).Format("2006-01-02")
+		if _, err := tx.Exec(ctx, "UPDATE orders SET status = $1, updated_at = now(), actual_shipment_date = COALESCE(actual_shipment_date, $3::date) WHERE id = $2", toStatus, id, today); err != nil {
+			return o, orderstate.AuditLogPayload{}, failDB()
+		}
+	} else if _, err := tx.Exec(ctx, "UPDATE orders SET status = $1, updated_at = now() WHERE id = $2", toStatus, id); err != nil {
 		return o, orderstate.AuditLogPayload{}, failDB()
 	}
 	if err := integration.Enqueue(ctx, tx, integration.Message{
@@ -767,23 +776,24 @@ func dbUserID(userID string) *string {
 }
 
 func (h *OrdersHandler) loadTransitionLines(ctx context.Context, orderID string) ([]orderstate.OrderLineCtx, error) {
-	rows, err := h.pool.Query(ctx, "SELECT qty, reserved_qty, article_id FROM order_lines WHERE order_id = $1", orderID)
+	// Код изделия — в текст ошибок людям («по позиции z-227 отгружено 0 из 1»);
+	// пустой код по-прежнему означает «артикул не сопоставлен»
+	rows, err := h.pool.Query(ctx, `
+		SELECT ol.qty, ol.reserved_qty, COALESCE(ol.shipped_qty, 0), COALESCE(a.article_code, '')
+		FROM order_lines ol LEFT JOIN articles a ON a.id = ol.article_id
+		WHERE ol.order_id = $1`, orderID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []orderstate.OrderLineCtx
 	for rows.Next() {
-		var qty, reservedQty float64
-		var articleID *string
-		if err := rows.Scan(&qty, &reservedQty, &articleID); err != nil {
+		var qty, reservedQty, shippedQty float64
+		var code string
+		if err := rows.Scan(&qty, &reservedQty, &shippedQty, &code); err != nil {
 			return nil, err
 		}
-		code := ""
-		if articleID != nil {
-			code = *articleID
-		}
-		out = append(out, orderstate.OrderLineCtx{Qty: qty, ReservedQty: reservedQty, ArticleCode: code})
+		out = append(out, orderstate.OrderLineCtx{Qty: qty, ReservedQty: reservedQty, ShippedQty: shippedQty, ArticleCode: code})
 	}
 	return out, rows.Err()
 }
@@ -1694,7 +1704,9 @@ func (h *OrdersHandler) postProductionCompleted(ctx context.Context, tx pgx.Tx, 
 	}
 	orows.Close()
 
-	releaseDate := time.Now().UTC()
+	// Местное время: дата движения ГП (колонка date) берётся из него, и по
+	// UTC отметка ночной смены до 05:00 ложилась во вчерашний день
+	releaseDate := time.Now().In(time.Local)
 	linesPayload := make([]gin.H, 0, len(producedLines))
 	for _, l := range producedLines {
 		var guid interface{}
@@ -1785,13 +1797,24 @@ func (h *OrdersHandler) postProductionCancelled(ctx context.Context, tx pgx.Tx, 
 	}
 
 	// Откатываем ровно те движения, что реально были созданы при завершении —
-	// не текущий состав позиций заказа: он мог измениться между завершением и отменой
+	// не текущий состав позиций заказа: он мог измениться между завершением и
+	// отменой. И только НЕ откаченный остаток: прежде каждое «снять» писало
+	// −qty за каждое «с_производства», включая уже скомпенсированные прошлым
+	// циклом «отметить → снять», и остаток ГП уходил в минус с каждым
+	// повтором (найдено проверкой перед пилотом, 06.09.2026).
 	type posted struct {
 		ItemID string
 		Qty    float64
 	}
 	var postedRows []posted
-	rows, err := tx.Query(ctx, `SELECT item_id, qty FROM finished_goods_movements WHERE order_id = $1 AND movement_type = 'с_производства'`, o.ID)
+	rows, err := tx.Query(ctx, `
+		SELECT item_id, SUM(qty) AS net
+		FROM finished_goods_movements
+		WHERE order_id = $1
+		  AND (movement_type = 'с_производства'
+		       OR (movement_type = 'коррекция' AND project = 'отмена изготовления'))
+		GROUP BY item_id
+		HAVING SUM(qty) > 0`, o.ID)
 	if err != nil {
 		return err
 	}
@@ -1805,7 +1828,9 @@ func (h *OrdersHandler) postProductionCancelled(ctx context.Context, tx pgx.Tx, 
 	}
 	rows.Close()
 
-	now := time.Now().UTC()
+	// Дата движения — местная (Asia/Almaty): по UTC ночная смена до 05:00
+	// записывалась вчерашним днём
+	now := time.Now().In(time.Local)
 	for _, p := range postedRows {
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO finished_goods_movements (id, item_id, order_id, movement_type, qty, movement_date, project)

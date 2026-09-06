@@ -379,7 +379,15 @@ func (h *Handler) Director(c *gin.Context) {
 		fail(c, err)
 		return
 	}
+	// Список — топ-5, счётчик — по всем: вкладка «Просрочено» подписывалась
+	// длиной списка («5» при 56 просроченных, 06.09.2026)
+	var overdueCount int
+	if err := h.pool.QueryRow(ctx, "SELECT count(*) FROM orders WHERE overdue_days > 0 AND is_archived = false").Scan(&overdueCount); err != nil {
+		fail(c, err)
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{
+		"overdueCount": overdueCount,
 		"margin": gin.H{"targetPct": 35, "totalPrice": jsRound(tp), "totalCost": jsRound(tc), "totalMargin": jsRound(tm), "actualPct": actualPct,
 			"orders": orders, "ordersTotal": len(oms), "ordersShown": shown},
 		"needsDecision": gin.H{"batchOverrides": pendingOverrides, "priceReviews": pendingReviews, "nomenclatureStuck": nomStuck,
@@ -400,11 +408,11 @@ func (h *Handler) MonthlySeries(c *gin.Context) {
 	for i := 5; i >= 0; i-- {
 		from := time.Date(now.Year(), now.Month()-time.Month(i), 1, 0, 0, 0, 0, time.Local)
 		to := time.Date(now.Year(), now.Month()-time.Month(i)+1, 1, 0, 0, 0, 0, time.Local)
-		// Prisma для @db.Date-фильтра усекает JS Date до КАЛЕНДАРНОЙ ДАТЫ ПО UTC:
-		// локальная полночь 1-го (UTC+5) = 19:00Z последнего дня прошлого месяца
-		// → окно [последний день прошлого месяца, последний день этого) — не
-		// календарный месяц. Баг оригинала (сдвиг на день), повторяем как есть.
-		fromT, toT := from.UTC().Format("2006-01-02"), to.UTC().Format("2006-01-02")
+		// Границы — календарные даты по местному времени. У NestJS здесь был
+		// сдвиг на день (Prisma усекала локальную полночь до даты по UTC, и окно
+		// начиналось с последнего дня прошлого месяца); после снятия Nest
+		// повторять его незачем — исправлено 06.09.2026.
+		fromT, toT := from.Format("2006-01-02"), to.Format("2006-01-02")
 		var in, planned, shipped int
 		if err := h.pool.QueryRow(ctx, "SELECT count(*) FROM orders WHERE request_date >= $1::date AND request_date < $2::date", fromT, toT).Scan(&in); err != nil {
 			fail(c, err)
@@ -577,14 +585,22 @@ func (h *Handler) WorkloadForecast(c *gin.Context) {
 
 type cash struct {
 	Contracted, Paid, Owed, PayOwed float64
-	Active, NoData                  int
+	// NoDataAmount — сумма заказов, по которым 1С не прислала оплату: это не
+	// долг, а неизвестность, и в «нам должны» она не входит (06.09.2026 —
+	// раньше 1,02 млрд ₸ таких заказов показывались как долг целиком)
+	NoDataAmount   float64
+	Active, NoData int
 }
 
 func (h *Handler) cash(c *gin.Context) (cash, error) {
 	ctx := c.Request.Context()
-	var total, paid, unpaid *float64
+	var total, paid, unpaid, knownTotal, noDataAmount *float64
 	var active, noData int
-	if err := h.pool.QueryRow(ctx, "SELECT sum(onec_total_amount), sum(onec_paid_amount), count(*) FROM orders WHERE status NOT IN ('CLOSED','CANCELLED')").Scan(&total, &paid, &active); err != nil {
+	if err := h.pool.QueryRow(ctx, `
+		SELECT sum(onec_total_amount), sum(onec_paid_amount), count(*),
+		       sum(onec_total_amount) FILTER (WHERE onec_paid_amount IS NOT NULL),
+		       sum(onec_total_amount) FILTER (WHERE onec_paid_amount IS NULL)
+		FROM orders WHERE status NOT IN ('CLOSED','CANCELLED')`).Scan(&total, &paid, &active, &knownTotal, &noDataAmount); err != nil {
 		return cash{}, err
 	}
 	if err := h.pool.QueryRow(ctx, "SELECT sum(unpaid_amount) FROM payment_documents").Scan(&unpaid); err != nil {
@@ -599,7 +615,11 @@ func (h *Handler) cash(c *gin.Context) (cash, error) {
 		}
 		return *p
 	}
-	return cash{Contracted: nz(total), Paid: nz(paid), Owed: nz(total) - nz(paid), PayOwed: nz(unpaid), Active: active, NoData: noData}, nil
+	owed := nz(knownTotal) - nz(paid)
+	if owed < 0 {
+		owed = 0
+	}
+	return cash{Contracted: nz(total), Paid: nz(paid), Owed: owed, PayOwed: nz(unpaid), NoDataAmount: nz(noDataAmount), Active: active, NoData: noData}, nil
 }
 
 // CashForecast — GET /dashboards/cash-forecast
@@ -609,7 +629,7 @@ func (h *Handler) CashForecast(c *gin.Context) {
 		fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"receivables": gin.H{"contracted": x.Contracted, "paid": x.Paid, "owed": x.Owed, "activeOrders": x.Active, "ordersWithoutPaymentData": x.NoData}, "payables": gin.H{"owed": x.PayOwed}})
+	c.JSON(http.StatusOK, gin.H{"receivables": gin.H{"contracted": x.Contracted, "paid": x.Paid, "owed": x.Owed, "activeOrders": x.Active, "ordersWithoutPaymentData": x.NoData, "withoutPaymentDataAmount": x.NoDataAmount}, "payables": gin.H{"owed": x.PayOwed}})
 }
 
 // ProductionSummary — GET /dashboards/production-summary

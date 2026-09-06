@@ -550,11 +550,12 @@ func (h *ProductionPlanHandler) Matrix(c *gin.Context) {
 	ctx := c.Request.Context()
 	fallback := gin.H{"year": year, "months": months, "data": []interface{}{}}
 
-	// new Date(year,0,1) — локальная полночь; Prisma шлёт её как UTC-момент,
-	// и фильтр по @db.Date даёт окно [31 дек прошлого года, 31 дек этого) —
-	// латентная особенность оригинала, воспроизводится (см. dashboards)
-	from := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local).UTC().Format("2006-01-02")
-	to := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local).UTC().Format("2006-01-02")
+	// Окно — календарный год по местным датам [1 янв, 1 янв следующего).
+	// У NestJS здесь был сдвиг на день (Prisma усекала локальную полночь до
+	// даты по UTC → окно с 31 декабря прошлого года, и движение за это число
+	// роняло матрицу ошибкой ключа месяца); исправлено 06.09.2026.
+	from := time.Date(year, 1, 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
+	to := time.Date(year+1, 1, 1, 0, 0, 0, 0, time.Local).Format("2006-01-02")
 
 	rows := map[string]*matrixRow{}
 	var order []string
@@ -630,10 +631,9 @@ func (h *ProductionPlanHandler) Matrix(c *gin.Context) {
 		}
 		cell, ok := r.cells[m.key]
 		if !ok {
-			// Оригинал: r.cells[key] undefined → TypeError → 500 (дата 31 дек
-			// прошлого года попадает в окно из-за сдвига выше)
-			dbErr(c, errMatrixKey(m.key))
-			return
+			// Страховка: окно выше совпадает с месяцами матрицы, сюда попадать
+			// нечему; если движение всё же вне года — пропускаем, а не роняем экран
+			continue
 		}
 		cell.Fact += m.qty
 	}

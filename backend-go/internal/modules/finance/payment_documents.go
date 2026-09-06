@@ -369,8 +369,15 @@ func (h *PaymentDocumentsHandler) Reconciliation(c *gin.Context) {
 	}
 	customers := make([]gin.H, 0, limit)
 	balSum := 0.0
+	// «Заказчиков с долгом» — у кого долг есть, а не длина списка сверки
+	// (показывало 63 при 13 должниках, 06.09.2026)
+	withDebt := 0
 	for _, r := range list {
 		balSum += r.BalanceDueOrders
+		// Долг заказчика — по заказам; неоплаченные ДО — это наш долг поставщику
+		if r.BalanceDueOrders > 0.005 {
+			withDebt++
+		}
 	}
 	for _, r := range list[:limit] {
 		customers = append(customers, gin.H{"customerId": r.CustomerID, "customerName": r.CustomerName, "ordersCount": r.OrdersCount,
@@ -378,7 +385,7 @@ func (h *PaymentDocumentsHandler) Reconciliation(c *gin.Context) {
 			"unpaidByDo": r.UnpaidByDo, "paidByDo": r.PaidByDo, "discrepancy": r.Discrepancy})
 	}
 	c.JSON(http.StatusOK, gin.H{"customers": customers, "orders": byOrder, "totals": gin.H{
-		"customersWithDebt": len(list), "balanceDueOrders": round2(balSum), "unpaidByDo": aggUnpaid,
+		"customersWithDebt": withDebt, "balanceDueOrders": round2(balSum), "unpaidByDo": aggUnpaid,
 		"procurementTotal": aggTotal, "docsCount": aggCount, "shippedWithoutDo": shippedWithoutDo, "docsWithoutOrder": docsWithoutOrder,
 	}})
 }

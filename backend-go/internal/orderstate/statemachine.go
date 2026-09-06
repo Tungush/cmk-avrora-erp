@@ -45,10 +45,44 @@ func DeriveStatusFromStages(current string, stages []StageRow, productLineIDs []
 type OrderLineCtx struct {
 	Qty         float64
 	ReservedQty float64
+	// ShippedQty — отгружено по актам приёма-передачи (АПП): единственный
+	// факт отгрузки, который ведёт бизнес (решение 28.08.2026)
+	ShippedQty float64
 	// ArticleCode — оригинал буквально передаёт сюда l.articleId (UUID), не
 	// код артикула (articleCode: l.articleId ?? undefined в orders.controller.ts)
 	// — это баг в тексте сообщений/условии "нет артикула", но повторяется как есть
 	ArticleCode string
+}
+
+// shippedByActs — сколько позиций уже имеют отгрузку по актам и все ли
+// отгружены целиком (с допуском на дробные количества)
+func shippedByActs(lines []OrderLineCtx) (touched int, all bool) {
+	all = len(lines) > 0
+	for _, l := range lines {
+		if l.ShippedQty > 1e-6 {
+			touched++
+		}
+		if l.ShippedQty+1e-6 < l.Qty {
+			all = false
+		}
+	}
+	return touched, all
+}
+
+// ValidateShippedByActsGuard — в SHIPPED только когда по каждой позиции акт
+// закрыл всё количество. Прежняя проверка резерва партий
+// (INSUFFICIENT_RESERVED_QTY) на пилоте не выполнима: резервов на готовую
+// продукцию нет, и готовый заказ нельзя было отгрузить вовсе (06.09.2026).
+func ValidateShippedByActsGuard(lines []OrderLineCtx) error {
+	for _, l := range lines {
+		if l.ShippedQty+1e-6 < l.Qty {
+			return NewGuardError(
+				fmt.Sprintf("Нельзя отгрузить: по позиции %s отгружено %s из %s — оформите акт приёма-передачи на остаток",
+					l.ArticleCode, trimFloat(l.ShippedQty), trimFloat(l.Qty)),
+				"SHIPMENT_INCOMPLETE")
+		}
+	}
+	return nil
 }
 
 type OrderStateContext struct {
@@ -100,6 +134,22 @@ func Transition(ctx OrderStateContext, req TransitionRequest) (AuditLogPayload, 
 		}
 		if req.Comment == nil || strings.TrimSpace(*req.Comment) == "" {
 			return AuditLogPayload{}, NewGuardError("Cancellation requires a mandatory non-empty comment", "MISSING_CANCELLATION_COMMENT")
+		}
+		// Заказ с проведёнными актами отменялся молча, акты оставались
+		// (проверка перед пилотом, 06.09.2026)
+		if touched, _ := shippedByActs(ctx.Lines); touched > 0 {
+			return AuditLogPayload{}, NewGuardError(
+				fmt.Sprintf("Нельзя отменить заказ: по %d позициям уже оформлены акты отгрузки. Сначала сторнируйте акты", touched),
+				"ORDER_HAS_SHIPMENTS")
+		}
+		return createAuditLog(ctx, target, req.UserID, req.UserRole, req.Comment), nil
+	}
+
+	// Отгрузка по актам возможна и минуя цех: исторические заказы из 1С
+	// никто не отмечал «изготовлено», а акты по ним проведены
+	if target == StatusShipped && (current == StatusConfirmed || current == StatusInProduction) {
+		if err := ValidateShippedByActsGuard(ctx.Lines); err != nil {
+			return AuditLogPayload{}, err
 		}
 		return createAuditLog(ctx, target, req.UserID, req.UserRole, req.Comment), nil
 	}
@@ -173,15 +223,10 @@ func Transition(ctx OrderStateContext, req TransitionRequest) (AuditLogPayload, 
 		if target != StatusShipped {
 			return AuditLogPayload{}, NewGuardError("Invalid transition from READY_TO_SHIP to "+target, "INVALID_TRANSITION")
 		}
-		resLines := make([]ReservationLine, len(ctx.Lines))
-		for i, l := range ctx.Lines {
-			resLines[i] = ReservationLine{Qty: l.Qty, ReservedQty: l.ReservedQty, ArticleCode: l.ArticleCode}
-		}
-		if err := ValidateShippedReservationGuard(resLines); err != nil {
+		// Достаточно любого подтверждения отгрузки: акты по всем позициям
+		// или движения ГП «отгрузка» на всё количество
+		if err := ValidateShippedByActsGuard(ctx.Lines); err != nil && !ctx.FinishedGoodsShipped {
 			return AuditLogPayload{}, err
-		}
-		if !ctx.FinishedGoodsShipped {
-			return AuditLogPayload{}, NewGuardError("Cannot move to SHIPPED: finished goods shipment movement is missing or incomplete", "INCOMPLETE_SHIPMENT_MOVEMENT")
 		}
 
 	case StatusShipped:

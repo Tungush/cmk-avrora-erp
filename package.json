@@ -18,8 +18,14 @@
     "build": "npm --prefix frontend run build",
     "build:go": "cd backend-go && go build -o bin/server ./cmd/server",
     "docker:build": "docker build -f backend-go/Dockerfile -t cmk-avrora-erp .",
-    "prod:up": "docker compose -f backend/docker-compose.yml --profile prod up -d --build && docker image prune -f",
-    "prod:logs": "docker compose -f backend/docker-compose.yml logs -f api"
+    "ensure-secrets": "node scripts/ensure-secrets.mjs",
+    "pilot": "node scripts/ensure-secrets.mjs && docker compose -f backend/docker-compose.yml --profile pilot up -d --build && docker image prune -f",
+    "pilot:down": "docker compose -f backend/docker-compose.yml --profile pilot down",
+    "pilot:logs": "docker compose -f backend/docker-compose.yml logs -f api-pilot",
+    "prod:up": "node scripts/ensure-secrets.mjs && docker compose -f backend/docker-compose.yml --profile prod up -d --build && docker image prune -f",
+    "prod:logs": "docker compose -f backend/docker-compose.yml logs -f api",
+    "db:backup": "node scripts/db-backup.mjs",
+    "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

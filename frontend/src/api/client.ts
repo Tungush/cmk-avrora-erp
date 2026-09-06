@@ -25,11 +25,14 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 → logout
+// Handle 401 → logout. Сам вход — исключение: 401 на /auth/login значит
+// «неверный пароль», и форма должна показать это, а не перезагрузить
+// страницу с пустыми полями (найдено проверкой перед пилотом, 06.09.2026)
 api.interceptors.response.use(
   (res) => res,
   (error) => {
-    if (error.response?.status === 401) {
+    const url: string = error.config?.url ?? '';
+    if (error.response?.status === 401 && !url.includes('/auth/login')) {
       useAuthStore.getState().logout();
       window.location.href = '/login';
     }

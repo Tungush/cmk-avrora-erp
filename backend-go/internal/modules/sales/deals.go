@@ -422,8 +422,10 @@ func (h *Handler) UpdateStatus(c *gin.Context) {
 		}
 	}
 	user := authpkg.CurrentUser(c)
+	// Демо/сервисные учётки (usr-*) в таблице users не существуют — внешний
+	// ключ audit_log.user_id ронял всю смену статуса ошибкой базы (06.09.2026)
 	var uid *string
-	if user.UserID != "" {
+	if user.UserID != "" && !strings.HasPrefix(user.UserID, "usr-") {
 		uid = &user.UserID
 	}
 	role := "system"

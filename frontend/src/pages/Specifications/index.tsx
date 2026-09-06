@@ -25,6 +25,8 @@ import { SectionHead } from '../../components/SectionHeader';
 import { TableScroll } from '../../components/TableScroll';
 import { PaginationBar, usePagedList } from '../../components/PaginationBar';
 import { FadeSwap, Collapse } from '../../components/motion';
+import { routingApi } from '../../api/routing';
+import { apiErrorMessage } from '../../api/errors';
 import type { CostingPreviewResponse, RoutingStageCode, RoutingStageRow } from '../../api/routing';
 import type { Article } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -847,7 +849,17 @@ export function Specifications() {
               <Button variant="default" size="sm" leftSection={<IconHistory aria-hidden size={16} />} onClick={() => setHistoryOpened(true)}>
                 История
               </Button>
-              <Button variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />} onClick={() => refetch()}>
+              {/* Настоящий пересчёт на сервере (снимок калькуляции + история),
+                  а не перечитывание данных — кнопка молчала (06.09.2026) */}
+              <Button
+                variant="light" size="sm" leftSection={<IconRefresh aria-hidden size={16} />}
+                onClick={() => {
+                  if (!openedId) return;
+                  routingApi.recalculate(openedId)
+                    .then(() => { refetch(); notifications.show({ title: 'Себестоимость пересчитана', message: `${article?.articleCode ?? ''} · снимок записан в историю`, color: 'success' }); })
+                    .catch((e) => notifications.show({ title: 'Не пересчитано', message: apiErrorMessage(e), color: 'danger' }));
+                }}
+              >
                 Пересчитать
               </Button>
             </div>

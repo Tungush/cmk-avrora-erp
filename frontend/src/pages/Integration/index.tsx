@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { FitScreen } from '../../components/FitScreen';
 import {
   Card, Stack, Group, Text, Badge, Button, Table, Skeleton, SimpleGrid,
   Alert, ActionIcon, Tooltip, Tabs,
@@ -156,7 +157,9 @@ function MessagesTable({ rows, onRetry }: { rows: Message[]; onRetry: (id: strin
  * Журнал обмена с 1С (08_INTEGRATION_1C.md §3).
  * Показывает то, что в Excel было невидимо: что не долетело и почему.
  */
-export function Integration() {
+/** embedded — внутри вкладки настроек (рамку экрана даёт родитель);
+    отдельный раздел /integration — своя рамка, страница не прокручивается */
+export function Integration({ embedded = false }: { embedded?: boolean } = {}) {
   const qc = useQueryClient();
   const [tab, setTab] = useState<string>('out');
 
@@ -218,7 +221,7 @@ export function Integration() {
     );
   }
 
-  return (
+  const content = (
     <Stack gap="md" style={{ minWidth: 0 }}>
       <Stack gap={4}>
         <Text fw={700} style={{ fontSize: 'clamp(20px, 2.4vw, 28px)', letterSpacing: '-0.01em', lineHeight: 1.15 }}>
@@ -306,5 +309,13 @@ export function Integration() {
         </Stack>
       </Card>
     </Stack>
+  );
+  if (embedded) return content;
+  /* Журнал и инструкция длиннее экрана — крутятся внутри раздела
+     (страница прокручивалась на 990 px при 1280×800, 06.09.2026) */
+  return (
+    <FitScreen>
+      <div className="section-body" style={{ minWidth: 0 }}>{content}</div>
+    </FitScreen>
   );
 }

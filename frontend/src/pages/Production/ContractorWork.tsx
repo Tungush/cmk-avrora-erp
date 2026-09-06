@@ -1489,6 +1489,9 @@ const WORK_STAGE_LABELS: Record<string, string> = {
   'зачистка/покраска': 'Зачистка / покраска',
 };
 
+/** Стабильный пустой список: новый [] на каждый рендер сбрасывал бы страницу */
+const NO_WORKS: WorkRow[] = [];
+
 function AllocatedTab() {
   const qc = useQueryClient();
   const hasRole = useAuthStore((s) => s.hasRole);
@@ -1537,6 +1540,12 @@ function AllocatedTab() {
     }),
   });
 
+  // Хук — ДО ранних выходов: пока данные грузились, usePagedList не
+  // вызывался, а с данными — вызывался, и React ронял вкладку ошибкой #310
+  // «число хуков изменилось» (найдено проверкой перед пилотом, 06.09.2026)
+  const works = data?.data ?? NO_WORKS;
+  const worksPaged = usePagedList(works, 25, works.length);
+
   // Молчаливый вечный скелет — худший вид ошибки: человек ждёт данных,
   // которых ему не отдадут. Список работ открыт не всем ролям
   if (error) {
@@ -1563,7 +1572,6 @@ function AllocatedTab() {
 
   const totalOwed = data.data.reduce((s, w) => s + (w.isAccepted ? w.amount ?? 0 : 0), 0);
   const openCount = data.data.filter((w) => !w.isAccepted).length;
-  const worksPaged = usePagedList(data.data, 25, data.data.length);
 
   return (
     <Stack gap="md">

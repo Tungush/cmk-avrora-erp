@@ -115,7 +115,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func (h *AuthHandler) Me(c *gin.Context) {
 	u := auth.CurrentUser(c)
-	c.JSON(http.StatusCreated, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"user":        userOut{UserID: u.UserID, Email: u.Email, Roles: u.Roles},
 		"family":      auth.FamilyForRoles(u.Roles),
 		"permissions": authpkgPermissions(u.Roles),
