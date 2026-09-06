@@ -4,6 +4,7 @@
 package warehouse
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"sort"
@@ -466,8 +467,9 @@ func (h *WarehouseHandler) PostMaterialMovement(c *gin.Context) {
 	ctx := c.Request.Context()
 	materialID, _ := body["materialId"].(string)
 	var matPurchasePrice decimal.Decimal
-	var matCode, matName string
-	if err := h.pool.QueryRow(ctx, "SELECT purchase_price, material_code, name FROM materials WHERE id = $1", materialID).Scan(&matPurchasePrice, &matCode, &matName); err == pgx.ErrNoRows {
+	var matCode, matName, matUnit string
+	var matStock float64
+	if err := h.pool.QueryRow(ctx, "SELECT purchase_price, material_code, name, COALESCE(unit,''), COALESCE(stock_qty,0) FROM materials WHERE id = $1", materialID).Scan(&matPurchasePrice, &matCode, &matName, &matUnit, &matStock); err == pgx.ErrNoRows {
 		common.NotFound(c, "Material "+materialID+" not found")
 		return
 	} else if err != nil {
@@ -480,8 +482,21 @@ func (h *WarehouseHandler) PostMaterialMovement(c *gin.Context) {
 		common.BadRequest(c, "RECEIPT_COMES_FROM_1C", "Приход материала не заводится руками — он приходит из «Заказа поставщику» 1С с фактической ценой")
 		return
 	}
-	qty, _ := body["qty"].(float64)
+	qty, isNum := body["qty"].(float64)
+	if !isNum || math.IsNaN(qty) || math.IsInf(qty, 0) || qty == 0 {
+		common.BadRequest(c, "INVALID_QTY", "Количество должно быть больше нуля")
+		return
+	}
 	absQty := math.Abs(qty)
+	// Списать больше, чем лежит на складе, нельзя: остаток уходил в минус и
+	// тянул за собой отрицательную стоимость запаса (проверка перед пилотом,
+	// 06.09.2026 — списание 1000 шт при остатке 14 давало −986)
+	if absQty > matStock+1e-6 {
+		common.Conflict(c, "INSUFFICIENT_STOCK",
+			"Нельзя списать "+trimNum(absQty)+" "+matUnit+": на складе "+trimNum(matStock)+" "+matUnit+
+				" ("+matCode+" · "+matName+"). Проверьте количество или дождитесь прихода из 1С")
+		return
+	}
 
 	var warehouseID *string
 	var warehouseName *string
@@ -665,6 +680,44 @@ var fgTypeMap = map[string]string{
 }
 var fgKnown = map[string]bool{"RECEIPT": true, "EXPENSE": true, "TO_PRODUCTION": true, "FROM_PRODUCTION": true, "RETURN": true, "CORRECTION": true, "SHIPMENT": true}
 
+// trimNum — количество для текста ошибки: без хвостовых нулей
+func trimNum(v float64) string {
+	s := strconv.FormatFloat(v, 'f', 3, 64)
+	s = strings.TrimRight(s, "0")
+	return strings.TrimSuffix(s, ".")
+}
+
+// fgBalanceOf — остаток изделия на складе готовой продукции по тем же
+// правилам знака, что и GetFGBalance (приход плюс, расход минус,
+// коррекция — со своим знаком).
+func (h *WarehouseHandler) fgBalanceOf(ctx context.Context, articleID string) (float64, error) {
+	rows, err := h.pool.Query(ctx, "SELECT movement_type, sum(qty) FROM finished_goods_movements WHERE item_id = $1 GROUP BY movement_type", articleID)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+	plus := map[string]bool{"RECEIPT": true, "FROM_PRODUCTION": true, "RETURN": true}
+	minus := map[string]bool{"EXPENSE": true, "TO_PRODUCTION": true, "SHIPMENT": true}
+	balance := 0.0
+	for rows.Next() {
+		var mt string
+		var sum float64
+		if err := rows.Scan(&mt, &sum); err != nil {
+			return 0, err
+		}
+		t := models.StockMovementTypeDBToAPI(mt)
+		switch {
+		case plus[t]:
+			balance += sum
+		case minus[t]:
+			balance -= sum
+		default:
+			balance += sum
+		}
+	}
+	return balance, rows.Err()
+}
+
 // PostFGMovement — POST /warehouse/finished-goods/movements (warehouse_fg/shop_foreman/admin).
 func (h *WarehouseHandler) PostFGMovement(c *gin.Context) {
 	var body map[string]interface{}
@@ -710,11 +763,29 @@ func (h *WarehouseHandler) PostFGMovement(c *gin.Context) {
 		}
 		orderID, orderNumber = &oid, &num
 	}
+	// Отгрузить больше, чем лежит на складе готовой продукции, нельзя.
+	// Коррекция — исключение: ею как раз исправляют расхождения
+	// (проверка перед пилотом 06.09.2026: отгрузка 500 при остатке 10 дала
+	// −490 и минус в «Стоимости склада»)
+	if movementType == "EXPENSE" || movementType == "SHIPMENT" || movementType == "TO_PRODUCTION" {
+		balance, err := h.fgBalanceOf(ctx, articleID)
+		if err != nil {
+			respondErr(c, err)
+			return
+		}
+		if qty > balance+1e-6 {
+			common.Conflict(c, "INSUFFICIENT_STOCK",
+				"Нельзя отгрузить "+trimNum(qty)+" шт: на складе готовой продукции "+trimNum(balance)+" шт ("+
+					articleCode+" · "+articleName+"). Сначала примите выпуск из цеха или исправьте остаток коррекцией")
+			return
+		}
+	}
+
 	unitPrice := approvedPrice
 	if up, ok := body["unitPrice"].(float64); ok && up != 0 {
 		unitPrice = decimal.NewFromFloat(up)
 	}
-	movementDate := time.Now().UTC()
+	movementDate := time.Now().In(time.Local)
 	if md, ok := body["movementDate"].(string); ok && md != "" {
 		if t := parseDatePtr(&md); t != nil {
 			movementDate = *t
