@@ -13,6 +13,8 @@
     "mock:1c": "node tools/mock-1c-server.js",
     "go-live": "ts-node prisma/go-live.ts",
     "import:1c-csv": "ts-node prisma/import-1c-csv.ts",
+    "import:catalog": "ts-node prisma/import-catalog.ts",
+    "check:data": "ts-node prisma/check-data.ts",
     "rotate-passwords": "ts-node prisma/rotate-passwords.ts",
     "backfill:price-list": "ts-node prisma/backfill-price-list.ts",
     "import:price-list": "ts-node prisma/import-price-list.ts",

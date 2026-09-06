@@ -25,6 +25,10 @@
     "prod:up": "node scripts/ensure-secrets.mjs && docker compose -f backend/docker-compose.yml --profile prod up -d --build && docker image prune -f",
     "prod:logs": "docker compose -f backend/docker-compose.yml logs -f api",
     "db:backup": "node scripts/db-backup.mjs",
+    "import:1c": "npm --prefix backend run import:1c-csv --",
+    "import:catalog": "npm --prefix backend run import:catalog --",
+    "check:data": "npm --prefix backend run check:data --",
+    "recalc:costing": "bash backend-go/scripts/recalc.sh",
     "smoke": "node scripts/smoke.mjs"
   },
   "devDependencies": {
