@@ -283,7 +283,7 @@ curl https://api.<домен>/api/v1/health      # {"status":"ok","db":"ok"}
 
 ```bash
 npm run pilot                    # секреты в .env + postgres + api-pilot + ежедневные бэкапы
-npm run smoke http://localhost:3000   # дымовой прогон: здоровье, права, ~80 ручек, раздача фронтенда
+docker exec erp_api_pilot /app/smoke http://localhost:3000   # дымовой прогон: здоровье, права, ~80 ручек, раздача фронтенда
 npm run db:backup <пометка>      # ручной дамп в backend/backups перед рискованным шагом
 ```
 

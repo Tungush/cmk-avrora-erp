@@ -21,6 +21,11 @@ COPY backend-go/go.mod backend-go/go.sum ./
 RUN go mod download
 COPY backend-go/ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server
+# Консольные команды тем же кодом, что и сервис: пересчёт себестоимости и
+# дымовой прогон. Кладутся в образ, чтобы на сервере (где нет тулчейна Go) их
+# запускали через docker exec — см. docs/ЗАПУСК.md
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/recalc ./cmd/recalc
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/smoke ./cmd/smoke
 
 # ---- 3. Рантайм ----
 FROM alpine:3.22
@@ -30,6 +35,8 @@ FROM alpine:3.22
 RUN apk add --no-cache ca-certificates tzdata wget && adduser -D -H -u 10001 erp
 WORKDIR /app
 COPY --from=backend /out/server /app/server
+COPY --from=backend /out/recalc /app/recalc
+COPY --from=backend /out/smoke /app/smoke
 COPY --from=frontend /fe/dist /app/public
 ENV GIN_MODE=release \
     GO_PORT=3000 \

@@ -18,6 +18,7 @@ import (
 	"os"
 	"time"
 
+	"cmk-avrora-erp/backend-go/internal/common"
 	"cmk-avrora-erp/backend-go/internal/costing"
 	"cmk-avrora-erp/backend-go/internal/db"
 )
@@ -26,6 +27,10 @@ func main() {
 	onlyActive := flag.Bool("active", false, "только изделия из активных заказов")
 	article := flag.String("article", "", "один артикул (код изделия)")
 	flag.Parse()
+
+	// В контейнере переменные приходят из compose, на машине разработки — из backend/.env
+	common.LoadDotEnv("../backend/.env")
+	common.LoadDotEnv("backend/.env")
 
 	ctx := context.Background()
 	pool, err := db.Connect(ctx)
