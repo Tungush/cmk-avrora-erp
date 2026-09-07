@@ -89,7 +89,12 @@ function parseRuDate(raw: string | undefined): Date | null {
   const m = raw.trim().match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})(?:\s+(\d{1,2}):(\d{2}):(\d{2}))?$/);
   if (!m) return null;
   const [, d, mo, y, h = '0', mi = '0', s = '0'] = m;
-  return new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s));
+  // Date.UTC, а не локальная полночь (07.09.2026). Мы в UTC+5: локальная
+  // полночь 27.02 — это 19:00 UTC 26.02, и колонка типа «дата» сохраняла
+  // предыдущий день. Сдвиг был у 242 плановых дат вывоза из 243, а вместе
+  // с ними у дат согласования, оплат и приходов. Календарная дата из 1С —
+  // это именно календарная дата, часового пояса у неё нет.
+  return new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s)));
 }
 
 // Хэш на ТОЧНОЙ строке, не на normalizeName: та схлопывает разные названия
@@ -269,7 +274,25 @@ async function main() {
     }))
     .filter((p) => p.docNumber && p.amount > 0 && (p.kind === 'Клиенту' || p.kind === 'Поставщику'));
 
+  // Складской регистр 1С не знает организаций: в выгрузке остатки ВСЕГО
+  // холдинга — 102 склада, из них к ЦМК относятся шесть с префиксом «74п».
+  // Чужие остатки на наших экранах — это не наш металл и не наши деньги,
+  // поэтому по умолчанию берём только свои. `--all-warehouses` снимает отбор,
+  // `--warehouse-prefix` меняет префикс. Колонка «Склад» появилась в выгрузке
+  // 07.09.2026; в старых файлах её нет — тогда отбор не применяется.
+  const warehousePrefix = arg('--warehouse-prefix', '74п')!;
+  const allWarehouses = has('--all-warehouses');
+  const stockHasWarehouse = stockRowsRaw.length > 0 && stockRowsRaw[0]['Склад'] !== undefined;
+  const stockSkippedByWarehouse = new Map<string, number>();
+
   const stockRows: StockRow[] = stockRowsRaw
+    .filter((s) => {
+      if (allWarehouses || !stockHasWarehouse) return true;
+      const w = (s['Склад'] ?? '').trim();
+      if (w.startsWith(warehousePrefix)) return true;
+      stockSkippedByWarehouse.set(w || '(без склада)', (stockSkippedByWarehouse.get(w || '(без склада)') ?? 0) + 1);
+      return false;
+    })
     .map((s) => ({
       name: s['Материал']?.trim() ?? '',
       qty: num(s['Количество']),
@@ -278,6 +301,10 @@ async function main() {
       date: parseRuDate(s['ДатаОстатка']),
     }))
     .filter((s) => s.name && s.qty > 0);
+  if (stockSkippedByWarehouse.size) {
+    const rows = [...stockSkippedByWarehouse.values()].reduce((a, b) => a + b, 0);
+    console.log(`Остатки: взято по складам «${warehousePrefix}…» — ${stockRows.length} строк; пропущено чужих складов ${stockSkippedByWarehouse.size} на ${rows} строк (снять отбор: --all-warehouses)`);
+  }
 
   const nomDict = new Map<string, NomEntry>();
   let nomCollisions = 0;
@@ -362,6 +389,12 @@ async function main() {
     docLinesCreated: 0, docLinesMismatch: 0,
     unmatchedMaterials: new Map<string, { qty: number; amount: number }>(),
     statusGuessed: new Map<string, number>(),
+    /** Статус заказа приведён к 1С (цех по нему ещё не работал) */
+    statusChanged: [] as string[],
+    /** Статус оставлен наш: цех уже отметил или человек отменил заказ */
+    statusKept: [] as string[],
+    /** Контрагент опознан по БИН, хотя написание имени другое */
+    customersMatchedByBin: [] as string[],
   };
 
   try {
@@ -401,10 +434,25 @@ async function main() {
         continue;
       }
       const canonical = key ? canonicalContractors.get(key) : undefined;
+
+      // БИН — второй ключ поиска, после имени. Одна и та же организация
+      // приходит из 1С под написанием, не похожим ни на одно из наших
+      // («Bugel Алматы, ТОО» против «ТОО Бугель-Алматы»), и создание падало
+      // на уникальном БИН — весь импорт обрывался на первом таком (07.09.2026).
+      const bin = canonical?.binIin ?? slug(name);
+      const byBin = await prisma.customer.findUnique({ where: { binIin: bin } });
+      if (byBin) {
+        customerIdByName.set(name, byBin.id);
+        if (key) customerIdByKey.set(key, byBin.id);
+        report.customersMatched += 1;
+        report.customersMatchedByBin.push(`${name} → ${byBin.name} (БИН ${bin})`);
+        continue;
+      }
+
       const created = await prisma.customer.create({
         data: {
           name: canonical?.name ?? name,
-          binIin: canonical?.binIin ?? slug(name),
+          binIin: bin,
           customerType: 'OUTSIDE',
         },
       });
@@ -436,7 +484,23 @@ async function main() {
       // значения ('', 'ЦМК') не похожи на ФЗ/ВЗ; сырое значение всё равно
       // попадёт в rawColumns.
       const plannedShipmentDate = parseRuDate(h['ПланВывоза']);
-      const existedBefore = await prisma.order.findUnique({ where: { orderNumber }, select: { id: true } });
+      const existedBefore = await prisma.order.findUnique({ where: { orderNumber }, select: { id: true, status: true } });
+
+      // Статус существующего заказа: у 1С и у нас разные зоны ответственности.
+      // 1С ведёт судьбу заказа ДО цеха — приняли, подтвердили, закрыли. Цех
+      // ведёт производственное состояние, и его отметки 1С не видит вовсе
+      // (связи «производство → заказ клиента» в 1С не существует, проверено
+      // 07.09.2026). Поэтому статус из 1С применяется только там, где цех ещё
+      // не работал и человек не отменял заказ. Иначе выгрузка откатывала бы
+      // «готов к отгрузке» обратно в «подтверждён» и воскрешала отменённые.
+      const OWNED_BY_1C = ['NEW', 'DRAFT', 'CONFIRMED'];
+      const takeStatus = !existedBefore || OWNED_BY_1C.includes(existedBefore.status);
+      if (existedBefore && !takeStatus && existedBefore.status !== status) {
+        report.statusKept.push(`${orderNumber}: у нас ${existedBefore.status}, в 1С «${h['Статус']}» (${status})`);
+      }
+      if (existedBefore && takeStatus && existedBefore.status !== status) {
+        report.statusChanged.push(`${orderNumber}: ${existedBefore.status} → ${status} («${h['Статус']}»)`);
+      }
       const order = await prisma.order.upsert({
         where: { orderNumber },
         create: {
@@ -460,6 +524,7 @@ async function main() {
           rawColumns: h as any,
         },
         update: {
+          ...(takeStatus ? { status: status as any } : {}),
           onecStatus: h['Статус'],
           onecTotalAmount: num(h['СуммаДокумента']),
           divisionCode: h['Подразделение']?.trim() || undefined,
@@ -619,9 +684,16 @@ async function main() {
     // Строки заказа поставщику сохраняются ВСЕГДА, даже когда материал не
     // опознан или цена нулевая: иначе «что заказано» видно лишь у той трети
     // документов, где импорт смог завести партию (26.08.2026).
-    await prisma.paymentDocumentLine.deleteMany({
-      where: { paymentDocumentId: { in: [...docByHeader.values()].map((d) => d.id) } },
+    const touchedDocIds = [...docByHeader.values()].map((d) => d.id);
+    await prisma.paymentDocumentLine.deleteMany({ where: { paymentDocumentId: { in: touchedDocIds } } });
+    // Партии закупа привязаны к строкам этих же документов и создаются заново
+    // вместе с ними — без снятия прежних каждый прогон добавлял по 57 партий
+    // (поймано 07.09.2026). Партии прихода из живой синхронизации 1С не
+    // трогаем: у них другой documentNumber и нет paymentDocumentId отсюда.
+    const wipedBatches = await prisma.materialBatch.deleteMany({
+      where: { origin: 'ONEC', paymentDocumentId: { in: touchedDocIds } },
     });
+    if (wipedBatches.count) console.log(`Снято прежних партий закупа по этим документам: ${wipedBatches.count}`);
     const healthyByMaterial = new Map<string, number[]>();
     for (const l of supplierLines) {
       const header = supplierLineToHeader.get(l);
@@ -740,6 +812,22 @@ async function main() {
     const unmatchedStock = new Map<string, { qty: number; value: number }>();
     if (stockRows.length) {
       console.log('\n===== ОСТАТКИ СКЛАДА =====');
+
+      // Остатки — это СНИМОК, а не приход: повторная загрузка обязана
+      // заменить прошлый снимок, а не прибавиться к нему. Раньше партии
+      // создавались, а stockQty увеличивался, и каждый прогон удваивал
+      // склад (поймано 07.09.2026 после двух прогонов подряд).
+      const oldSnapshot = await prisma.materialBatch.findMany({
+        where: { origin: 'INVENTORY' },
+        select: { id: true, materialId: true },
+      });
+      if (oldSnapshot.length) {
+        await prisma.materialBatch.deleteMany({ where: { id: { in: oldSnapshot.map((b) => b.id) } } });
+        console.log(`Снят прошлый снимок остатков: ${oldSnapshot.length} партий`);
+      }
+      // Остаток по каждому материалу собираем и ставим одним значением
+      const snapshotQty = new Map<string, number>();
+
       for (const s of stockRows) {
         // Остатки.csv дописывает длину в скобках («…40×3 мм (6 м)»), которой
         // нет в самом названии материала («…40×3 мм») — 446 из 3021 строк.
@@ -766,19 +854,21 @@ async function main() {
             origin: 'INVENTORY',
           },
         });
-        // Material.stockQty — отдельный счётчик (не сумма по партиям!),
-        // его двигает только material-receipt.service.ts. Партия создана
-        // в обход сервиса (это не покупка, а снимок остатка) — счётчик
-        // пришлось бы иначе оставить на 0, и склад показывал бы «пусто»
-        // при реально существующей партии. Курс закупки не трогаем —
-        // это не покупка, пересчитывать среднюю цену не нужно.
-        await prisma.material.update({
-          where: { id: materialId },
-          data: { stockQty: { increment: s.qty } },
-        });
+        // Material.stockQty — отдельный счётчик (не сумма по партиям!), его
+        // двигает только приход материала. Снимок его ЗАДАЁТ, а не
+        // увеличивает: остаток по 1С — это факт на дату, а не добавка.
+        snapshotQty.set(materialId, (snapshotQty.get(materialId) ?? 0) + s.qty);
         stockBatchesCreated += 1;
       }
-      console.log(`Создано партий стартового остатка: ${stockBatchesCreated}`);
+
+      // Материалы, которых в новом снимке нет, обнуляем — только те, что
+      // были в прошлом снимке: чужие остатки и ручные правки не трогаем
+      const wasInSnapshot = new Set(oldSnapshot.map((b) => b.materialId));
+      for (const id of wasInSnapshot) if (!snapshotQty.has(id)) snapshotQty.set(id, 0);
+      for (const [materialId, qty] of snapshotQty) {
+        await prisma.material.update({ where: { id: materialId }, data: { stockQty: qty } });
+      }
+      console.log(`Создано партий стартового остатка: ${stockBatchesCreated}, остаток задан по ${snapshotQty.size} материалам`);
       console.log(`Неопознанных материалов в остатках: ${unmatchedStock.size}`);
     }
 
@@ -841,6 +931,18 @@ async function main() {
     if (report.statusGuessed.size) {
       console.log(`\nСтатусы, домапленные по смыслу (подтвердить у оператора 1С):`);
       for (const [raw, count] of report.statusGuessed) console.log(`  · «${raw}» → CONFIRMED (${count} заказов)`);
+    }
+    if (report.customersMatchedByBin.length) {
+      console.log(`\nКонтрагенты, опознанные по БИН при другом написании имени: ${report.customersMatchedByBin.length}`);
+      for (const s of report.customersMatchedByBin.slice(0, 15)) console.log(`  · ${s}`);
+    }
+    if (report.statusChanged.length) {
+      console.log(`\nСтатус приведён к 1С (цех по этим заказам не работал): ${report.statusChanged.length}`);
+      for (const s of report.statusChanged.slice(0, 20)) console.log(`  · ${s}`);
+    }
+    if (report.statusKept.length) {
+      console.log(`\nСтатус оставлен наш — цех уже отметил или заказ отменён человеком: ${report.statusKept.length}`);
+      for (const s of report.statusKept) console.log(`  · ${s}`);
     }
     if (orderDisambig.length) {
       console.log(`\nНомера заказов клиента, столкнувшиеся в серии (разведены годом): ${orderDisambig.length}`);
