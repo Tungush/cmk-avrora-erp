@@ -18,7 +18,7 @@ export default async function (b) {
   const out = {};
   await b.viewport(1440, 900);
   for (const [name, path] of [['director', '/dashboard/director'], ['work', '/'], ['orders', '/orders'], ['kanban', '/production/kanban'], ['purchases', '/purchases'], ['sites', '/sites'], ['warehouse', '/warehouse'], ['finance', '/finance']]) {
-    await b.goto(`http://localhost:5173${path}?design=1`); await b.waitFor('.topnav__item'); await b.wait(1800);
+    await b.goto(`http://localhost:5173${path}?design=1`); await b.waitFor('.rail__item'); await b.wait(1800);
     out[name] = await b.eval(PROBE);
     await b.shot(`light-${name}.png`);
   }

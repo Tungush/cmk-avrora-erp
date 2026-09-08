@@ -1215,7 +1215,7 @@ function RequestsTab() {
           </Stack>
         ) : (
           <div ref={fit.ref} className="fin__wrap">
-          <TableScroll minWidth={1190} stickyFirstColumn={false}>
+          <TableScroll minWidth={1120} stickyFirstColumn={false}>
             <FadeSwap swapKey={paged.page}>
             <Table highlightOnHover verticalSpacing="sm" layout="fixed" className="req-table">
               <Table.Thead>
@@ -1229,13 +1229,15 @@ function RequestsTab() {
                       />
                     )}
                   </Table.Th>
-                  <Table.Th w={296}>Заявка</Table.Th>
+                  {/* Ширины подрезаны под рейку разделов: она забрала 60 px,
+                      и таблица перестала помещаться на 1280 (08.09.2026) */}
+                  <Table.Th w={252}>Заявка</Table.Th>
                   <Table.Th w={140} data-priority="3">Вид работ</Table.Th>
-                  <Table.Th w={214}>Подрядчик</Table.Th>
-                  <Table.Th ta="right" w={160}>Объём и ставка</Table.Th>
-                  <Table.Th ta="right" w={120}>Сумма</Table.Th>
-                  <Table.Th ta="right" w={200}>Разнесено</Table.Th>
-                  <Table.Th w={168} style={stickyActions(false)} />
+                  <Table.Th w={190}>Подрядчик</Table.Th>
+                  <Table.Th ta="right" w={152}>Объём и ставка</Table.Th>
+                  <Table.Th ta="right" w={116}>Сумма</Table.Th>
+                  <Table.Th ta="right" w={184}>Разнесено</Table.Th>
+                  <Table.Th w={164} style={stickyActions(false)} />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>

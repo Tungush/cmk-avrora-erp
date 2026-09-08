@@ -24,7 +24,7 @@ export default async function (b) {
   for (const [name, path, actions] of STATES) {
     try {
       const url = 'http://localhost:5173' + path + (path.includes('?') ? '&' : '?') + 'design=1';
-      await b.goto(url); await b.waitFor('.topnav__item'); await b.wait(1600);
+      await b.goto(url); await b.waitFor('.rail__item'); await b.wait(1600);
       const found = [];
       const check = async (state) => { const t = await b.eval(MEASURE); const l = await b.eval(LINT); if (t.problems.length || l.clipped.length || l.rows.length || l.text.length || l.scroll.length || l.heads.length) found.push({ state, tables: t.problems, ...l }); };
       await check('base');

@@ -52,7 +52,7 @@ export default async function (b) {
   for (const [name, path, actions] of STATES) {
     try {
       const url = 'http://localhost:5173' + path + (path.includes('?') ? '&' : '?') + 'design=1';
-      await b.goto(url); await b.waitFor('.topnav__item'); await b.wait(1600);
+      await b.goto(url); await b.waitFor('.rail__item'); await b.wait(1600);
       const found = [];
       const base = await b.eval(MEASURE); if (base.problems.length) found.push({ state: 'base', ...base });
       for (const act of actions) {

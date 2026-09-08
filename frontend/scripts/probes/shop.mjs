@@ -12,7 +12,7 @@ export default async function (b) {
     out[`back${w}`] = await m(b);
   }
   await b.viewport(1440, 900);
-  await b.goto('http://localhost:5173/orders?design=1'); await b.waitFor('.topnav__item'); await b.wait(1800);
+  await b.goto('http://localhost:5173/orders?design=1'); await b.waitFor('.rail__item'); await b.wait(1800);
   out.orders = await b.eval(`({tabs:[...document.querySelectorAll('[role=tab], .mantine-Tabs-tab, .seg-tab')].map(e=>e.textContent.trim()).slice(0,4), table:!!document.querySelector('table'), digest:!!document.querySelector('[class*=digest]'), pageScroll:document.documentElement.scrollHeight-innerHeight})`);
   await b.shot('orders-default.png');
   return out;

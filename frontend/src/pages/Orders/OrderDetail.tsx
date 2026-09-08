@@ -671,15 +671,15 @@ export function OrderDetail({
           <FadeSwap swapKey={linesPaged.page}>
             {/* Колонка карточки на 1280 — 565 px: ширины подобраны, чтобы
                 пять столбцов влезали без прокрутки (06.09.2026) */}
-            <TableScroll minWidth={540}>
+            <TableScroll minWidth={500}>
                 <Table highlightOnHover verticalSpacing="xs" style={{ tableLayout: 'fixed' }}>
                   <Table.Thead>
                     <Table.Tr>
                       <Table.Th>Артикул</Table.Th>
-                      <Table.Th w={104}>Объект / БС</Table.Th>
-                      <Table.Th ta="right" w={66}>Кол-во</Table.Th>
-                      {canCommercial && <Table.Th ta="right" w={120}>Цена</Table.Th>}
-                      {canCommercial && <Table.Th ta="right" w={126}>Сумма с НДС</Table.Th>}
+                      <Table.Th w={96}>Объект / БС</Table.Th>
+                      <Table.Th ta="right" w={62}>Кол-во</Table.Th>
+                      {canCommercial && <Table.Th ta="right" w={112}>Цена</Table.Th>}
+                      {canCommercial && <Table.Th ta="right" w={118}>Сумма с НДС</Table.Th>}
                     </Table.Tr>
                   </Table.Thead>
                   <Table.Tbody>

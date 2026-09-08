@@ -2469,3 +2469,94 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   text-align: center;
 }
+
+/* ===============================================================
+   РЕЙКА РАЗДЕЛОВ (08.09.2026)
+
+   Узкая вертикальная полоса слева вместо строки сверху. Видна всегда,
+   поэтому за ней не надо охотиться; 60 px против 260 px у прежнего
+   бокового меню; шапки нет — содержимое получило её 56 px высоты.
+
+   При наведении разъезжается до 240 px ПОВЕРХ содержимого: таблицы не
+   перекладываются, и раскрытие ничего не сдвигает. Кнопка вверху
+   закрепляет раскрытой.
+   =============================================================== */
+:root { --rail-w: 60px; --rail-open-w: 240px; }
+
+.rail {
+  position: fixed;
+  left: 10px; top: 10px; bottom: 10px;   /* внутри плашки приложения */
+  width: var(--rail-w);
+  z-index: 260;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 8px;
+  border-radius: 26px 0 0 26px;
+  background: var(--s-surface);
+  border-right: 1px solid var(--s-line);
+  overflow: hidden;
+  transition: width .18s var(--ease-out), box-shadow .18s var(--ease-out);
+}
+.rail[data-open] {
+  width: var(--rail-open-w);
+  border-radius: 26px;
+  box-shadow: 0 12px 40px rgba(15, 23, 42, .16);
+}
+@media (prefers-reduced-motion: reduce) { .rail { transition: none; } }
+
+/* Содержимое отступает ровно на свёрнутую рейку: раскрытие идёт поверх */
+.mantine-AppShell-main { padding-left: calc(var(--rail-w) + 24px) !important; }
+@media (max-width: 768px) { .mantine-AppShell-main { padding-left: calc(var(--rail-w) + 16px) !important; } }
+
+.rail__top { display: flex; align-items: center; gap: 6px; min-height: 34px; padding-left: 6px; }
+.rail__brand {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  font-family: var(--ff-display); font-weight: 800; letter-spacing: -0.02em;
+  color: var(--s-text); text-decoration: none;
+}
+.rail__brand-mark {
+  flex: 0 0 auto; width: 28px; height: 28px; border-radius: 9px;
+  display: grid; place-items: center; font-size: 15px;
+  background: var(--s-inverse-bg); color: var(--s-inverse-fg);
+}
+.rail__brand-full { font-size: 14px; white-space: nowrap; opacity: 0; transition: opacity .14s var(--ease-out); }
+.rail[data-open] .rail__brand-full { opacity: 1; }
+/* Кнопка закрепления появляется только в раскрытом виде: в свёрнутом ей негде стоять */
+.rail__pin { margin-left: auto; opacity: 0; pointer-events: none; transition: opacity .14s var(--ease-out); }
+.rail[data-open] .rail__pin { opacity: 1; pointer-events: auto; }
+
+.rail__nav { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; overflow-x: hidden; }
+.rail__nav::-webkit-scrollbar { width: 0; }
+.rail__group { display: flex; flex-direction: column; gap: 2px; }
+.rail__group + .rail__group { padding-top: 10px; border-top: 1px solid var(--s-line); }
+.rail__caption {
+  font-family: var(--ff-display); font-size: 11px; font-weight: 700;
+  letter-spacing: .1em; text-transform: uppercase; color: var(--s-text-quiet);
+  padding: 2px 10px 4px; white-space: nowrap;
+  opacity: 0; height: 0; overflow: hidden; transition: opacity .14s var(--ease-out);
+}
+.rail[data-open] .rail__caption { opacity: 1; height: auto; }
+
+.rail__item {
+  display: flex; align-items: center; gap: 12px;
+  min-height: 40px; padding: 0 10px;
+  border: 0; background: none; width: 100%; text-align: left;
+  border-radius: 12px; color: var(--s-text); text-decoration: none;
+  cursor: pointer; white-space: nowrap;
+  transition: background-color .14s var(--ease-out), color .14s var(--ease-out);
+}
+.rail__item:hover { background: var(--s-surface-quiet); }
+.rail__item[data-active] { background: var(--s-inverse-bg); color: var(--s-inverse-fg); }
+.rail__item:focus-visible { outline: 2px solid var(--s-focus); outline-offset: -2px; }
+.rail__item[data-active]:focus-visible { outline-color: var(--s-inverse-fg); }
+.rail__icon { flex: 0 0 auto; width: 22px; display: grid; place-items: center; }
+.rail__label {
+  font-size: 14px; font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+  opacity: 0; transition: opacity .14s var(--ease-out);
+}
+.rail[data-open] .rail__label { opacity: 1; }
+.rail__kbd { margin-left: auto; opacity: 0; font-size: 11px; }
+.rail[data-open] .rail__kbd { opacity: 1; }
+
+.rail__foot { display: flex; flex-direction: column; gap: 2px; padding-top: 10px; border-top: 1px solid var(--s-line); }
