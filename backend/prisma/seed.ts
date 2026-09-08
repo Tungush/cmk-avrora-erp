@@ -18,8 +18,17 @@ async function main() {
     endYear: 2027,
   });
   
-  const { seedDemoData } = await import('./seeders/demo.seeder');
-  await seedDemoData(prisma);
+  // Демо-данные — только по явной просьбе (07.09.2026). Раньше они лились
+  // при каждом `npm run dev`: db:setup зовёт этот сид, а он безусловно
+  // заводил демо-заказ ORD-2026-001, изделия BS-001/RM-001 и контрагента
+  // «КарТел». В боевой базе они выглядели настоящими, владелец просил их
+  // убрать — и после каждого перезапуска они возвращались.
+  if (process.env.SEED_DEMO === 'true') {
+    const { seedDemoData } = await import('./seeders/demo.seeder');
+    await seedDemoData(prisma);
+  } else {
+    console.log('Демо-данные пропущены (SEED_DEMO=true — чтобы залить их намеренно)');
+  }
 
   console.log('Seed completed successfully.');
 }

@@ -51,6 +51,8 @@ const has = (f: string) => argv.includes(f);
 
 const APPLY = has('--apply');
 const REPLACE = has('--replace');
+/** Заводить изделия прайса, которых нет в справочнике (только для --prices) */
+const CREATE_MISSING = has('--create-missing');
 
 /** CSV с автоопределением разделителя; кавычки по RFC, BOM снимается */
 function parseCsv(text: string): string[][] {
@@ -305,12 +307,33 @@ async function importPrices(file: string) {
   const table = readTable(file, {
     article: ['Артикул', 'Арт.', 'Арт', 'Код изделия', 'Изделие'],
     price: ['Цена', 'УТВ цена', 'Утверждённая цена', 'Утвержденная цена', 'Прайс'],
+    'name?': ['Наименование', 'Название', 'Изделие'],
   });
   const articles = await prisma.article.findMany({ select: { id: true, articleCode: true, approvedPrice: true } });
   const byCode = new Map(articles.map((a) => [a.articleCode.trim().toLowerCase(), a]));
   const rep = emptyReport();
   const plan: Array<{ id: string; price: number }> = [];
+  /** Изделия, встреченные в файле: они и составляют прайс-лист */
+  const inList: string[] = [];
   let same = 0;
+
+  // Прайс — это список того, что завод продаёт: изделие из прайса обязано
+  // быть в справочнике. По умолчанию импорт справочник не пополняет (общее
+  // правило), но с --create-missing заводит недостающие позиции прайса по
+  // коду и наименованию — состав, нормы и вес к ним придут своим импортом.
+  const created: string[] = [];
+  if (CREATE_MISSING && APPLY) {
+    for (const r of table) {
+      if (byCode.has(r.article.toLowerCase()) || !r.article.trim()) continue;
+      const name = (r['name?'] ?? '').trim() || r.article;
+      const made = await prisma.article.create({
+        data: { articleCode: r.article.trim(), name, isActive: true },
+        select: { id: true, articleCode: true, approvedPrice: true },
+      });
+      byCode.set(made.articleCode.trim().toLowerCase(), made);
+      created.push(`${made.articleCode} · ${name}`);
+    }
+  }
 
   for (const r of table) {
     rep.rows += 1;
@@ -322,6 +345,7 @@ async function importPrices(file: string) {
       continue;
     }
     rep.ok += 1;
+    inList.push(a.id);
     // Цена не изменилась — это не «изменение», в историю писать нечего
     if (Math.abs(Number(a.approvedPrice) - price) < 1) { same += 1; continue; }
     plan.push({ id: a.id, price });
@@ -330,6 +354,12 @@ async function importPrices(file: string) {
   console.log(`\n=== УТВЕРЖДЁННЫЕ ЦЕНЫ (${file}) ===`);
   printReport(rep, plan.length + same);
   console.log(`  Цена совпала с уже утверждённой: ${same}, к изменению: ${plan.length}`);
+  if (created.length) {
+    console.log(`  Заведено изделий по прайсу: ${created.length}`);
+    for (const c of created) console.log(`    ${c}`);
+  } else if (rep.unknownArticles.size && !CREATE_MISSING) {
+    console.log('  Чтобы завести недостающие изделия прайса, добавьте --create-missing');
+  }
 
   if (!APPLY) return;
   // Автор изменения — директор: утверждённая цена в файле уже его решение
@@ -344,6 +374,19 @@ async function importPrices(file: string) {
     ]);
   }
   console.log(`Обновлено цен (с записью в историю): ${plan.length}`);
+
+  // Прайс-лист — это ровно то, что в файле. Отмечаем встреченные и, при
+  // --replace, снимаем отметку с тех, кого в файле нет: экран «Прайс-лист»
+  // обязан показывать таблицу завода, а не всё, чему когда-то ставили цену
+  await prisma.article.updateMany({ where: { id: { in: inList } }, data: { priceListAt: today } });
+  if (REPLACE) {
+    const dropped = await prisma.article.updateMany({
+      where: { id: { notIn: inList }, priceListAt: { not: null } },
+      data: { priceListAt: null },
+    });
+    if (dropped.count) console.log(`Убрано из прайс-листа (в файле их нет): ${dropped.count}`);
+  }
+  console.log(`В прайс-листе теперь: ${inList.length} изделий`);
 }
 
 function printReport(rep: Report, articles: number) {

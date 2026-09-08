@@ -57,7 +57,11 @@ export function Prices() {
   const [search, setSearch] = useState('');
   const [scope, setScope] = useState<'priced' | 'all'>('priced');
   // Раздел открывается сводкой: 2 152 строки каталога — не ответ на вопрос
-  const [view, setView] = useState<View>('digest');
+  /* Раздел открывается прайс-листом, а не сводкой (07.09.2026). Владелец:
+     «в прайсе должно быть только то, что у нас в таблице, просто должна быть
+     возможность занесения» — значит первым экраном идёт сам список цен с
+     кнопкой пересмотра, а сводка остаётся отдельной вкладкой. */
+  const [view, setView] = useState<View>('list');
   const [reviewFor, setReviewFor] = useState<any | null>(null);
   const [reason, setReason] = useState('');
 
@@ -104,13 +108,14 @@ export function Prices() {
       value={view}
       onChange={(v) => setView(v as View)}
       tabs={[
+        { value: 'list', label: 'Прайс-лист', icon: <IconList size={16} aria-hidden /> },
         { value: 'digest', label: 'Что с ценами', icon: <IconLayoutGrid size={16} aria-hidden /> },
         ...(canApprove ? [{
           value: 'reviews',
           label: pendingCount > 0 ? `Пересмотр цен · ${pendingCount}` : 'Пересмотр цен',
           icon: <IconGavel size={16} aria-hidden />,
         }] : []),
-        { value: 'list', label: 'Весь прайс', icon: <IconList size={16} aria-hidden /> },
+
       ]}
       actions={view === 'list' ? (
         <>

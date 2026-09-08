@@ -165,8 +165,12 @@ func (h *ArticlesHandler) FindAll(c *gin.Context) {
 	if c.Query("includeResale") != "true" {
 		where += " AND is_material_resale = false"
 	}
+	// «Прайс-лист» — то, что завод продаёт: изделия из листа «Прайс» рабочей
+	// таблицы, отмеченные при импорте. Раньше сюда попадало всё, чему когда-то
+	// ставили цену, — 247 позиций вместо 85 (07.09.2026, просьба владельца:
+	// «в прайсе должно быть только то, что у нас в таблице, ничего лишнего»)
 	if c.Query("onlyPriced") == "true" {
-		where += " AND approved_price > 0"
+		where += " AND price_list_at IS NOT NULL"
 	}
 	// Очередь работы: показать только то, что не заполнено
 	where += gapWhere(c.Query("gap"))
