@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
 import { AppShell, Box } from '@mantine/core';
 import { TopBar } from './TopBar';
@@ -44,6 +44,33 @@ export function Layout() {
   const hidden = chromeHidden && canHide;
   useEffect(() => { document.documentElement.dataset.chrome = hidden ? 'hidden' : 'shown'; if (!hidden) setPeek(false); }, [hidden]);
 
+  /* Выезд шапки по положению курсора, а не по невидимой полоске в 12 px
+     (07.09.2026: «неудобно, надо попасть, чтобы оно появилось»).
+     Полоска была элементом поверх содержимого — расширить её значило
+     перехватывать клики по верхним строкам. Слушаем движение мыши:
+     цель стала 64 px вместо 12, кликам ничего не мешает.
+     Прячем с запасом до 150 px и с задержкой — короткий промах курсором
+     больше не закрывает меню, и его можно спокойно вести к нужному разделу.
+     Пока открыто выпадающее меню шапки (аккаунт, поиск), не прячем вовсе. */
+  const hideTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!hidden) return undefined;
+    const onMove = (e: PointerEvent) => {
+      if (e.clientY <= 64) {
+        window.clearTimeout(hideTimer.current);
+        setPeek(true);
+      } else if (e.clientY > 150) {
+        window.clearTimeout(hideTimer.current);
+        hideTimer.current = window.setTimeout(() => {
+          if (document.querySelector('.mantine-Menu-dropdown, .mantine-Modal-content, .mantine-Popover-dropdown')) return;
+          setPeek(false);
+        }, 320);
+      }
+    };
+    document.addEventListener('pointermove', onMove);
+    return () => { document.removeEventListener('pointermove', onMove); window.clearTimeout(hideTimer.current); };
+  }, [hidden]);
+
 
   if (!token) {
     return <Navigate to="/login" replace />;
@@ -64,18 +91,9 @@ export function Layout() {
       transitionDuration={reduced ? 0 : 240}
       transitionTimingFunction="cubic-bezier(0.25, 1, 0.5, 1)"
     >
-      <AppShell.Header withBorder={false} data-peek={hidden && peek ? 'true' : undefined} onMouseLeave={() => setPeek(false)}>
+      <AppShell.Header withBorder={false} data-peek={hidden && peek ? 'true' : undefined}>
         <TopBar hidden={hidden} onToggle={toggleChrome} />
       </AppShell.Header>
-      {/* Невидимая зона у верхнего края: подвёл курсор — шапка выехала поверх */}
-      {hidden && (
-        <div
-          className="chrome-hotzone" aria-hidden
-          onMouseEnter={() => setPeek(true)}
-          // курсор ушёл из зоны не в шапку — прячем сразу; в шапку — прячет её собственный onMouseLeave
-          onMouseLeave={(e) => { const h = document.querySelector('.mantine-AppShell-header'); if (!(h && e.relatedTarget instanceof Node && h.contains(e.relatedTarget))) setPeek(false); }}
-        />
-      )}
 
 
       {/* Ссылка «к содержимому»: с клавиатуры без неё приходится проходить

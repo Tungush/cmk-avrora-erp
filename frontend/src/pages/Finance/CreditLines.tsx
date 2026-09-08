@@ -8,6 +8,7 @@ import api from '../../api/client';
 import { formatCurrency, formatDate } from '../../utils/formatters';
 import { TableScroll } from '../../components/TableScroll';
 import { Stagger } from '../../components/motion';
+import { DamuImport } from './DamuImport';
 
 interface ScheduleEntry {
   dueDate: string; totalAmount: number; principalAmount: number; interestAmount: number; trancheContract: string;
@@ -42,10 +43,12 @@ export function CreditLines() {
     <Stack gap="md">
       <Alert color="gray" variant="light" radius="md" icon={<IconInfoCircle aria-hidden size={16} />}>
         <Text size="sm">
-          Не из 1С — данные заносятся вручную из выгрузки личного кабинета банка.
-          Лимит и остаток верны на дату последнего импорта, не на сейчас.
+          Не из 1С — данные приходят выгрузкой из личного кабинета банка.
+          Лимит и остаток верны на дату последней загрузки, не на сейчас.
         </Text>
       </Alert>
+
+      <DamuImport />
 
       {lines.length === 0 && (
         <Card withBorder radius="md" padding="xl">

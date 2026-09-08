@@ -278,7 +278,10 @@ func main() {
 	aaH := finance.NewAcceptanceActsHandler(pool)
 	protected.GET("/acceptance-acts", aaH.FindAll)
 	protected.POST("/acceptance-acts", auth.RequireRoles("accountant", "sales_manager", "warehouse_fg", "admin"), aaH.Create)
-	protected.GET("/credit-lines", auth.RequireRoles("accountant", "director", "admin"), finance.NewCreditLinesHandler(pool).FindAll)
+	creditH := finance.NewCreditLinesHandler(pool)
+	protected.GET("/credit-lines", auth.RequireRoles("accountant", "director", "admin"), creditH.FindAll)
+	// Загрузка выгрузки банка прямо в разделе: разбирает сам сервис
+	protected.POST("/credit-lines/import", auth.RequireRoles("accountant", "director", "admin"), creditH.Import)
 	purH := finance.NewPurchasesHandler(pool)
 	protected.GET("/purchases/dashboard", auth.RequireRoles("procurement", "accountant", "director", "admin"), purH.Dashboard)
 	protected.GET("/purchases/documents", auth.RequireRoles("procurement", "accountant", "director", "admin"), purH.Documents)

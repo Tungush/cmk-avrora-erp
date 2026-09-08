@@ -34,14 +34,14 @@
   --c-danger: var(--s-attention-fill);
   --c-danger-ink: var(--s-attention);
   --c-blue: var(--s-action);          /* заливка полос и прогресса — индиго */
-  --c-blue-ink: var(--s-attention);
+  --c-blue-ink: var(--s-action);      /* подпись у синей полосы — синяя, не розовая */
   --c-blue-deep: var(--p-panel-deep);
   --c-blue-wash: var(--s-attention-wash);
-  --c-amber: var(--s-attention-soft);
-  --c-amber-ink: var(--s-attention);
-  --c-amber-wash: var(--s-attention-wash);
-  --c-yellow: var(--s-attention-soft);
-  --c-yellow-ink: var(--s-attention);
+  --c-amber: var(--s-warn-soft);
+  --c-amber-ink: var(--s-warn);
+  --c-amber-wash: var(--s-warn-wash);
+  --c-yellow: var(--s-warn-fill);
+  --c-yellow-ink: var(--s-warn);
   --c-gray: var(--s-bg);
 
   --ref-coral: var(--s-attention);
@@ -977,8 +977,11 @@ a:hover > .mantine-Card-root,
 .digest-card[data-tone='brand'] .digest-item__label { color: var(--s-text-on-panel); }
 .digest-card[data-tone='brand'] .digest-item__value { color: var(--s-text-on-panel); }
 .digest-card[data-tone='brand'] .digest-item__sub { color: var(--s-text-on-panel); }
-.digest-card[data-tone='brand'] .digest-item__bar { background: var(--s-text-on-panel); }
-.digest-card[data-tone='brand'] .digest-item__bar i { background: var(--s-attention); }
+/* Полосы на тёмной плитке — светлые, а не кирпичные (07.09.2026).
+   Кирпич на графите читался тревогой, хотя «законтрактовано» — это
+   обычная величина, а не беда. Дорожка приглушена, заливка светлая. */
+.digest-card[data-tone='brand'] .digest-item__bar { background: rgba(255, 255, 255, 0.16); }
+.digest-card[data-tone='brand'] .digest-item__bar i { background: rgba(255, 255, 255, 0.72); }
 
 .digest-card__head { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .digest-card__value {
@@ -1001,7 +1004,9 @@ a:hover > .mantine-Card-root,
    «Висит больше 30 дней — 362,2 млн» и «Закуп за 30 дней» больше не
    выглядят одинаково. Один указатель на экран, как и должно быть. */
 .digest-card[data-tone='danger'] .digest-card__value { color: var(--s-attention); }
-.digest-card[data-tone='warn'] .digest-card__value { color: var(--s-attention); }
+/* Предупреждение — янтарь, не кирпич: «оплата неизвестна» это нехватка
+   данных, а не долг, и рядом с настоящим долгом красным быть не должна */
+.digest-card[data-tone='warn'] .digest-card__value { color: var(--s-warn); }
 
 .digest-card__body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 .digest-item {
@@ -1298,7 +1303,7 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 .digest-card[data-tone='warn']::after   { background: var(--c-yellow); }
 .digest-card[data-tone='danger']::after { background: var(--c-danger); }
 .digest-card[data-tone='ok']::after     { background: var(--c-ok); }
-.digest-card[data-tone='brand']::after  { background: var(--c-yellow); }
+.digest-card[data-tone='brand']::after  { background: var(--p-indigo); }  /* плитка-якорь: структура, а не предупреждение */
 .digest-card[data-tone='neutral']::after { background: var(--ref-line); }
 
 /* Карточка всегда белая: цвет состояния несёт только полоса слева —
@@ -2441,7 +2446,6 @@ h1, h2, .mantine-Title-root { font-weight: 400; letter-spacing: -0.02em; }
 [data-chrome='hidden'] .mantine-AppShell-header:focus-within .topbar[data-hidden] { padding: 0 12px 0 14px; }
 [data-chrome='hidden'] .mantine-AppShell-header[data-peek='true'] .topbar[data-hidden] > *,
 [data-chrome='hidden'] .mantine-AppShell-header:focus-within .topbar[data-hidden] > * { display: flex; }
-.chrome-hotzone { position: fixed; top: 0; left: 0; right: 0; height: 12px; z-index: 300; }
 /* кольцо фокуса на уже тёмной активной пилюле — белое внутри, а не синее снаружи */
 .topnav__item[data-active]:focus-visible { outline: 2px solid var(--s-inverse-fg); outline-offset: -4px; }
 

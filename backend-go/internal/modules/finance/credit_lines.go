@@ -3,6 +3,7 @@ package finance
 import (
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -10,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"cmk-avrora-erp/backend-go/internal/common"
+	"cmk-avrora-erp/backend-go/internal/damu"
 )
 
 // Перенос credit-lines.controller.ts — кредитные линии ДАМУ (только чтение).
@@ -120,4 +122,55 @@ func (h *CreditLinesHandler) FindAll(c *gin.Context) {
 			"tranchesCount": tranchesCount, "nextPayment": next, "upcomingTotal": round2(upTotal), "recentPayments": recent})
 	}
 	c.JSON(http.StatusOK, out)
+}
+
+// Import — POST /credit-lines/import (accountant/director/admin).
+// Загрузка выгрузки из личного кабинета банка прямо в разделе: раньше файл
+// разбирал скрипт на машине разработчика, и бухгалтерия зависела от него
+// (просьба владельца 07.09.2026). Разбирает сам сервис, тем же правилам.
+//
+// Поля формы: file — сам .xlsx; name — как называть линию человеку;
+// apply=true — писать в базу. Без apply возвращается разбор без записи:
+// сколько листов, траншей, плановых и фактических платежей нашлось.
+func (h *CreditLinesHandler) Import(c *gin.Context) {
+	fh, err := c.FormFile("file")
+	if err != nil {
+		common.BadRequest(c, "FILE_REQUIRED", "Не приложен файл выгрузки (поле file)")
+		return
+	}
+	// 25 МБ с запасом: реальные выгрузки банка — сотни килобайт
+	if fh.Size > 25<<20 {
+		common.BadRequest(c, "FILE_TOO_LARGE", "Файл больше 25 МБ — это не выгрузка Даму")
+		return
+	}
+	displayName := strings.TrimSpace(c.PostForm("name"))
+	if displayName == "" {
+		displayName = "ДАМУ"
+	}
+
+	f, err := fh.Open()
+	if err != nil {
+		common.BadRequest(c, "FILE_UNREADABLE", "Файл не удалось прочитать")
+		return
+	}
+	defer f.Close()
+
+	parsed, err := damu.Parse(f)
+	if err != nil {
+		// Текст ошибки разбора — человеку: он говорит, что именно не так с файлом
+		common.BadRequest(c, "PARSE_FAILED", err.Error())
+		return
+	}
+
+	if c.PostForm("apply") != "true" {
+		c.JSON(http.StatusOK, damu.Preview(parsed, displayName, fh.Filename))
+		return
+	}
+	res, err := damu.Apply(c.Request.Context(), h.pool, parsed, displayName, fh.Filename)
+	if err != nil {
+		common.DebugLog(err)
+		common.Fail(c, http.StatusInternalServerError, "INTERNAL_SERVER_ERROR", "Ошибка базы данных")
+		return
+	}
+	c.JSON(http.StatusCreated, res)
 }
